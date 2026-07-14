@@ -7,7 +7,7 @@ export default function Nav() {
         <li><a href="/#pricing">Pricing</a></li>
         <li><a href="/#how">How it works</a></li>
       </ul>
-      <a href="/#pricing" className="nav-cta">Get started</a>
+      <a href="/login" className="nav-cta">Get started</a>
     </nav>
   );
 }

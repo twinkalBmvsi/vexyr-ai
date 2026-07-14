@@ -26,7 +26,7 @@ export default function Pricing() {
             <li className="plan-feature dimmed">Automated Follow-ups</li>
             <li className="plan-feature dimmed">Reputation Management</li>
           </ul>
-          <a href="#" className="plan-btn">Get started</a>
+          <a href="/login" className="plan-btn">Get started</a>
         </div>
 
         <div className="plan-card featured">
@@ -46,7 +46,7 @@ export default function Pricing() {
             <li className="plan-feature">Full dashboard + reports</li>
             <li className="plan-feature">AI executive summaries</li>
           </ul>
-          <a href="#" className="plan-btn">Get started</a>
+          <a href="/login" className="plan-btn">Get started</a>
         </div>
 
         <div className="plan-card">
@@ -65,7 +65,7 @@ export default function Pricing() {
             <li className="plan-feature">Custom integrations</li>
             <li className="plan-feature">Dedicated engineer hours</li>
           </ul>
-          <a href="#" className="plan-btn">Contact sales</a>
+          <a href="/login" className="plan-btn">Contact sales</a>
         </div>
       </div>
     </section>

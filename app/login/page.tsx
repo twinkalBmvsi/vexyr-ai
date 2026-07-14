@@ -1,4 +1,17 @@
+'use client'
+
+import { useActionState, useEffect } from 'react'
+import { login } from '@/app/auth/actions'
+
 export default function Login() {
+  const [state, formAction, isPending] = useActionState(login, null)
+
+  useEffect(() => {
+    if (state?.redirectUrl) {
+      window.location.href = state.redirectUrl
+    }
+  }, [state])
+
   return (
     <div className="auth-container">
       <div className="auth-card">
@@ -7,7 +20,13 @@ export default function Login() {
           <p className="auth-subtitle">Sign in to manage your AI agent</p>
         </div>
 
-        <form className="auth-form" action="#">
+        <form className="auth-form" action={formAction}>
+          {state?.error && (
+            <div style={{ color: '#ef4444', fontSize: '0.8rem', textAlign: 'center', marginBottom: '0.5rem' }}>
+              {state.error}
+            </div>
+          )}
+
           <div className="form-group">
             <label className="form-label" htmlFor="email">Email Address</label>
             <input 
@@ -37,10 +56,12 @@ export default function Login() {
               <input type="checkbox" style={{ accentColor: 'var(--gold)' }} />
               Remember me
             </label>
-            <a href="#" className="auth-link">Forgot password?</a>
+            <a href="/forgot-password" className="auth-link">Forgot password?</a>
           </div>
 
-          <button type="submit" className="auth-btn">Sign In</button>
+          <button type="submit" className="auth-btn" disabled={isPending}>
+            {isPending ? 'Signing In...' : 'Sign In'}
+          </button>
         </form>
 
         <div className="auth-switch">

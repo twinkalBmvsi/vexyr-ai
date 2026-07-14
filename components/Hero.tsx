@@ -6,7 +6,7 @@ export default function Hero() {
         <h1>Schedule appointments<br/>via <em>chat.</em></h1>
         <p className="hero-sub">Vexyr gives small businesses an AI agent that talks to your users via text, schedules appointments, and sends confirmation emails — 24 hours a day.</p>
         <div className="hero-actions">
-          <a href="#pricing" className="btn-primary">Start free trial</a>
+          <a href="/login" className="btn-primary">Start free trial</a>
           <a href="#how" className="btn-secondary">See how it works</a>
         </div>
       </div>

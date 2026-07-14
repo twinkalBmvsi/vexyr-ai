@@ -1,4 +1,11 @@
+'use client'
+
+import { useActionState } from 'react'
+import { signup } from '@/app/auth/actions'
+
 export default function Signup() {
+  const [state, formAction, isPending] = useActionState(signup, null)
+
   return (
     <div className="auth-container">
       <div className="auth-card">
@@ -7,7 +14,19 @@ export default function Signup() {
           <p className="auth-subtitle">Join hundreds of small businesses on Vexyr</p>
         </div>
 
-        <form className="auth-form" action="#">
+        <form className="auth-form" action={formAction}>
+          {state?.error && (
+            <div style={{ color: '#ef4444', fontSize: '0.8rem', textAlign: 'center', marginBottom: '0.5rem' }}>
+              {state.error}
+            </div>
+          )}
+
+          {state?.success && (
+            <div style={{ color: '#10b981', fontSize: '0.8rem', textAlign: 'center', marginBottom: '0.5rem' }}>
+              {state.success}
+            </div>
+          )}
+
           <div className="form-group">
             <label className="form-label" htmlFor="fullName">Full Name</label>
             <input 
@@ -56,7 +75,9 @@ export default function Signup() {
             />
           </div>
 
-          <button type="submit" className="auth-btn" style={{ marginTop: '0.5rem' }}>Start Free Trial</button>
+          <button type="submit" className="auth-btn" style={{ marginTop: '0.5rem' }} disabled={isPending}>
+            {isPending ? 'Creating Account...' : 'Start Free Trial'}
+          </button>
         </form>
 
         <div className="auth-switch">
