@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
+import Sidebar from '@/components/dashboard/Sidebar'
 
 export default async function TenantLayout({
   children,
@@ -45,9 +46,11 @@ export default async function TenantLayout({
   }
 
   return (
-    <div className="tenant-layout">
-      {/* Sidebar/TopNav would go here later */}
-      <main>{children}</main>
+    <div className="dashboard-layout">
+      <Sidebar tenantSlug={resolvedParams.tenantSlug} />
+      <main className="dashboard-main">
+        {children}
+      </main>
     </div>
   )
 }
