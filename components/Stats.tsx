@@ -7,7 +7,7 @@ export default function Stats() {
       </div>
       <div className="stat-item">
         <span className="stat-num">2<span>min</span></span>
-        <div className="stat-desc">Average call resolution time</div>
+        <div className="stat-desc">Average chat resolution time</div>
       </div>
       <div className="stat-item">
         <span className="stat-num">94<span>%</span></span>

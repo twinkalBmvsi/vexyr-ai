@@ -216,8 +216,8 @@ h1 em {
   background: var(--cream);
 }
 
-/* CALL VISUALIZER */
-.call-card {
+/* CHAT VISUALIZER */
+.chat-card {
   width: 100%;
   max-width: 380px;
   border: 1px solid var(--border-strong);
@@ -226,7 +226,7 @@ h1 em {
   position: relative;
 }
 
-.call-header {
+.chat-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -235,7 +235,7 @@ h1 em {
   border-bottom: 1px solid var(--border);
 }
 
-.call-status {
+.chat-status {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -246,7 +246,7 @@ h1 em {
   color: #2a7a4a;
 }
 
-.call-dot {
+.chat-dot {
   width: 6px; height: 6px;
   border-radius: 50%;
   background: #2a7a4a;
@@ -258,13 +258,13 @@ h1 em {
   50% { opacity: 0.5; transform: scale(0.8); }
 }
 
-.call-timer {
+.chat-timer {
   font-family: 'DM Mono', monospace;
   font-size: 0.7rem;
   color: var(--muted);
 }
 
-.call-transcript {
+.chat-transcript {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -312,36 +312,32 @@ h1 em {
 
 .msg-text.muted { color: var(--muted); }
 
-.waveform {
+.typing-indicator {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   height: 28px;
   padding: 0.5rem 0;
+  animation: fadeSlide 0.5s ease both;
 }
 
-.wave-bar {
-  width: 3px;
-  border-radius: 2px;
-  background: var(--gold);
-  animation: wave 1s ease-in-out infinite;
+.typing-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: bounce 1.4s infinite ease-in-out both;
 }
 
-.wave-bar:nth-child(1) { height: 8px; animation-delay: 0s; }
-.wave-bar:nth-child(2) { height: 16px; animation-delay: 0.1s; }
-.wave-bar:nth-child(3) { height: 22px; animation-delay: 0.2s; }
-.wave-bar:nth-child(4) { height: 12px; animation-delay: 0.3s; }
-.wave-bar:nth-child(5) { height: 20px; animation-delay: 0.4s; }
-.wave-bar:nth-child(6) { height: 8px; animation-delay: 0.5s; }
-.wave-bar:nth-child(7) { height: 18px; animation-delay: 0.15s; }
-.wave-bar:nth-child(8) { height: 14px; animation-delay: 0.25s; }
+.typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dot:nth-child(2) { animation-delay: -0.16s; }
 
-@keyframes wave {
-  0%, 100% { transform: scaleY(1); }
-  50% { transform: scaleY(0.4); }
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
 }
 
-.call-metrics {
+.chat-metrics {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 0.75rem;
@@ -793,49 +789,65 @@ h1 em {
 }
 
 .phone-screen {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  text-align: left;
 }
 
-.phone-business {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
-
-.phone-calling {
+.chat-mock-header {
   font-family: 'DM Mono', monospace;
   font-size: 0.6rem;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--gold);
-  margin-bottom: 1rem;
+  text-align: center;
 }
 
-.phone-waves {
+.chat-mock-business {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.chat-mock-bubbles {
   display: flex;
-  justify-content: center;
-  gap: 4px;
-  height: 32px;
-  align-items: center;
-  margin-bottom: 0.75rem;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.phone-wave {
-  width: 4px;
-  border-radius: 2px;
+.mock-bubble {
+  font-size: 0.7rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  line-height: 1.4;
+  max-width: 85%;
+}
+
+.user-bubble {
+  background: var(--cream);
+  color: var(--muted);
+  align-self: flex-end;
+  border-bottom-right-radius: 0;
+}
+
+.ai-bubble {
   background: var(--ink);
-  animation: wave 0.8s ease-in-out infinite;
+  color: var(--paper);
+  align-self: flex-start;
+  border-bottom-left-radius: 0;
 }
 
-.ph-w1 { height: 10px; animation-delay: 0s; }
-.ph-w2 { height: 20px; animation-delay: 0.1s; }
-.ph-w3 { height: 28px; animation-delay: 0.2s; }
-.ph-w4 { height: 18px; animation-delay: 0.3s; }
-.ph-w5 { height: 10px; animation-delay: 0.4s; }
+.chat-mock-input {
+  margin-top: 0.5rem;
+}
 
-.phone-time {
-  font-family: 'DM Mono', monospace;
+.mock-input-bar {
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 0.4rem 0.75rem;
   font-size: 0.65rem;
   color: var(--muted);
 }
@@ -1059,5 +1071,5 @@ footer {
 h1 { animation-delay: 0.2s; }
 .hero-sub { animation-delay: 0.3s; }
 .hero-actions { animation-delay: 0.4s; }
-.call-card { animation: fadeUp 0.7s 0.35s ease both; }
+.chat-card { animation: fadeUp 0.7s 0.35s ease both; }
 

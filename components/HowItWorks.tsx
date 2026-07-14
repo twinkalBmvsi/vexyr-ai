@@ -10,29 +10,29 @@ export default function HowItWorks() {
             <div className="step">
               <div className="step-num">01</div>
               <div className="step-content">
-                <div className="step-title">Register & choose your modules</div>
+                <div className="step-title">Register & choose your plan</div>
                 <p className="step-desc">Sign up, select your plan, and tick the modules your business needs. Pay once, get access instantly.</p>
               </div>
             </div>
             <div className="step">
               <div className="step-num">02</div>
               <div className="step-content">
-                <div className="step-title">We configure your AI agent</div>
-                <p className="step-desc">Your phone number is assigned, your knowledge base is loaded, and your agent is configured — all automatically within minutes.</p>
+                <div className="step-title">Connect messaging accounts</div>
+                <p className="step-desc">Link your WhatsApp Business and Telegram accounts with one click. Your AI agent is instantly configured to reply on these channels.</p>
               </div>
             </div>
             <div className="step">
               <div className="step-num">03</div>
               <div className="step-content">
                 <div className="step-title">Customise from your dashboard</div>
-                <p className="step-desc">Set your business hours, services, AI tone, and review triggers from a simple dashboard. No technical skills required.</p>
+                <p className="step-desc">Set your business hours, calendar links, AI tone, and email confirmation templates from a simple dashboard. No technical skills required.</p>
               </div>
             </div>
             <div className="step">
               <div className="step-num">04</div>
               <div className="step-content">
-                <div className="step-title">Your AI answers every call</div>
-                <p className="step-desc">Customers call your number. The AI handles everything. You review bookings, orders, and reports from your dashboard.</p>
+                <div className="step-title">Your AI handles the chats</div>
+                <p className="step-desc">Customers message you. The AI handles the conversation, schedules appointments, and sends email confirmations automatically.</p>
               </div>
             </div>
           </div>
@@ -42,16 +42,15 @@ export default function HowItWorks() {
           <div className="phone-mock">
             <div className="phone-notch"></div>
             <div className="phone-screen">
-              <div className="phone-calling">Incoming call</div>
-              <div className="phone-business">Glamour Studio</div>
-              <div className="phone-waves">
-                <div className="phone-wave ph-w1"></div>
-                <div className="phone-wave ph-w2"></div>
-                <div className="phone-wave ph-w3"></div>
-                <div className="phone-wave ph-w4"></div>
-                <div className="phone-wave ph-w5"></div>
+              <div className="chat-mock-header">WhatsApp Business</div>
+              <div className="chat-mock-business">Glamour Studio</div>
+              <div className="chat-mock-bubbles">
+                <div className="mock-bubble user-bubble">Hi, do you have time today?</div>
+                <div className="mock-bubble ai-bubble">Yes! We have a 3 PM slot available. Shall I book it for you?</div>
               </div>
-              <div className="phone-time">AI answering · 00:08</div>
+              <div className="chat-mock-input">
+                <div className="mock-input-bar">Message...</div>
+              </div>
             </div>
           </div>
 
