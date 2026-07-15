@@ -30,41 +30,30 @@ export async function POST(req: Request) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
 
-    // Retrieve the tenantId we passed as client_reference_id
-    const tenantId = session.client_reference_id;
+    // Retrieve the client_reference_id which contains tenantId_planId_interval
+    const clientRef = session.client_reference_id || '';
+    const [tenantId, passedPlanId, passedInterval] = clientRef.split('_');
 
     if (!tenantId) {
       console.error('No client_reference_id found in session.');
       return NextResponse.json({ error: 'Missing client_reference_id' }, { status: 400 });
     }
 
-    // Determine the plan based on the payment link
-    let planId = 'starter';
-    let billingInterval = 'month';
-    const paymentLinkId = session.payment_link;
-    
-    if (paymentLinkId) {
-      const id = typeof paymentLinkId === 'string' ? paymentLinkId : paymentLinkId.id;
-      if (id.includes('test_4gM28t3sReon4299hZgIo07') || id.includes('test_aFa4gBgfDcgf1U1fGngIo06')) {
-        planId = 'enterprise';
-        if (id.includes('test_4gM28t3sReon4299hZgIo07')) billingInterval = 'year';
-      } else if (id.includes('test_4gM5kF4wV2FF1U1cubgIo05') || id.includes('test_dRmcN7d3r2FFgOVcubgIo04')) {
-        planId = 'growth';
-        if (id.includes('test_4gM5kF4wV2FF1U1cubgIo05')) billingInterval = 'year';
-      } else if (id.includes('test_5kQ6oJbZnfsr9mtbq7gIo03') || id.includes('test_14A28t9Rf3JJeGN9hZgIo02')) {
-        planId = 'starter';
-        if (id.includes('test_5kQ6oJbZnfsr9mtbq7gIo03')) billingInterval = 'year';
-      }
-    } else {
-      // Fallback: guess plan based on amount_total (in cents)
-      const amount = session.amount_total || 0;
-      if (amount >= 20000) planId = 'enterprise';
-      else if (amount >= 10000) planId = 'growth';
-      else planId = 'starter';
-    }
+    const planId = passedPlanId || 'starter';
+    const billingInterval = passedInterval || 'month';
 
     const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
     const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+
+    let currentPeriodEnd: string | null = null;
+    if (subscriptionId) {
+      try {
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString();
+      } catch (err) {
+        console.error('Error fetching subscription details from Stripe:', err);
+      }
+    }
 
     // Check if subscription exists
     const { data: existingSub } = await supabaseAdmin
@@ -80,12 +69,16 @@ export async function POST(req: Request) {
           plan_id: planId,
           status: 'active',
           billing_interval: billingInterval,
+          current_period_end: currentPeriodEnd,
           stripe_customer_id: customerId,
           stripe_subscription_id: subscriptionId,
         })
         .eq('id', existingSub.id);
         
-      if (error) console.error('Error updating subscription:', error);
+      if (error) {
+        console.error('Error updating subscription:', error);
+        return NextResponse.json({ error: `Update failed: ${error.message}` }, { status: 500 });
+      }
     } else {
       const { error } = await supabaseAdmin
         .from('subscriptions')
@@ -94,11 +87,15 @@ export async function POST(req: Request) {
           plan_id: planId,
           status: 'active',
           billing_interval: billingInterval,
+          current_period_end: currentPeriodEnd,
           stripe_customer_id: customerId,
           stripe_subscription_id: subscriptionId,
         });
         
-      if (error) console.error('Error inserting subscription:', error);
+      if (error) {
+        console.error('Error inserting subscription:', error);
+        return NextResponse.json({ error: `Insert failed: ${error.message}` }, { status: 500 });
+      }
     }
     
     // Also update the tenant's plan_id directly

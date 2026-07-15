@@ -17,7 +17,8 @@ export default function Pricing({ tenantId }: { tenantId?: string }) {
       link = isYearly ? 'https://buy.stripe.com/test_4gM28t3sReon4299hZgIo07' : 'https://buy.stripe.com/test_aFa4gBgfDcgf1U1fGngIo06';
     }
     
-    return `${link}?client_reference_id=${tenantId}`;
+    const interval = isYearly ? 'year' : 'month';
+    return `${link}?client_reference_id=${tenantId}_${planId}_${interval}`;
   };
 
   return (
