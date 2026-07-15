@@ -1542,3 +1542,157 @@ h1 { animation-delay: 0.2s; }
   color: var(--ink);
 }
 
+
+
+/* ==========================================================================
+   DASHBOARD SIDEBAR & LAYOUT (Hardcoded to bypass Tailwind cache issues)
+   ========================================================================== */
+
+.dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+  background: var(--paper);
+}
+
+.dashboard-main {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+}
+
+.sidebar {
+  width: 280px;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.sidebar-header {
+  padding: 2.5rem 2.5rem 1rem 2.5rem;
+}
+
+.sidebar-logo {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.4rem;
+  font-weight: 300;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  display: block;
+}
+
+.sidebar-logo span {
+  color: var(--gold);
+  font-style: italic;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  text-decoration: none;
+  transition: all 0.5s ease;
+  position: relative;
+}
+
+.sidebar-link span {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 400;
+  color: var(--muted);
+  transition: all 0.5s ease;
+}
+
+.sidebar-icon {
+  color: var(--muted);
+  transition: all 0.5s ease;
+}
+
+.sidebar-link:hover {
+  background: rgba(12,12,12,0.05);
+}
+
+.sidebar-link:hover span,
+.sidebar-link:hover .sidebar-icon {
+  color: var(--ink);
+}
+
+.sidebar-link.active {
+  background: rgba(12,12,12,0.08);
+}
+
+.sidebar-link.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 2rem;
+  border-radius: 0 4px 4px 0;
+  background: var(--gold);
+  box-shadow: 0 0 12px var(--gold);
+}
+
+.sidebar-link.active span {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.sidebar-link.active .sidebar-icon {
+  color: var(--gold);
+}
+
+.sidebar-footer {
+  padding: 2rem;
+  margin-bottom: 1rem;
+}
+
+.sidebar-logout {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  transition: all 0.5s ease;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+
+.sidebar-logout span {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 400;
+  color: var(--muted);
+  transition: all 0.5s ease;
+}
+
+.sidebar-logout:hover {
+  background: rgba(167, 40, 40, 0.05);
+}
+
+.sidebar-logout:hover span,
+.sidebar-logout:hover .sidebar-icon {
+  color: #a72828;
+}

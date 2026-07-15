@@ -25,11 +25,13 @@ export default function Sidebar({ tenantSlug }: { tenantSlug: string }) {
 
   return (
     <aside className="sidebar">
-      <Link href="/" className="sidebar-logo">
-        vex<span>yr</span>
-      </Link>
+      <div className="sidebar-header">
+        <Link href="/" className="sidebar-logo">
+          vex<span>yr</span>
+        </Link>
+      </div>
       
-      <nav className="sidebar-nav">
+      <div className="sidebar-nav">
         {links.map((link) => {
           const Icon = link.icon
           const active = isActive(link.href)
@@ -39,18 +41,18 @@ export default function Sidebar({ tenantSlug }: { tenantSlug: string }) {
               href={link.href}
               className={`sidebar-link ${active ? 'active' : ''}`}
             >
-              <Icon size={16} strokeWidth={active ? 2.5 : 1.5} />
-              {link.name}
+              <Icon size={18} strokeWidth={active ? 2 : 1.5} className="sidebar-icon" />
+              <span>{link.name}</span>
             </Link>
           )
         })}
-      </nav>
+      </div>
 
-      <div className="sidebar-bottom">
+      <div className="sidebar-footer">
         <form action="/auth/signout" method="POST">
-          <button type="submit" className="sidebar-link" style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}>
-            <LogOut size={16} strokeWidth={1.5} />
-            Logout
+          <button type="submit" className="sidebar-logout">
+            <LogOut size={18} strokeWidth={1.5} className="sidebar-icon" />
+            <span>Logout</span>
           </button>
         </form>
       </div>
