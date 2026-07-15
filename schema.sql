@@ -57,7 +57,8 @@ CREATE TYPE subscription_status AS ENUM ('trialing', 'active', 'past_due', 'canc
 CREATE TABLE public.plans (
   id text PRIMARY KEY, -- e.g., 'starter', 'pro', 'enterprise'
   name text NOT NULL,
-  price numeric NOT NULL,
+  monthly_price numeric NOT NULL,
+  yearly_price numeric NOT NULL,
   limits jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz DEFAULT now() NOT NULL
 );
@@ -95,6 +96,7 @@ CREATE TABLE public.subscriptions (
   tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
   plan_id text REFERENCES public.plans(id) NOT NULL,
   status subscription_status NOT NULL,
+  billing_interval text DEFAULT 'month' NOT NULL,
   current_period_end timestamptz,
   stripe_customer_id text,
   stripe_subscription_id text,

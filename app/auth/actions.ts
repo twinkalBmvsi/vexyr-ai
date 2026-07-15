@@ -32,6 +32,19 @@ export async function login(prevState: any, formData: FormData) {
     .single()
 
   if (userRecord?.tenant_id) {
+    // Check for active subscription
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('status')
+      .eq('tenant_id', userRecord.tenant_id)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (!subscription) {
+      // No active subscription, redirect to select plan page
+      return { redirectUrl: `/select-plan?tenantId=${userRecord.tenant_id}` }
+    }
+
     // Fetch the tenant's slug
     const { data: tenant } = await supabase
       .from('tenants')
