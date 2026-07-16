@@ -2,15 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Bot, CreditCard, LogOut, Calendar, Users, Settings } from 'lucide-react'
+import { LayoutDashboard, Bot, CreditCard, LogOut, Calendar, Users, Settings, Smartphone } from 'lucide-react'
 
 export default function Sidebar({ tenantSlug }: { tenantSlug: string }) {
   const pathname = usePathname()
 
   const links = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Agents', href: '/agents', icon: Bot },
     { name: 'Appointments', href: '/appointments', icon: Calendar },
+    { name: 'Agents', href: '/agents', icon: Bot },
+    { name: 'Channels', href: '/connections', icon: Smartphone },
     { name: 'Customers', href: '/customers', icon: Users },
     { name: 'Billing', href: '/billing', icon: CreditCard },
     { name: 'Settings', href: '/settings', icon: Settings },
@@ -31,14 +32,14 @@ export default function Sidebar({ tenantSlug }: { tenantSlug: string }) {
           vex<span>yr</span>
         </Link>
       </div>
-      
+
       <div className="sidebar-nav">
         {links.map((link) => {
           const Icon = link.icon
           const active = isActive(link.href)
           return (
-            <Link 
-              key={link.name} 
+            <Link
+              key={link.name}
               href={link.href}
               className={`sidebar-link ${active ? 'active' : ''}`}
             >
