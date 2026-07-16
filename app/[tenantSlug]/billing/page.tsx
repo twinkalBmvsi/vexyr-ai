@@ -1,6 +1,6 @@
 import { CreditCard, Zap, CheckCircle2 } from 'lucide-react'
 
-export default async function SubscriptionPage() {
+export default async function BillingPage() {
   return (
     <div>
       <div className="dash-header">

@@ -2,17 +2,18 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Bot, MessageCircle, CreditCard, LogOut, Calendar } from 'lucide-react'
+import { LayoutDashboard, Bot, CreditCard, LogOut, Calendar, Users, Settings } from 'lucide-react'
 
 export default function Sidebar({ tenantSlug }: { tenantSlug: string }) {
   const pathname = usePathname()
 
   const links = [
-    { name: 'Overview', href: '/', icon: LayoutDashboard },
-    { name: 'Calendar', href: '/calendar', icon: Calendar },
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Agents', href: '/agents', icon: Bot },
-    { name: 'Connections', href: '/connections', icon: MessageCircle },
-    { name: 'Subscription', href: '/subscription', icon: CreditCard },
+    { name: 'Appointments', href: '/appointments', icon: Calendar },
+    { name: 'Customers', href: '/customers', icon: Users },
+    { name: 'Billing', href: '/billing', icon: CreditCard },
+    { name: 'Settings', href: '/settings', icon: Settings },
   ]
 
   const isActive = (href: string) => {

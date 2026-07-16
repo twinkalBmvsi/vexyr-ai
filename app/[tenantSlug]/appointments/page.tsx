@@ -1,6 +1,6 @@
 import CalendarView from '@/components/dashboard/CalendarView'
 
-export default async function CalendarPage() {
+export default async function AppointmentsPage() {
   // Mock appointments with extra details for the modal
   const appointments = [
     { 
