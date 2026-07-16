@@ -9,7 +9,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE || process.env.NEXT
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: '2025-01-27.acacia', // Latest API version (use yours if different)
+  apiVersion: '2026-06-24.dahlia', // Latest API version (use yours if different)
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     if (subscriptionId) {
       try {
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString();
+        currentPeriodEnd = new Date((subscription as any).current_period_end * 1000).toISOString();
       } catch (err) {
         console.error('Error fetching subscription details from Stripe:', err);
       }

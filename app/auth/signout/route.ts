@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function POST(request: NextRequest) {
-  let supabaseResponse = NextResponse.redirect(new URL('http://localhost:3000/login'))
+  let supabaseResponse = NextResponse.redirect(new URL('http://localhost:3000/'))
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
   // Ensure redirect goes back to root domain
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost'
-  const redirectUrl = `http://${rootDomain}:3000/login`
+  const redirectUrl = `http://${rootDomain}:3000/`
   
   return new NextResponse(null, {
     status: 303,

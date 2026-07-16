@@ -45,6 +45,10 @@ export async function middleware(request: NextRequest) {
       }
     }
 
+    if (url.pathname === '/auth/signout') {
+      return supabaseResponse
+    }
+
     if (!user) {
       // Not logged in -> Redirect to main domain login
       const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost'
