@@ -1696,3 +1696,14 @@ h1 { animation-delay: 0.2s; }
 .sidebar-logout:hover .sidebar-icon {
   color: #a72828;
 }
+.sync-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.sync-btn-outline:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  color: var(--ink) !important;
+  border-color: var(--border-strong) !important;
+}

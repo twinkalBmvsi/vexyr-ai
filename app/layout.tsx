@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./calendar.css";
 
 export const metadata: Metadata = {
   title: "Vexyr — Voice AI for Modern Business",

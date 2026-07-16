@@ -1,0 +1,319 @@
+/* CALENDAR GRID VIEW */
+.calendar-container {
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+  margin-top: 2rem;
+}
+
+.calendar-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--cream);
+}
+
+.calendar-title-area {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.calendar-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.calendar-nav-btn {
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  border-radius: 20px;
+  padding: 0.3rem 0.8rem;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+
+.calendar-arrow {
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0.2rem;
+}
+
+.calendar-toggle-group {
+  display: flex;
+  background: rgba(12, 12, 12, 0.05);
+  border-radius: 30px;
+  padding: 0.25rem;
+}
+
+.calendar-toggle-btn {
+  padding: 0.5rem 1.25rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  border-radius: 20px;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.calendar-toggle-btn.active {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.calendar-view-wrapper {
+  height: 800px;
+  overflow-y: auto;
+  position: relative;
+}
+
+.calendar-days-header {
+  display: grid;
+  grid-template-columns: 60px repeat(7, 1fr);
+  border-bottom: 1px solid var(--border);
+  background: var(--paper);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.calendar-day-cell {
+  padding: 1rem 0;
+  text-align: center;
+  border-right: 1px solid var(--border);
+}
+
+.calendar-day-cell:last-child {
+  border-right: none;
+}
+
+.calendar-day-card {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  background: var(--cream);
+  color: var(--muted);
+  transition: all 0.2s;
+}
+
+.calendar-day-card.active {
+  background: linear-gradient(135deg, var(--gold-light), #fff);
+  color: var(--ink);
+  box-shadow: 0 4px 12px rgba(201, 168, 76, 0.2);
+}
+
+.calendar-day-name {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.8rem;
+  text-transform: lowercase;
+}
+
+.calendar-day-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.calendar-grid-body {
+  position: relative;
+  display: grid;
+  grid-template-columns: 60px repeat(7, 1fr);
+  background: var(--paper);
+}
+
+.calendar-time-col {
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+
+.calendar-time-slot {
+  height: 80px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.calendar-time-label {
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.calendar-day-col {
+  position: relative;
+  border-right: 1px solid var(--border);
+}
+
+.calendar-day-col:last-child {
+  border-right: none;
+}
+
+.calendar-grid-line {
+  height: 80px;
+  border-bottom: 1px solid var(--border);
+  opacity: 0.5;
+}
+
+.calendar-event {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  border-radius: 10px;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+}
+
+.calendar-event:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  z-index: 10;
+}
+
+.calendar-event-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-event-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.calendar-month-days-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--border);
+  gap: 1px;
+  border-bottom: 1px solid var(--border);
+}
+
+.calendar-month-days-header .calendar-day-cell {
+  background: var(--paper);
+  border-right: none;
+}
+
+.calendar-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--border);
+  gap: 1px;
+  border-bottom: 1px solid var(--border);
+}
+
+.calendar-month-cell {
+  background: var(--paper);
+  min-height: 140px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.calendar-month-cell.empty {
+  background: var(--cream);
+  opacity: 0.5;
+}
+
+.calendar-month-date {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+  text-align: right;
+}
+
+.calendar-month-date.active {
+  color: var(--ink);
+  font-weight: 600;
+  background: var(--gold-light);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+}
+
+.calendar-month-event {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.7rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 4px;
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: transform 0.1s;
+}
+
+.calendar-month-event:hover {
+  transform: scale(1.02);
+}
+
+.calendar-day-view-body {
+  position: relative;
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  background: var(--paper);
+}
+
+.calendar-day-time-col {
+  border-right: 1px solid var(--border);
+  background: var(--cream);
+}
+
+.calendar-day-col-wide {
+  position: relative;
+}
+
+.calendar-day-event-wide {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  border-radius: 12px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.calendar-day-event-wide:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  z-index: 10;
+}
