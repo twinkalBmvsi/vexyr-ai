@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   description: "Vexyr gives small businesses an AI voice agent that books appointments, takes orders, handles returns, and grows your reputation — 24 hours a day.",
 };
 
+import { Toaster } from 'react-hot-toast'
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -20,6 +22,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
       </head>
       <body>
+        <Toaster position="top-right" />
         {children}
       </body>
     </html>

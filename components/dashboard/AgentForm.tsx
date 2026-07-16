@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import { Save } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 export default function AgentForm({ agentId, tenantSlug }: { agentId: string, tenantSlug: string }) {
   const isNew = agentId === 'new'
-  const [showTooltip, setShowTooltip] = useState(false)
   
   const [formData, setFormData] = useState({
     name: isNew ? '' : 'Sales Assistant',
@@ -18,8 +18,7 @@ export default function AgentForm({ agentId, tenantSlug }: { agentId: string, te
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     // Here we would submit to a Server Action
-    setShowTooltip(true)
-    setTimeout(() => setShowTooltip(false), 3000)
+    toast.success('Agent configuration saved successfully!')
   }
 
   return (
@@ -99,36 +98,8 @@ export default function AgentForm({ agentId, tenantSlug }: { agentId: string, te
       </div>
 
       <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end' }}>
-        <button type="submit" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
+        <button type="submit" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Save size={16} /> Save Configuration
-          {showTooltip && (
-            <div style={{
-              position: 'absolute',
-              bottom: '100%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              marginBottom: '0.5rem',
-              padding: '0.5rem 1rem',
-              background: 'var(--ink)',
-              color: 'var(--paper)',
-              fontSize: '0.8rem',
-              borderRadius: '6px',
-              whiteSpace: 'nowrap',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              zIndex: 10
-            }}>
-              Saved successfully!
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                borderWidth: '5px',
-                borderStyle: 'solid',
-                borderColor: 'var(--ink) transparent transparent transparent'
-              }} />
-            </div>
-          )}
         </button>
       </div>
     </form>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { MessageCircle, Smartphone, CheckCircle2, AlertCircle, X, ExternalLink } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 export default function ChannelConnections({
   initialHasWhatsapp,
@@ -246,7 +247,7 @@ export default function ChannelConnections({
               <button 
                 className="btn-primary"
                 onClick={() => {
-                  alert(`${activeModal === 'whatsapp' ? 'WhatsApp' : 'Telegram'} configuration saved!`)
+                  toast.success(`${activeModal === 'whatsapp' ? 'WhatsApp' : 'Telegram'} configuration saved!`)
                   setActiveModal(null)
                 }}
               >
