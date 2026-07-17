@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Bot, CreditCard, LogOut, Calendar, Users, Settings, Smartphone } from 'lucide-react'
+import { LayoutDashboard, Bot, LogOut, Calendar, Users, Settings, Smartphone } from 'lucide-react'
 
 export default function Sidebar({ tenantSlug }: { tenantSlug: string }) {
   const pathname = usePathname()
@@ -13,7 +13,6 @@ export default function Sidebar({ tenantSlug }: { tenantSlug: string }) {
     { name: 'Agents', href: '/agents', icon: Bot },
     { name: 'Channels', href: '/connections', icon: Smartphone },
     { name: 'Customers', href: '/customers', icon: Users },
-    { name: 'Billing', href: '/billing', icon: CreditCard },
     { name: 'Settings', href: '/settings', icon: Settings },
   ]
 
