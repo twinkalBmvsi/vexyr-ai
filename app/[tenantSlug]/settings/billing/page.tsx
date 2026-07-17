@@ -20,6 +20,29 @@ export default async function BillingSettingsPage({ params }: { params: Promise<
     .single()
 
   if (tenant) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: userRole } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .eq('tenant_id', tenant.id)
+        .single()
+        
+      if (userRole && userRole.role !== 'owner') {
+        return (
+          <>
+            <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.8rem', marginBottom: '2rem' }}>Subscription & Billing</h2>
+            <div style={{ padding: '2rem', background: 'rgba(220, 38, 38, 0.05)', color: '#dc2626', borderRadius: '8px', border: '1px solid rgba(220, 38, 38, 0.2)' }}>
+              You do not have permission to view or manage billing settings. Only workspace owners can access this page.
+            </div>
+          </>
+        )
+      }
+    }
+  }
+
+  if (tenant) {
     const { data } = await supabase
       .from('subscriptions')
       .select('*')

@@ -29,10 +29,12 @@ export async function middleware(request: NextRequest) {
           refresh_token: refreshToken
         })
         
-        // Strip the tokens from the URL and redirect to dashboard
-        const redirectUrl = new URL('/', request.url)
+        // Strip the tokens from the URL and redirect to dashboard or next param
+        const nextParam = url.searchParams.get('next') || '/'
+        const redirectUrl = new URL(nextParam, request.url)
         redirectUrl.searchParams.delete('access_token')
         redirectUrl.searchParams.delete('refresh_token')
+        redirectUrl.searchParams.delete('next')
         
         const redirectResponse = NextResponse.redirect(redirectUrl)
         
@@ -64,8 +66,8 @@ export async function middleware(request: NextRequest) {
     // Extract the slug
     const tenantSlug = hostname.split('.')[0]
 
-    // Prevent infinite loops
-    if (url.pathname.startsWith(`/${tenantSlug}`)) {
+    // Prevent infinite loops or rewriting API routes
+    if (url.pathname.startsWith(`/${tenantSlug}`) || url.pathname.startsWith('/api/')) {
       return supabaseResponse
     }
 

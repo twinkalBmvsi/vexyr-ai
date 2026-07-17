@@ -4,16 +4,20 @@ import { Settings as SettingsIcon, Bell, Lock, User, CreditCard } from 'lucide-r
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-export default function SettingsSidebar() {
+export default function SettingsSidebar({ userRole }: { userRole?: string }) {
   const pathname = usePathname()
 
-  const tabs = [
+  let tabs = [
     { name: 'General', href: '', icon: SettingsIcon, matchExact: true },
     { name: 'Billing', href: '/billing', icon: CreditCard, matchExact: false },
     { name: 'Team', href: '/team', icon: User, matchExact: false },
     { name: 'Notifications', href: '/notifications', icon: Bell, matchExact: false },
     { name: 'Security', href: '/security', icon: Lock, matchExact: false },
   ]
+
+  if (userRole && userRole !== 'owner') {
+    tabs = tabs.filter(t => t.name !== 'Billing')
+  }
 
   const basePath = '/settings'
 
