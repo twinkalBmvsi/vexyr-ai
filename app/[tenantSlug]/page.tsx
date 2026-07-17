@@ -21,8 +21,26 @@ export default async function TenantDashboard({
   let conversationsCount = 0
   let planName = 'Free Tier'
   let renewsOn = 'N/A'
+  let currentUserName = 'User'
 
   if (tenant) {
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: userRecord } = await supabase
+        .from('users')
+        .select('full_name')
+        .eq('id', user.id)
+        .eq('tenant_id', tenant.id)
+        .single()
+      
+      if (userRecord && userRecord.full_name) {
+        currentUserName = userRecord.full_name
+      } else {
+        currentUserName = user.email ? user.email.split('@')[0] : 'User'
+      }
+    }
+
     // 2. Fetch Agents Count
     const { count: aCount } = await supabase
       .from('agents')
@@ -64,8 +82,8 @@ export default async function TenantDashboard({
   return (
     <div>
       <div className="dash-header">
-        <h1 className="dash-title">Welcome back, <em>{resolvedParams.tenantSlug}</em></h1>
-        <p className="dash-subtitle">Here is what's happening with your AI agents today.</p>
+        <h1 className="dash-title">Welcome back, <em>{currentUserName}</em></h1>
+        <p className="dash-subtitle">Here is what's happening in <strong>{resolvedParams.tenantSlug}</strong> today.</p>
       </div>
 
       <div className="dash-grid" style={{ marginBottom: '3rem' }}>
