@@ -211,7 +211,7 @@ export default function CalendarView({ appointments }: { appointments: GridAppoi
                       className="calendar-event"
                       style={{ 
                         top: `${top}px`, 
-                        height: `${height}px`,
+                        minHeight: `${height}px`,
                         backgroundColor: apt.color,
                       }}
                       onClick={() => setSelectedApt(apt)}
@@ -277,7 +277,7 @@ export default function CalendarView({ appointments }: { appointments: GridAppoi
                     className="calendar-day-event-wide"
                     style={{ 
                       top: `${top}px`, 
-                      height: `${height}px`,
+                      minHeight: `${height}px`,
                       backgroundColor: apt.color,
                     }}
                     onClick={() => setSelectedApt(apt)}

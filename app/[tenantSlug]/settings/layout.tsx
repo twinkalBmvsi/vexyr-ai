@@ -8,10 +8,10 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         <p className="dash-subtitle">Configure your workspace and preferences.</p>
       </div>
 
-      <div className="dash-grid" style={{ gridTemplateColumns: '250px 1fr', gap: '2rem', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '2rem', alignItems: 'start' }}>
         <SettingsSidebar />
 
-        <div className="dash-card" style={{ padding: '3rem' }}>
+        <div className="dash-card" style={{ padding: '3rem', width: '100%', boxSizing: 'border-box' }}>
           {children}
         </div>
       </div>

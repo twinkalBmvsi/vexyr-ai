@@ -19,7 +19,7 @@ export default function SettingsSidebar() {
 
   return (
     <div className="dash-card" style={{ padding: '1.5rem' }}>
-      <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         {tabs.map(tab => {
           const href = `${basePath}${tab.href}`
           const isActive = tab.matchExact ? pathname === basePath : pathname.startsWith(href)
@@ -27,7 +27,7 @@ export default function SettingsSidebar() {
 
           return (
             <li key={tab.name}>
-              <Link href={href} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: isActive ? 'var(--ink)' : 'transparent', color: isActive ? 'var(--paper)' : 'var(--muted)', border: 'none', fontFamily: 'DM Sans', fontSize: '0.85rem', cursor: 'pointer', textAlign: 'left', borderRadius: '4px', textDecoration: 'none', transition: 'all 0.2s' }}>
+              <Link href={href} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: isActive ? 'var(--ink)' : 'transparent', color: isActive ? 'var(--paper)' : 'var(--muted)', border: 'none', fontFamily: 'DM Sans', fontSize: '0.85rem', cursor: 'pointer', textAlign: 'left', borderRadius: '4px', textDecoration: 'none', transition: 'all 0.2s' }}>
                 <Icon size={16} />
                 {tab.name}
               </Link>

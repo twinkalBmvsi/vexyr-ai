@@ -1707,3 +1707,133 @@ h1 { animation-delay: 0.2s; }
   color: var(--ink) !important;
   border-color: var(--border-strong) !important;
 }
+
+.settings-layout-grid {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+/* ==========================================================================
+   RESPONSIVE MEDIA QUERIES
+   ========================================================================== */
+
+/* TABLET (max-width: 1024px) */
+@media (max-width: 1024px) {
+  /* Landing Page */
+  nav { padding: 1rem 2rem; }
+  .nav-links { display: none; } /* Hide standard nav links on tablet/mobile */
+  .hero { grid-template-columns: 1fr; padding-top: 4rem; }
+  .hero-left { padding: 4rem 2rem; text-align: center; align-items: center; }
+  .hero-left::after { display: none; }
+  .hero-sub { margin-left: auto; margin-right: auto; }
+  .hero-actions { justify-content: center; }
+  .hero-right { padding: 4rem 2rem; }
+  .features, .pricing, .how, .cta-section, .testimonials { padding: 5rem 2rem; }
+  .features-grid { grid-template-columns: repeat(2, 1fr); }
+  .feature-card:nth-child(2n) { border-right: none; }
+  .feature-card:nth-child(3n) { border-right: 1px solid var(--border); }
+  .pricing-intro { grid-template-columns: 1fr; gap: 2rem; text-align: center; }
+  .pricing-note { margin: 0 auto; }
+  .pricing-grid { grid-template-columns: repeat(2, 1fr); }
+  .modules-grid { grid-template-columns: repeat(2, 1fr); }
+  .how-grid { grid-template-columns: 1fr; gap: 4rem; }
+  .testi-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Dashboard */
+  .dashboard-layout { 
+    position: relative; 
+    overflow-x: hidden; 
+    flex-direction: column;
+  }
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 100;
+    background: var(--paper);
+    border-right: 1px solid var(--border);
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  /* Settings Grid Update */
+  .settings-layout-grid {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+}
+
+/* MOBILE (max-width: 768px) */
+@media (max-width: 768px) {
+  /* Landing Page */
+  nav { padding: 1rem; }
+  .hero-left, .hero-right { padding: 3rem 1.5rem; }
+  h1 { font-size: 2.5rem; }
+  .features, .pricing, .how, .cta-section, .testimonials { padding: 4rem 1.5rem; }
+  .section-title { font-size: 2rem; }
+  .features-grid { grid-template-columns: 1fr; }
+  .feature-card { border-right: none !important; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .modules-grid { grid-template-columns: 1fr; }
+  .testi-grid { grid-template-columns: 1fr; }
+  .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  .stat-item:nth-child(2n) { border-right: none; }
+  .stat-item { border-bottom: 1px solid var(--border); }
+  .stat-item:nth-last-child(-n+2) { border-bottom: none; }
+  
+  footer { flex-direction: column; gap: 1.5rem; text-align: center; padding: 2rem 1.5rem; }
+  .footer-links { flex-wrap: wrap; justify-content: center; }
+
+  /* Dashboard */
+  .dashboard-main { padding: 1.5rem 1rem; }
+  .dash-header { margin-bottom: 2rem; }
+  .dash-title { font-size: 2rem; }
+  .dash-card { padding: 1.5rem; }
+  
+  /* Settings */
+  .settings-layout-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* MOBILE DASHBOARD HEADER */
+.mobile-dash-header {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: var(--paper);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.mobile-dash-header .logo {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+}
+.mobile-dash-header .logo span { color: var(--gold); }
+.mobile-menu-btn {
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+@media (max-width: 1024px) {
+  .mobile-dash-header {
+    display: flex;
+  }
+  .dashboard-main {
+    padding: 2rem; /* Give it standard padding on tablet, allowing spacing from the header */
+  }
+}
