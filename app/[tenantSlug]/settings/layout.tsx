@@ -1,7 +1,6 @@
 import SettingsSidebar from './SettingsSidebar'
 
 import { createClient } from '@/utils/supabase/server'
-import { headers } from 'next/headers'
 
 export default async function SettingsLayout({ children, params }: { children: React.ReactNode, params: Promise<{ tenantSlug: string }> }) {
   const resolvedParams = await params
@@ -36,7 +35,7 @@ export default async function SettingsLayout({ children, params }: { children: R
         <p className="dash-subtitle">Configure your workspace and preferences.</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '2rem', alignItems: 'start' }}>
+      <div className="settings-layout-grid">
         <SettingsSidebar userRole={userRole} />
 
         <div className="dash-card" style={{ padding: '3rem', width: '100%', boxSizing: 'border-box' }}>
