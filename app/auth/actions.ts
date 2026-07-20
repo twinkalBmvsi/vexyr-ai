@@ -1,11 +1,16 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/utils/supabase/service-role'
+import {
+  buildSupabaseAuthLink,
+  getAuthRedirectUrl,
+  isSmtpConfigured,
+  sendPasswordResetEmail,
+  sendSignupEmail,
+} from '@/utils/email/auth-emails'
 
-export async function login(prevState: any, formData: FormData) {
+export async function login(prevState: unknown, formData: FormData) {
   const supabase = await createClient()
 
   const email = formData.get('email') as string
@@ -63,7 +68,7 @@ export async function login(prevState: any, formData: FormData) {
   return { redirectUrl: '/' }
 }
 
-export async function signup(prevState: any, formData: FormData) {
+export async function signup(prevState: unknown, formData: FormData) {
   const supabase = await createClient()
   
   const email = formData.get('email') as string
@@ -75,20 +80,48 @@ export async function signup(prevState: any, formData: FormData) {
     return { error: 'All fields are required' }
   }
 
+  let user = null
+  let signupActionUrl: string | null = null
+  const smtpEnabled = isSmtpConfigured()
+
   // 1. Create the user in Supabase Auth
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: 'http://localhost:3000/auth/confirm',
+  if (smtpEnabled) {
+    const adminClient = createAdminClient()
+    const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+      type: 'signup',
+      email,
+      password,
+      options: {
+        data: { full_name: fullName },
+        redirectTo: getAuthRedirectUrl(),
+      },
+    })
+
+    if (linkError) {
+      return { error: linkError.message }
     }
-  })
 
-  if (authError) {
-    return { error: authError.message }
+    if (!linkData.properties?.hashed_token) {
+      return { error: 'Failed to generate verification link.' }
+    }
+
+    user = linkData.user
+    signupActionUrl = buildSupabaseAuthLink('signup', linkData.properties.hashed_token)
+  } else {
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: 'http://localhost:3000/auth/confirm',
+      }
+    })
+
+    if (authError) {
+      return { error: authError.message }
+    }
+
+    user = authData.user
   }
-
-  const user = authData.user
 
   if (user) {
     // 2. Use Service Role to bypass RLS and create the Tenant & User records
@@ -142,12 +175,16 @@ export async function signup(prevState: any, formData: FormData) {
       console.error('User creation failed:', userError)
       return { error: `Profile init failed: ${userError.message}` }
     }
+
+    if (smtpEnabled && signupActionUrl) {
+      await sendSignupEmail(email, signupActionUrl)
+    }
   }
 
   return { success: 'Check your email to verify your account.' }
 }
 
-export async function resetPassword(prevState: any, formData: FormData) {
+export async function resetPassword(prevState: unknown, formData: FormData) {
   const supabase = await createClient()
   const email = formData.get('email') as string
 
@@ -155,12 +192,35 @@ export async function resetPassword(prevState: any, formData: FormData) {
     return { error: 'Email is required' }
   }
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    // Optionally specify redirect URL here, otherwise it uses Site URL
-  })
+  const smtpEnabled = isSmtpConfigured()
+  if (smtpEnabled) {
+    const adminClient = createAdminClient()
+    const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+      type: 'recovery',
+      email,
+      options: {
+        redirectTo: getAuthRedirectUrl(),
+      },
+    })
 
-  if (error) {
-    return { error: error.message }
+    if (linkError) {
+      return { error: linkError.message }
+    }
+
+    if (!linkData.properties?.hashed_token) {
+      return { error: 'Failed to generate password reset link.' }
+    }
+
+    const actionUrl = buildSupabaseAuthLink('recovery', linkData.properties.hashed_token, '/set-password')
+    await sendPasswordResetEmail(email, actionUrl)
+  } else {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      // Optionally specify redirect URL here, otherwise it uses Site URL
+    })
+
+    if (error) {
+      return { error: error.message }
+    }
   }
 
   return { success: 'Check your email for a password reset link.' }

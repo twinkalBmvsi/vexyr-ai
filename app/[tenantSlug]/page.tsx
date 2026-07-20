@@ -13,7 +13,7 @@ export default async function TenantDashboard({
   // 1. Fetch tenant
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, plan_id')
+    .select('id, plan_id, name')
     .eq('slug', resolvedParams.tenantSlug)
     .single()
 
@@ -22,8 +22,11 @@ export default async function TenantDashboard({
   let planName = 'Free Tier'
   let renewsOn = 'N/A'
   let currentUserName = 'User'
+  let companyName = resolvedParams.tenantSlug
 
   if (tenant) {
+    companyName = tenant.name || resolvedParams.tenantSlug
+
     // Get the current user
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
@@ -83,7 +86,7 @@ export default async function TenantDashboard({
     <div>
       <div className="dash-header">
         <h1 className="dash-title">Welcome back, <em>{currentUserName}</em></h1>
-        <p className="dash-subtitle">Here is what's happening in <strong>{resolvedParams.tenantSlug}</strong> today.</p>
+        <p className="dash-subtitle">Here is what is happening at <strong>{companyName}</strong> today.</p>
       </div>
 
       <div className="dash-grid" style={{ marginBottom: '3rem' }}>

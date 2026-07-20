@@ -20,6 +20,8 @@ export default async function TenantLayout({
     redirect(`http://${rootDomain}:3000/login`)
   }
 
+  let companyName = resolvedParams.tenantSlug
+
   // 2. Authorize the user (Layer 2 Security)
   const { data: userRecord } = await supabase
     .from('users')
@@ -30,9 +32,11 @@ export default async function TenantLayout({
   if (userRecord?.tenant_id) {
     const { data: tenant } = await supabase
       .from('tenants')
-      .select('slug')
+      .select('slug, name')
       .eq('id', userRecord.tenant_id)
       .single()
+
+    companyName = tenant?.name || resolvedParams.tenantSlug
 
     // If the user's actual assigned tenant slug doesn't match the URL slug they are visiting
     if (tenant?.slug && tenant.slug !== resolvedParams.tenantSlug) {
@@ -47,7 +51,7 @@ export default async function TenantLayout({
 
   return (
     <div className="dashboard-layout">
-      <Sidebar tenantSlug={resolvedParams.tenantSlug} />
+      <Sidebar tenantSlug={resolvedParams.tenantSlug} companyName={companyName} />
       <main className="dashboard-main">
         {children}
       </main>

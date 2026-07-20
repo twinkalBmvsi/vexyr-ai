@@ -36,7 +36,7 @@ export async function GET(request: Request) {
           const session = await supabase.auth.getSession()
           const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost'
           
-          const dest = type === 'invite' ? '/set-password' : '/'
+          const dest = type === 'invite' || type === 'recovery' ? '/set-password' : '/'
           
           if (session.data.session) {
             return NextResponse.redirect(`http://${tenant.slug}.${rootDomain}:3000/auth/handoff?access_token=${session.data.session.access_token}&refresh_token=${session.data.session.refresh_token}&next=${encodeURIComponent(dest)}`)

@@ -1,10 +1,13 @@
 'use client'
 
-import { useActionState, useEffect } from 'react'
+import { useActionState, useEffect, useState } from 'react'
+import Link from 'next/link'
+import { Eye, EyeOff } from 'lucide-react'
 import { login } from '@/app/auth/actions'
 
 export default function Login() {
   const [state, formAction, isPending] = useActionState(login, null)
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     if (state?.redirectUrl) {
@@ -41,14 +44,24 @@ export default function Login() {
 
           <div className="form-group">
             <label className="form-label" htmlFor="password">Password</label>
-            <input 
-              type="password" 
-              id="password" 
-              name="password" 
-              className="form-input" 
-              placeholder="••••••••" 
-              required 
-            />
+            <div className="password-input-wrap">
+              <input 
+                type={showPassword ? 'text' : 'password'} 
+                id="password" 
+                name="password" 
+                className="form-input password-input" 
+                placeholder="••••••••" 
+                required 
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <div className="form-footer">
@@ -56,7 +69,7 @@ export default function Login() {
               <input type="checkbox" style={{ accentColor: 'var(--gold)' }} />
               Remember me
             </label>
-            <a href="/forgot-password" className="auth-link">Forgot password?</a>
+            <Link href="/forgot-password" className="auth-link">Forgot password?</Link>
           </div>
 
           <button type="submit" className="auth-btn" disabled={isPending}>
@@ -65,7 +78,7 @@ export default function Login() {
         </form>
 
         <div className="auth-switch">
-          Don't have an account? <a href="/signup">Sign up</a>
+          Don&apos;t have an account? <Link href="/signup">Sign up</Link>
         </div>
       </div>
     </div>

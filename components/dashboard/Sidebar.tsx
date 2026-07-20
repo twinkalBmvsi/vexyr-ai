@@ -1,18 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LayoutDashboard, Bot, LogOut, Calendar, Users, Settings, Smartphone, Menu, X } from 'lucide-react'
 
-export default function Sidebar({ tenantSlug }: { tenantSlug: string }) {
+export default function Sidebar({ companyName }: { tenantSlug: string, companyName: string }) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
-
-  // Close sidebar on route change
-  useEffect(() => {
-    setIsOpen(false)
-  }, [pathname])
 
   const links = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -33,9 +28,12 @@ export default function Sidebar({ tenantSlug }: { tenantSlug: string }) {
   return (
     <>
       <div className="mobile-dash-header">
-        <Link href="/" className="logo">
-          vex<span>yr</span>
-        </Link>
+        <div className="mobile-brand-block">
+          <Link href="/" className="logo">
+            vex<span>yr</span>
+          </Link>
+          <span className="mobile-company-name">{companyName}</span>
+        </div>
         <button className="mobile-menu-btn" onClick={() => setIsOpen(true)}>
           <Menu size={24} />
         </button>
@@ -49,9 +47,14 @@ export default function Sidebar({ tenantSlug }: { tenantSlug: string }) {
 
       <aside className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Link href="/" className="sidebar-logo" style={{ marginBottom: 0 }}>
-            vex<span>yr</span>
-          </Link>
+          <div className="sidebar-brand-block">
+            <Link href="/" className="sidebar-logo" style={{ marginBottom: 0 }}>
+              vex<span>yr</span>
+            </Link>
+            <div className="sidebar-company-name" title={companyName}>
+              {companyName}
+            </div>
+          </div>
           {isOpen && (
             <button className="mobile-menu-btn" style={{ padding: 0, color: 'var(--cream)' }} onClick={() => setIsOpen(false)}>
               <X size={24} />
@@ -68,6 +71,7 @@ export default function Sidebar({ tenantSlug }: { tenantSlug: string }) {
                 key={link.name}
                 href={link.href}
                 className={`sidebar-link ${active ? 'active' : ''}`}
+                onClick={() => setIsOpen(false)}
               >
                 <Icon size={18} strokeWidth={active ? 2 : 1.5} className="sidebar-icon" />
                 <span>{link.name}</span>
@@ -88,4 +92,3 @@ export default function Sidebar({ tenantSlug }: { tenantSlug: string }) {
     </>
   )
 }
-

@@ -16,6 +16,25 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Email
+
+Auth emails use Supabase's default delivery unless SMTP is configured. To send
+signup confirmations, password resets, and team invitations through SMTP, add:
+
+```bash
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=your-username
+SMTP_PASS=your-password
+SMTP_FROM="Vexyr <no-reply@example.com>"
+SMTP_SECURE=false
+SMTP_STARTTLS=true
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
+
+`SMTP_SECURE=true` is intended for implicit TLS providers, usually on port 465.
+For STARTTLS providers on port 587, leave `SMTP_SECURE=false`.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

@@ -1163,6 +1163,41 @@ h1 { animation-delay: 0.2s; }
   background: var(--paper);
 }
 
+.password-input-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.password-input {
+  padding-right: 3rem;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.85rem;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.password-toggle:hover {
+  color: var(--ink);
+}
+
+.password-toggle:focus-visible {
+  outline: 1px solid var(--gold);
+  outline-offset: 2px;
+}
+
 .form-footer {
   display: flex;
   justify-content: space-between;
@@ -1576,6 +1611,10 @@ h1 { animation-delay: 0.2s; }
   padding: 2.5rem 2.5rem 1rem 2.5rem;
 }
 
+.sidebar-brand-block {
+  min-width: 0;
+}
+
 .sidebar-logo {
   font-family: 'Cormorant Garamond', serif;
   font-size: 2.4rem;
@@ -1589,6 +1628,19 @@ h1 { animation-delay: 0.2s; }
 .sidebar-logo span {
   color: var(--gold);
   font-style: italic;
+}
+
+.sidebar-company-name {
+  max-width: 190px;
+  margin-top: 0.35rem;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-nav {
@@ -1821,6 +1873,22 @@ h1 { animation-delay: 0.2s; }
   text-decoration: none;
 }
 .mobile-dash-header .logo span { color: var(--gold); }
+.mobile-brand-block {
+  min-width: 0;
+}
+.mobile-company-name {
+  display: block;
+  max-width: 56vw;
+  margin-top: 0.1rem;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .mobile-menu-btn {
   background: transparent;
   border: none;
