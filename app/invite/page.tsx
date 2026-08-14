@@ -59,7 +59,7 @@ export default function InviteHandlerPage() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--paper)', padding: '2rem' }}>
-      <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: '8px', padding: '3rem', textAlign: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+      <div style={{ background: 'var(--cream)', border: '1px solid var(--border)', borderRadius: '8px', padding: '3rem', textAlign: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
         <h1 style={{ fontFamily: 'Cormorant Garamond', fontSize: '2rem', marginBottom: '1rem', color: 'var(--ink)' }}>Welcome to Vexyr</h1>
         <p style={{ color: 'var(--muted)', fontSize: '1rem' }}>{status}</p>
       </div>
