@@ -25,7 +25,7 @@ export default async function BillingSettingsPage({ params }: { params: Promise<
       const { data: userRole } = await supabase
         .from('users')
         .select('role')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .eq('tenant_id', tenant.id)
         .single()
         

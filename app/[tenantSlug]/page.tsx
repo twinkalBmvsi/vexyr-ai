@@ -33,7 +33,7 @@ export default async function TenantDashboard({
       const { data: userRecord } = await supabase
         .from('users')
         .select('full_name')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .eq('tenant_id', tenant.id)
         .single()
       

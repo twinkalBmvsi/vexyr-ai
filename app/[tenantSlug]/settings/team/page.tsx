@@ -21,7 +21,7 @@ export default async function TeamSettingsPage({ params }: { params: Promise<{ t
     const { data: roleData } = await supabase
       .from('users')
       .select('role')
-      .eq('id', user.id)
+      .eq('user_id', user.id)
       .eq('tenant_id', tenant.id)
       .single()
     if (roleData) {

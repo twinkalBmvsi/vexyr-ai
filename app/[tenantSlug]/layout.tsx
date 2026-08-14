@@ -22,32 +22,31 @@ export default async function TenantLayout({
 
   let companyName = resolvedParams.tenantSlug
 
-  // 2. Authorize the user (Layer 2 Security)
-  const { data: userRecord } = await supabase
-    .from('users')
-    .select('tenant_id')
-    .eq('id', user.id)
+  // 2. Authorize the user against the tenant they selected in the URL.
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('id, name')
+    .eq('slug', resolvedParams.tenantSlug)
     .single()
 
-  if (userRecord?.tenant_id) {
-    const { data: tenant } = await supabase
-      .from('tenants')
-      .select('slug, name')
-      .eq('id', userRecord.tenant_id)
-      .single()
-
-    companyName = tenant?.name || resolvedParams.tenantSlug
-
-    // If the user's actual assigned tenant slug doesn't match the URL slug they are visiting
-    if (tenant?.slug && tenant.slug !== resolvedParams.tenantSlug) {
-      // Force redirect them to THEIR correct tenant dashboard
-      const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost'
-      redirect(`http://${tenant.slug}.${rootDomain}:3000`)
-    }
-  } else {
+  if (!tenant) {
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost'
     redirect(`http://${rootDomain}:3000/login`)
   }
+
+  const { data: userRecord } = await supabase
+    .from('users')
+    .select('tenant_id')
+    .eq('user_id', user.id)
+    .eq('tenant_id', tenant.id)
+    .single()
+
+  if (!userRecord) {
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost'
+    redirect(`http://${rootDomain}:3000/org-selector`)
+  }
+
+  companyName = tenant.name || resolvedParams.tenantSlug
 
   return (
     <div className="dashboard-layout">

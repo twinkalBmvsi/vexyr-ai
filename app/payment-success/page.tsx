@@ -32,7 +32,7 @@ export default function PaymentSuccessPage() {
         const { data: uRecord } = await supabase
           .from('users')
           .select('tenant_id')
-          .eq('id', user.id)
+          .eq('user_id', user.id)
           .single();
           
         if (uRecord?.tenant_id) {

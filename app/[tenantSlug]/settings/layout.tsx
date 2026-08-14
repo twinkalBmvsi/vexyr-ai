@@ -19,7 +19,7 @@ export default async function SettingsLayout({ children, params }: { children: R
       const { data: roleData } = await supabase
         .from('users')
         .select('role')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .eq('tenant_id', tenant.id)
         .single()
       if (roleData) {
