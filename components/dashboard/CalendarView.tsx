@@ -52,7 +52,7 @@ export default function CalendarView({ appointments }: { appointments: GridAppoi
   const currentYear = currentDate.getFullYear()
 
   // Week View: Get 7 days for the currently viewed week
-  const weekDays = []
+  const weekDays: any[] = []
   const d = new Date(currentDate)
   const day = d.getDay()
   const diff = d.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday

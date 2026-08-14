@@ -40,6 +40,7 @@ export default async function ConnectionsPage({ params }: { params: Promise<{ te
       </div>
 
       <ChannelConnections 
+        tenantSlug={resolvedParams.tenantSlug}
         initialHasWhatsapp={hasWhatsapp} 
         initialHasTelegram={hasTelegram} 
         initialWaNumber={waNumber} 

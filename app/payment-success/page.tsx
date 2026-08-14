@@ -81,7 +81,7 @@ export default function PaymentSuccessPage() {
       // Give the user a moment to see the success state before redirecting
       setTimeout(() => {
         if (tenant?.slug) {
-          const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || (window.location.hostname.includes('localhost') ? 'localtest.me' : window.location.hostname);
+          const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || (window.location.hostname.includes('localhost') ? 'localhost' : window.location.hostname);
           const port = window.location.port ? `:${window.location.port}` : '';
           const protocol = window.location.hostname.includes('localhost') || window.location.hostname.includes('localtest.me') ? 'http' : 'https';
           localStorage.removeItem("checkoutTenantId");

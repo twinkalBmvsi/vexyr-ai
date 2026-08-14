@@ -25,7 +25,7 @@ async function testLogin() {
   }
 
   const admin = createClient(supabaseUrl, supabaseServiceRole);
-  const client = createClient(supabaseUrl, anonKey);
+  const client = createClient(supabaseUrl, anonKey || "");
 
   // 1. Force update password for John
   const {

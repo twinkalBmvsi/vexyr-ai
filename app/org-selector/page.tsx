@@ -57,8 +57,8 @@ export default async function OrgSelectorPage({
   const host = headersList.get('host') || 'localhost:3000'
   const protocol = host.includes('localhost') || host.includes('localtest.me') ? 'http' : 'https'
   
-  // Use localtest.me for local development on Windows instead of localhost to support subdomains
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || (host.includes('localhost') ? 'localtest.me' : host.split(':')[0])
+  // Use localhost for local development
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || (host.includes('localhost') ? 'localhost' : host.split(':')[0])
   const port = host.includes(':') ? `:${host.split(':')[1]}` : ''
   const activeTenantIds = new Set<string>()
 

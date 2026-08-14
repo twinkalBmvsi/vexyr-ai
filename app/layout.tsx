@@ -22,7 +22,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
       </head>
       <body>
-        <Toaster position="top-right" />
+        <Toaster position="top-right" toastOptions={{ style: { zIndex: 999999 } }} containerStyle={{ zIndex: 999999 }} />
         {children}
       </body>
     </html>

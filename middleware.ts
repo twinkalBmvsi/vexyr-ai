@@ -57,8 +57,8 @@ export async function middleware(request: NextRequest) {
       const port = host.includes(':') ? `:${host.split(':')[1]}` : ''
       const protocol = host.includes('localhost') || host.includes('localtest.me') ? 'http' : 'https'
       
-      // Force localtest.me for local development to avoid Windows DNS and Next.js redirect normalization bugs
-      const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || (host.includes('localhost') || host.includes('localtest.me') ? 'localtest.me' : host.split(':')[0])
+      // Use localhost for local development
+      const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || (host.includes('localhost') || host.includes('localtest.me') ? 'localhost' : host.split(':')[0])
       
       const loginUrl = `${protocol}://${rootDomain}${port}/login`
       
