@@ -1,7 +1,7 @@
 import { headers } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
-import { ChevronRight, LogOut, Building2, Plus } from 'lucide-react'
+import { ChevronRight, LogOut, Building2, Plus, Sparkles } from 'lucide-react'
 import { createOrganization } from '@/app/auth/actions'
 
 type UserTenantRecord = {
@@ -77,39 +77,335 @@ export default async function OrgSelectorPage({
   }
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
+    <>
+      <style>{`
+        .premium-container {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 2rem;
+          background-color: #0c0c0c;
+          background-image: radial-gradient(circle at 50% -20%, #1a160f 0%, #0c0c0c 60%);
+          font-family: 'DM Sans', sans-serif;
+          color: #f5f2ec;
+          position: relative;
+          overflow: hidden;
+        }
+
+        /* Abstract glowing orbs in background */
+        .premium-container::before {
+          content: '';
+          position: absolute;
+          width: 50vw;
+          height: 50vw;
+          background: radial-gradient(circle, rgba(201, 168, 76, 0.05) 0%, transparent 60%);
+          top: -25vw;
+          left: -10vw;
+          border-radius: 50%;
+          pointer-events: none;
+        }
         
-        <div className="auth-header">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--gold)]/10 text-[var(--gold)] mb-4">
-             <Building2 size={24} />
-          </div>
-          <h1 className="auth-title">Select Workspace</h1>
-          <p className="auth-subtitle">Choose an organization or create your own.</p>
-        </div>
+        .premium-container::after {
+          content: '';
+          position: absolute;
+          width: 60vw;
+          height: 60vw;
+          background: radial-gradient(circle, rgba(255, 255, 255, 0.02) 0%, transparent 60%);
+          bottom: -30vw;
+          right: -10vw;
+          border-radius: 50%;
+          pointer-events: none;
+        }
 
-        {pageError && (
-          <div style={{ color: '#ef4444', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1rem' }}>
-            {pageError}
-          </div>
-        )}
+        .premium-card {
+          width: 100%;
+          max-width: 440px;
+          background: rgba(18, 18, 18, 0.4);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-top: 1px solid rgba(201, 168, 76, 0.3);
+          border-radius: 24px;
+          padding: 3rem;
+          box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          position: relative;
+          z-index: 10;
+          animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
 
-        {created && (
-          <div style={{ color: '#10b981', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1rem' }}>
-            Organization created. Select it to choose a plan and finish setup.
-          </div>
-        )}
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
 
-        {dbError && (
-          <div style={{ color: '#ef4444', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1rem' }}>
-            Could not load organizations. Please refresh and try again.
-          </div>
-        )}
+        .premium-header {
+          text-align: center;
+          margin-bottom: 2.5rem;
+        }
 
-        <div className="flex flex-col gap-4 mb-8 w-full">
+        .premium-icon-wrapper {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 56px;
+          height: 56px;
+          border-radius: 18px;
+          background: linear-gradient(145deg, #1f1c14 0%, #12100b 100%);
+          border: 1px solid rgba(201, 168, 76, 0.2);
+          color: #c9a84c;
+          margin-bottom: 1.5rem;
+          box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+        }
+
+        .premium-title {
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 2.2rem;
+          font-weight: 400;
+          color: #ffffff;
+          line-height: 1.1;
+          margin: 0 0 0.5rem 0;
+          letter-spacing: 0.02em;
+        }
+
+        .premium-subtitle {
+          font-size: 0.85rem;
+          color: #8c8880;
+          font-weight: 400;
+          margin: 0;
+        }
+
+        .workspace-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          margin-bottom: 2rem;
+        }
+
+        .workspace-item {
+          display: flex;
+          align-items: center;
+          padding: 1.1rem 1.25rem;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 16px;
+          text-decoration: none;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .workspace-item:hover {
+          background: rgba(201, 168, 76, 0.06);
+          border-color: rgba(201, 168, 76, 0.4);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        .workspace-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.05);
+          color: #ffffff;
+          margin-right: 1.25rem;
+          transition: all 0.3s ease;
+          flex-shrink: 0;
+        }
+
+        .workspace-item:hover .workspace-icon {
+          background: #c9a84c;
+          color: #0c0c0c;
+        }
+
+        .workspace-info {
+          flex-grow: 1;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .workspace-name {
+          font-size: 1rem;
+          font-weight: 500;
+          color: #ffffff;
+          margin-bottom: 0.2rem;
+        }
+
+        .workspace-meta {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-family: 'DM Mono', monospace;
+          font-size: 0.65rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+
+        .workspace-role {
+          color: #8c8880;
+        }
+        
+        .workspace-status {
+          color: #c9a84c;
+        }
+        
+        .workspace-status.active {
+          color: #4ade80;
+        }
+
+        .workspace-arrow {
+          color: rgba(255, 255, 255, 0.2);
+          transition: all 0.3s ease;
+        }
+
+        .workspace-item:hover .workspace-arrow {
+          color: #c9a84c;
+          transform: translateX(4px);
+        }
+
+        .divider {
+          display: flex;
+          align-items: center;
+          text-align: center;
+          margin-bottom: 1.5rem;
+        }
+        
+        .divider::before, .divider::after {
+          content: '';
+          flex: 1;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .divider span {
+          padding: 0 1rem;
+          color: #666;
+          font-family: 'DM Mono', monospace;
+          font-size: 0.65rem;
+          text-transform: uppercase;
+          letter-spacing: 0.15em;
+        }
+
+        .create-form {
+          position: relative;
+        }
+
+        .create-input {
+          width: 100%;
+          background: rgba(0, 0, 0, 0.2);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 14px;
+          padding: 1.1rem 3.5rem 1.1rem 1.25rem;
+          color: #fff;
+          font-size: 0.9rem;
+          transition: all 0.3s ease;
+          outline: none;
+        }
+
+        .create-input:focus {
+          border-color: rgba(201, 168, 76, 0.5);
+          background: rgba(0, 0, 0, 0.4);
+          box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.1);
+        }
+
+        .create-input::placeholder {
+          color: #555;
+        }
+
+        .create-btn {
+          position: absolute;
+          right: 5px;
+          top: 5px;
+          bottom: 5px;
+          width: 40px;
+          border: none;
+          background: #c9a84c;
+          color: #0c0c0c;
+          border-radius: 10px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s ease;
+        }
+
+        .create-btn:hover {
+          background: #e8d5a3;
+        }
+        
+        .create-btn:active {
+          transform: scale(0.92);
+        }
+
+        .signout-container {
+          margin-top: 2rem;
+          text-align: center;
+        }
+
+        .signout-btn {
+          background: none;
+          border: none;
+          color: #666;
+          font-family: 'DM Mono', monospace;
+          font-size: 0.65rem;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: color 0.3s ease;
+        }
+
+        .signout-btn:hover {
+          color: #fff;
+        }
+        
+        .empty-state {
+          text-align: center;
+          padding: 2rem;
+          border: 1px dashed rgba(255, 255, 255, 0.1);
+          border-radius: 16px;
+          color: #8c8880;
+          font-size: 0.85rem;
+        }
+      `}</style>
+
+      <div className="premium-container">
+        <div className="premium-card">
+          <div className="premium-header">
+            <div className="premium-icon-wrapper">
+              <Sparkles size={24} />
+            </div>
+            {/* Using a div instead of h1 to avoid massive global h1 overrides */}
+            <div className="premium-title">Select Workspace</div>
+            <p className="premium-subtitle">Choose an organization or create a new one.</p>
+          </div>
+
+          {pageError && (
+            <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', fontSize: '0.85rem', textAlign: 'center', marginBottom: '1.5rem' }}>
+              {pageError}
+            </div>
+          )}
+
+          {created && (
+            <div style={{ padding: '12px', background: 'rgba(74, 222, 128, 0.1)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.2)', borderRadius: '12px', fontSize: '0.85rem', textAlign: 'center', marginBottom: '1.5rem' }}>
+              Organization created. Select it to continue.
+            </div>
+          )}
+
+          {dbError && (
+            <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', fontSize: '0.85rem', textAlign: 'center', marginBottom: '1.5rem' }}>
+              Could not load organizations. Please refresh.
+            </div>
+          )}
+
+          <div className="workspace-list">
             {memberships.length === 0 && (
-              <div style={{ padding: '1rem', border: '1px dashed var(--border-strong)', borderRadius: '8px', color: 'var(--muted)', fontSize: '0.9rem', textAlign: 'center' }}>
-                You are not enrolled in any organization right now.
+              <div className="empty-state">
+                No active organizations found.
               </div>
             )}
 
@@ -120,66 +416,58 @@ export default async function OrgSelectorPage({
                 : `/select-plan?tenantId=${tenant.id}`
               
               return (
-                <a 
-                  key={tenant.id}
-                  href={href}
-                  className="group relative flex items-center p-5 bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[var(--border)] overflow-hidden no-underline transition-all duration-300 hover:shadow-[0_8px_30px_rgba(12,12,12,0.08)] hover:-translate-y-0.5 hover:border-[var(--gold)]/40"
-                >
-                  {/* Soft gold glow on the left */}
-                  <div className="absolute -left-6 top-1/2 -translate-y-1/2 w-28 h-28 bg-[var(--gold)]/15 blur-2xl rounded-full z-0 transition-all duration-300 group-hover:bg-[var(--gold)]/25" />
-                  
-                  {/* Icon container */}
-                  <div className="relative z-10 flex-shrink-0 w-12 h-12 bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-black/5 flex items-center justify-center text-[var(--gold)] transition-transform duration-300 group-hover:scale-105">
-                    <Building2 size={22} strokeWidth={1.5} />
+                <a key={tenant.id} href={href} className="workspace-item">
+                  <div className="workspace-icon">
+                    <Building2 size={20} strokeWidth={1.5} />
                   </div>
                   
-                  {/* Text Content */}
-                  <div className="relative z-10 flex flex-col justify-center ml-5 flex-grow">
-                    <span className="text-[1.05rem] font-semibold text-[var(--ink)] group-hover:text-[var(--gold)] transition-colors duration-300">{tenant.name}</span>
-                    <span className="text-[0.85rem] text-[var(--muted)] capitalize mt-0.5">
-                      {role} - {hasActiveSubscription ? 'Active' : 'Payment required'}
-                    </span>
+                  <div className="workspace-info">
+                    <span className="workspace-name">{tenant.name}</span>
+                    <div className="workspace-meta">
+                      <span className="workspace-role">{role}</span>
+                      <span style={{ color: 'rgba(255,255,255,0.15)' }}>•</span>
+                      <span className={`workspace-status ${hasActiveSubscription ? 'active' : ''}`}>
+                        {hasActiveSubscription ? 'Active' : 'Payment required'}
+                      </span>
+                    </div>
                   </div>
                   
-                  {/* Right chevron */}
-                  <div className="relative z-10 flex-shrink-0 text-black/20 group-hover:text-[var(--gold)] transition-all duration-300 group-hover:translate-x-1 ml-4">
-                    <ChevronRight size={22} strokeWidth={1.5} />
+                  <div className="workspace-arrow">
+                    <ChevronRight size={20} strokeWidth={1.5} />
                   </div>
                 </a>
               )
             })}
-        </div>
+          </div>
 
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--ink)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Plus size={18} color="var(--gold)" />
-            Create Organization
-          </h2>
-          <form action={createOrganization} className="auth-form">
-            <div className="form-group">
-              <label className="form-label" htmlFor="businessName">Organization Name</label>
-              <input
-                id="businessName"
-                name="businessName"
-                type="text"
-                className="form-input"
-                placeholder="Glamour Studio"
-                required
-              />
-            </div>
-            <button type="submit" className="auth-btn">Create Organization</button>
-          </form>
-        </div>
+          <div className="divider">
+            <span>New Workspace</span>
+          </div>
 
-        <div className="text-center mt-6">
-          <form action="/auth/signout" method="post">
-            <button className="inline-flex items-center bg-transparent border-none font-mono text-xs tracking-[0.1em] uppercase text-[var(--muted)] cursor-pointer transition-colors hover:text-[var(--ink)]">
-              <LogOut size={14} className="mr-2" />
-              Sign out of all accounts
+          <form action={createOrganization} className="create-form">
+            <input
+              id="businessName"
+              name="businessName"
+              type="text"
+              placeholder="Enter organization name..."
+              className="create-input"
+              required
+            />
+            <button type="submit" className="create-btn" title="Create Organization">
+              <Plus size={20} strokeWidth={2.5} />
             </button>
           </form>
+
+          <div className="signout-container">
+            <form action="/auth/signout" method="post">
+              <button className="signout-btn">
+                <LogOut size={14} />
+                Sign out of all accounts
+              </button>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
