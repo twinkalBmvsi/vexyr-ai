@@ -53,12 +53,23 @@ export async function middleware(request: NextRequest) {
 
     if (!user) {
       // Not logged in -> Redirect to main domain login
-      const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost'
-      // Use raw NextResponse to prevent Next.js from normalizing localhost redirects to relative paths
-      return new NextResponse(null, {
-        status: 307,
+      const host = request.headers.get('host') || 'localhost:3000'
+      const port = host.includes(':') ? `:${host.split(':')[1]}` : ''
+      const protocol = host.includes('localhost') || host.includes('localtest.me') ? 'http' : 'https'
+      
+      // Force localtest.me for local development to avoid Windows DNS and Next.js redirect normalization bugs
+      const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || (host.includes('localhost') || host.includes('localtest.me') ? 'localtest.me' : host.split(':')[0])
+      
+      const loginUrl = `${protocol}://${rootDomain}${port}/login`
+      
+      // Avoid redirect loops if we are already on the target login page (shouldn't happen on subdomain, but safety first)
+      if (request.url === loginUrl) return supabaseResponse
+
+      // Use raw Response to completely bypass Next.js URL normalization which causes the ERR_TOO_MANY_REDIRECTS loop
+      return new Response(null, {
+        status: 302,
         headers: {
-          Location: `http://${rootDomain}:3000/login`
+          Location: loginUrl
         }
       })
     }

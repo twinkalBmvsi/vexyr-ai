@@ -146,22 +146,15 @@ export async function POST(request: Request) {
     const { error: insertError } = await adminAuthClient
       .from('users')
       .insert({
-        id: invitedUserId,
+        user_id: invitedUserId,
         tenant_id: tenantId,
         role: 'manager',
         full_name: email.split('@')[0], // Default name
       })
 
     if (insertError) {
-      // If they already exist in another tenant, we might just update or insert?
-      // Wait, public.users has primary key `id`.
-      // If a user can be in multiple tenants, public.users needs a composite PK, but in schema.sql:
-      // id uuid PRIMARY KEY REFERENCES auth.users(id)
-      // This means a user can ONLY belong to one tenant!
-      // If they are already in the system, inviteUserByEmail might fail or return existing user.
-      // If they exist in public.users, insert will fail with unique constraint.
       if (insertError.code === '23505') {
-         return NextResponse.json({ error: 'User is already part of a workspace in this system.' }, { status: 400 })
+         return NextResponse.json({ error: 'User is already a member of this workspace.' }, { status: 400 })
       }
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }

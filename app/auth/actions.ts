@@ -29,39 +29,52 @@ export async function login(prevState: unknown, formData: FormData) {
     return { error: error?.message || 'Login failed' }
   }
 
-  // Fetch the user's assigned tenant
-  const { data: userRecord } = await supabase
+  // Fetch all user's assigned tenants
+  const { data: userRecords } = await supabase
     .from('users')
     .select('tenant_id')
-    .eq('id', authData.user.id)
-    .single()
+    .eq('user_id', authData.user.id)
 
-  if (userRecord?.tenant_id) {
+  if (userRecords && userRecords.length > 0) {
+    if (userRecords.length > 1) {
+      // User belongs to multiple organizations
+      return { redirectUrl: '/org-selector' }
+    }
+
+    const tenantId = userRecords[0].tenant_id
+
     // Check for active subscription
     const { data: subscription } = await supabase
       .from('subscriptions')
       .select('status')
-      .eq('tenant_id', userRecord.tenant_id)
+      .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .maybeSingle()
 
     if (!subscription) {
       // No active subscription, redirect to select plan page
-      return { redirectUrl: `/select-plan?tenantId=${userRecord.tenant_id}` }
+      return { redirectUrl: `/select-plan?tenantId=${tenantId}` }
     }
 
     // Fetch the tenant's slug
     const { data: tenant } = await supabase
       .from('tenants')
       .select('slug')
-      .eq('id', userRecord.tenant_id)
+      .eq('id', tenantId)
       .single()
       
     if (tenant?.slug) {
       // Instead of Next.js redirect (which fails across subdomains via Server Actions),
       // we return the URL and let the client do a full page load.
-      const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost'
-      return { redirectUrl: `http://${tenant.slug}.${rootDomain}:3000/auth/handoff?access_token=${authData.session.access_token}&refresh_token=${authData.session.refresh_token}` }
+      const { headers } = await import('next/headers')
+      const headersList = await headers()
+      const host = headersList.get('host') || 'localhost:3000'
+      const protocol = host.includes('localhost') || host.includes('localtest.me') ? 'http' : 'https'
+      
+      const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || (host.includes('localhost') ? 'localtest.me' : host.split(':')[0])
+      const port = host.includes(':') ? `:${host.split(':')[1]}` : ''
+
+      return { redirectUrl: `${protocol}://${tenant.slug}.${rootDomain}${port}/auth/handoff?access_token=${authData.session.access_token}&refresh_token=${authData.session.refresh_token}` }
     }
   }
 
@@ -165,7 +178,7 @@ export async function signup(prevState: unknown, formData: FormData) {
     const { error: userError } = await adminClient
       .from('users')
       .insert({
-        id: user.id, // Maps to auth.users.id
+        user_id: user.id, // Maps to auth.users.id
         tenant_id: tenant.id,
         role: 'owner',
         full_name: fullName

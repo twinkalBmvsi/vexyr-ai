@@ -84,11 +84,13 @@ CREATE TABLE public.tenants (
 );
 
 CREATE TABLE public.users (
-  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
   role user_role DEFAULT 'staff' NOT NULL,
   full_name text,
-  created_at timestamptz DEFAULT now() NOT NULL
+  created_at timestamptz DEFAULT now() NOT NULL,
+  UNIQUE(user_id, tenant_id)
 );
 
 CREATE TABLE public.subscriptions (
@@ -332,10 +334,10 @@ CREATE TABLE public.invoices (
 -- ROW LEVEL SECURITY (RLS)
 -- ==========================================
 
--- Function to securely get the tenant_id of the authenticated user
-CREATE OR REPLACE FUNCTION public.get_auth_tenant_id()
-RETURNS uuid AS $$
-  SELECT tenant_id FROM public.users WHERE id = auth.uid() LIMIT 1;
+-- Function to securely get the tenant_ids of the authenticated user
+CREATE OR REPLACE FUNCTION public.get_auth_tenant_ids()
+RETURNS setof uuid AS $$
+  SELECT tenant_id FROM public.users WHERE user_id = auth.uid();
 $$ LANGUAGE sql SECURITY DEFINER;
 
 -- Enable RLS on all tenant tables
@@ -365,32 +367,32 @@ ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
 
 -- Tenants Policy (Users can only view/update their own tenant)
 CREATE POLICY "Tenant isolation" ON public.tenants
-  FOR ALL USING (id = public.get_auth_tenant_id());
+  FOR ALL USING (id IN (SELECT public.get_auth_tenant_ids()));
 
 -- Generic Policy Template for all tables with `tenant_id`
 -- Since all the below tables have a `tenant_id` column, the policy is uniform.
-CREATE POLICY "Tenant isolation" ON public.users FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.subscriptions FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.agents FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.channels FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.customers FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.conversations FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.messages FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.calendars FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.appointments FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.calendar_events FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.knowledge FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.documents FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.document_chunks FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.integrations FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.workflows FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.workflow_runs FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.webhook_logs FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.api_keys FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.usage_metrics FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.audit_logs FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.notifications FOR ALL USING (tenant_id = public.get_auth_tenant_id());
-CREATE POLICY "Tenant isolation" ON public.invoices FOR ALL USING (tenant_id = public.get_auth_tenant_id());
+CREATE POLICY "Tenant isolation" ON public.users FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.subscriptions FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.agents FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.channels FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.customers FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.conversations FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.messages FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.calendars FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.appointments FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.calendar_events FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.knowledge FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.documents FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.document_chunks FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.integrations FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.workflows FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.workflow_runs FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.webhook_logs FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.api_keys FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.usage_metrics FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.audit_logs FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.notifications FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.invoices FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
 
 -- ==========================================
 -- INDEXES FOR PERFORMANCE
