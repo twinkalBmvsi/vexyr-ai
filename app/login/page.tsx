@@ -1,19 +1,22 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
+import { useActionState, useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import { login } from '@/app/auth/actions'
+import { useSearchParams } from 'next/navigation'
 
-export default function Login() {
+function LoginForm() {
+  const searchParams = useSearchParams()
+  const next = searchParams.get('next')
   const [state, formAction, isPending] = useActionState(login, null)
   const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     if (state?.redirectUrl) {
-      window.location.href = state.redirectUrl
+      window.location.href = next || state.redirectUrl
     }
-  }, [state])
+  }, [state, next])
 
   return (
     <div className="auth-container">
@@ -83,4 +86,12 @@ export default function Login() {
       </div>
     </div>
   );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={<div className="auth-container"><div className="auth-card">Loading...</div></div>}>
+      <LoginForm />
+    </Suspense>
+  )
 }

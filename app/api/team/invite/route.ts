@@ -5,36 +5,9 @@ import {
   buildSupabaseAuthLink,
   getAuthRedirectUrl,
   isSmtpConfigured,
-  sendPasswordResetEmail,
   sendInviteEmail,
 } from '@/utils/email/auth-emails'
-
-async function findAuthUserIdByEmail(adminAuthClient: ReturnType<typeof createAdminClient>, email: string) {
-  const normalizedEmail = email.trim().toLowerCase()
-  let page = 1
-
-  while (page <= 10) {
-    const { data, error } = await adminAuthClient.auth.admin.listUsers({ page, perPage: 1000 })
-
-    if (error) {
-      throw error
-    }
-
-    const user = data.users.find((authUser) => authUser.email?.toLowerCase() === normalizedEmail)
-
-    if (user) {
-      return user.id
-    }
-
-    if (data.users.length < 1000) {
-      return null
-    }
-
-    page++
-  }
-
-  return null
-}
+import crypto from 'crypto'
 
 export async function POST(request: Request) {
   try {
@@ -66,120 +39,78 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Only owners can invite team members' }, { status: 403 })
     }
 
-    // 2. Invite the user via Supabase Admin API
+    // 2. Check if already a member
+    // Since we don't know their user_id yet if they are new, we can check by joining if possible,
+    // but we'll just rely on the existing member check by email or wait until they accept.
+    // For now, let's create the invite.
+
+    // 3. Create the invite token and record
+    const token = crypto.randomUUID()
+    const { error: inviteInsertError } = await adminAuthClient
+      .from('team_invites')
+      .insert({
+        tenant_id: tenantId,
+        email,
+        role: 'manager',
+        token,
+        status: 'pending'
+      })
+
+    if (inviteInsertError) {
+      return NextResponse.json({ error: 'Failed to create invite record: ' + inviteInsertError.message }, { status: 500 })
+    }
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL 
+      ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '') 
+      : `http://${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost'}:3000`
+    
+    const acceptUrl = `${siteUrl}/invite/accept?token=${token}`
+
+    // 4. Handle Email Sending & Auth Link Generation
     const smtpEnabled = isSmtpConfigured()
-    let inviteActionUrl: string | null = null
-    let passwordSetupActionUrl: string | null = null
-    let shouldSendSupabasePasswordSetup = false
-    let invitedUserId: string
+    let finalActionUrl = acceptUrl
 
     if (smtpEnabled) {
       const { data: linkData, error: linkError } = await adminAuthClient.auth.admin.generateLink({
         type: 'invite',
         email,
         options: {
-          redirectTo: getAuthRedirectUrl(),
+          redirectTo: acceptUrl,
         },
       })
 
       if (linkError) {
-        const existingUserId = linkError.message.toLowerCase().includes('already been registered')
-          ? await findAuthUserIdByEmail(adminAuthClient, email)
-          : null
-
-        if (!existingUserId) {
+        // If already registered, linkError will contain "already been registered"
+        // In that case, they don't need a GoTrue invite link, they just need the direct acceptUrl.
+        if (linkError.message.toLowerCase().includes('already been registered')) {
+          finalActionUrl = acceptUrl
+        } else {
           return NextResponse.json({ error: linkError.message }, { status: 400 })
         }
-
-        const { data: recoveryData, error: recoveryError } = await adminAuthClient.auth.admin.generateLink({
-          type: 'recovery',
-          email,
-          options: {
-            redirectTo: getAuthRedirectUrl(),
-          },
-        })
-
-        if (recoveryError) {
-          return NextResponse.json({ error: recoveryError.message }, { status: 400 })
-        }
-
-        if (!recoveryData.properties?.hashed_token) {
-          return NextResponse.json({ error: 'Failed to generate password setup link.' }, { status: 500 })
-        }
-
-        invitedUserId = existingUserId
-        passwordSetupActionUrl = buildSupabaseAuthLink('recovery', recoveryData.properties.hashed_token, '/set-password')
       } else {
-        if (!linkData.user || !linkData.properties?.hashed_token) {
+        if (!linkData.properties?.hashed_token) {
           return NextResponse.json({ error: 'Failed to generate invite link.' }, { status: 500 })
         }
-
-        invitedUserId = linkData.user.id
-        inviteActionUrl = buildSupabaseAuthLink('invite', linkData.properties.hashed_token, '/set-password')
+        finalActionUrl = buildSupabaseAuthLink('invite', linkData.properties.hashed_token, `/invite/accept?token=${token}`)
       }
+
+      await sendInviteEmail(email, finalActionUrl)
     } else {
-      const { data: inviteData, error: inviteError } = await adminAuthClient.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${getAuthRedirectUrl().replace('/auth/confirm', '')}/invite`
+      const { error: inviteError } = await adminAuthClient.auth.admin.inviteUserByEmail(email, {
+        redirectTo: acceptUrl
       })
 
       if (inviteError) {
-        const existingUserId = inviteError.message.toLowerCase().includes('already been registered')
-          ? await findAuthUserIdByEmail(adminAuthClient, email)
-          : null
-
-        if (!existingUserId) {
-          return NextResponse.json({ error: inviteError.message }, { status: 400 })
+        // If already registered and no SMTP, we can't send them an email natively through Supabase easily.
+        // We will return a specific message in this local dev scenario.
+        if (inviteError.message.toLowerCase().includes('already been registered')) {
+          return NextResponse.json({ message: 'User is already registered. Since SMTP is disabled, they will not receive an email. Please send them this link manually: ' + acceptUrl })
         }
-
-        invitedUserId = existingUserId
-        shouldSendSupabasePasswordSetup = true
-      } else {
-        if (!inviteData.user) {
-          return NextResponse.json({ error: 'Failed to invite user' }, { status: 500 })
-        }
-
-        invitedUserId = inviteData.user.id
+        return NextResponse.json({ error: inviteError.message }, { status: 400 })
       }
     }
 
-    // 3. Add the user to the public.users table as a manager
-    const { data: member, error: insertError } = await adminAuthClient
-      .from('users')
-      .insert({
-        user_id: invitedUserId,
-        tenant_id: tenantId,
-        role: 'manager',
-        full_name: email.split('@')[0], // Default name
-      })
-      .select('id, user_id, full_name, role')
-      .single()
-
-    if (insertError) {
-      if (insertError.code === '23505') {
-         return NextResponse.json({ error: 'User is already a member of this workspace.' }, { status: 400 })
-      }
-      return NextResponse.json({ error: insertError.message }, { status: 500 })
-    }
-
-    if (smtpEnabled && inviteActionUrl) {
-      await sendInviteEmail(email, inviteActionUrl)
-    }
-
-    if (smtpEnabled && passwordSetupActionUrl) {
-      await sendPasswordResetEmail(email, passwordSetupActionUrl)
-    }
-
-    if (shouldSendSupabasePasswordSetup) {
-      const { error: resetError } = await adminAuthClient.auth.resetPasswordForEmail(email, {
-        redirectTo: getAuthRedirectUrl(),
-      })
-
-      if (resetError) {
-        return NextResponse.json({ error: resetError.message }, { status: 400 })
-      }
-    }
-
-    return NextResponse.json({ message: 'Invitation sent successfully', member })
+    return NextResponse.json({ message: 'Invitation sent successfully' })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected error'
     return NextResponse.json({ error: message }, { status: 500 })
