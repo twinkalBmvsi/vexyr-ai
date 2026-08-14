@@ -14,7 +14,7 @@ export default function Signup() {
       <div className="auth-card">
         <div className="auth-header">
           <h1 className="auth-title">Create account</h1>
-          <p className="auth-subtitle">Join hundreds of small businesses on Vexyr</p>
+          <p className="auth-subtitle">Create your Vexyr login, then set up or join an organization.</p>
         </div>
 
         <form className="auth-form" action={formAction}>
@@ -38,18 +38,6 @@ export default function Signup() {
               name="fullName" 
               className="form-input" 
               placeholder="Priya Patel" 
-              required 
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="businessName">Business Name</label>
-            <input 
-              type="text" 
-              id="businessName" 
-              name="businessName" 
-              className="form-input" 
-              placeholder="Glamour Studio" 
               required 
             />
           </div>
@@ -89,7 +77,7 @@ export default function Signup() {
           </div>
 
           <button type="submit" className="auth-btn" style={{ marginTop: '0.5rem' }} disabled={isPending}>
-            {isPending ? 'Creating Account...' : 'Start Free Trial'}
+            {isPending ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 

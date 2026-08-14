@@ -7,10 +7,20 @@ import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 export default function PaymentSuccessPage() {
   const [status, setStatus] = useState<"verifying" | "success" | "error">("verifying");
   const [message, setMessage] = useState("Verifying your subscription...");
-  const supabase = createClient();
 
   useEffect(() => {
+    const supabase = createClient();
+
     const checkSubscription = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const selectedTenantId = params.get("tenantId") || localStorage.getItem("checkoutTenantId");
+
+      if (!selectedTenantId) {
+        setStatus("error");
+        setMessage("We could not identify which organization this payment belongs to. Please return to organization selection.");
+        return;
+      }
+
       // 1. Get current user session
       const { data: authData } = await supabase.auth.getSession();
       if (!authData.session) {
@@ -23,24 +33,22 @@ export default function PaymentSuccessPage() {
       // 2. Poll for active subscription
       let attempts = 0;
       let subscriptionActive = false;
-      let userRecord = null;
 
       while (!subscriptionActive && attempts < 10) {
         attempts++;
         
-        // Fetch user record to get tenant_id
-        const { data: uRecord } = await supabase
+        const { data: userRecord } = await supabase
           .from('users')
           .select('tenant_id')
           .eq('user_id', user.id)
-          .single();
+          .eq('tenant_id', selectedTenantId)
+          .maybeSingle();
           
-        if (uRecord?.tenant_id) {
-          userRecord = uRecord;
+        if (userRecord?.tenant_id) {
           const { data: sub } = await supabase
             .from('subscriptions')
             .select('status')
-            .eq('tenant_id', uRecord.tenant_id)
+            .eq('tenant_id', selectedTenantId)
             .eq('status', 'active')
             .maybeSingle();
 
@@ -54,7 +62,7 @@ export default function PaymentSuccessPage() {
         await new Promise(r => setTimeout(r, 2000));
       }
 
-      if (!subscriptionActive || !userRecord) {
+      if (!subscriptionActive) {
         setStatus("error");
         setMessage("We couldn't verify your subscription yet. Please refresh this page or contact support.");
         return;
@@ -67,14 +75,17 @@ export default function PaymentSuccessPage() {
       const { data: tenant } = await supabase
         .from('tenants')
         .select('slug')
-        .eq('id', userRecord.tenant_id)
+        .eq('id', selectedTenantId)
         .single();
 
       // Give the user a moment to see the success state before redirecting
       setTimeout(() => {
         if (tenant?.slug) {
-          const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost';
-          window.location.href = `http://${tenant.slug}.${rootDomain}:3000/auth/handoff?access_token=${authData.session.access_token}&refresh_token=${authData.session.refresh_token}`;
+          const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || (window.location.hostname.includes('localhost') ? 'localtest.me' : window.location.hostname);
+          const port = window.location.port ? `:${window.location.port}` : '';
+          const protocol = window.location.hostname.includes('localhost') || window.location.hostname.includes('localtest.me') ? 'http' : 'https';
+          localStorage.removeItem("checkoutTenantId");
+          window.location.href = `${protocol}://${tenant.slug}.${rootDomain}${port}/auth/handoff?access_token=${authData.session.access_token}&refresh_token=${authData.session.refresh_token}`;
         } else {
           window.location.href = "/";
         }

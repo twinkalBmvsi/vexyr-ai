@@ -16,12 +16,16 @@ export async function GET(request: Request) {
     })
 
     if (!error && authData?.user) {
+      if (type === 'signup') {
+        return NextResponse.redirect(new URL('/login?verified=1', request.url))
+      }
+
       // User is successfully verified and logged in.
       // Fetch their tenant slug for redirection
       const { data: userRecord } = await supabase
         .from('users')
         .select('tenant_id')
-        .eq('id', authData.user.id)
+        .eq('user_id', authData.user.id)
         .single()
 
       if (userRecord?.tenant_id) {

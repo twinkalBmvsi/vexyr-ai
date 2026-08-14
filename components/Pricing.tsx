@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function Pricing({ tenantId }: { tenantId?: string }) {
   const [isYearly, setIsYearly] = useState(false);
+
+  useEffect(() => {
+    if (tenantId) {
+      localStorage.setItem('checkoutTenantId', tenantId);
+    }
+  }, [tenantId]);
 
   const getPlanLink = (planId: 'starter' | 'growth' | 'enterprise') => {
     if (!tenantId) return '/login';
@@ -95,7 +101,7 @@ export default function Pricing({ tenantId }: { tenantId?: string }) {
             <li className="plan-feature dimmed">Automated Follow-ups</li>
             <li className="plan-feature dimmed">Reputation Management</li>
           </ul>
-          <a href={getPlanLink('starter')} className="plan-btn">Get started</a>
+          <a href={getPlanLink('starter')} className="plan-btn" onClick={() => tenantId && localStorage.setItem('checkoutTenantId', tenantId)}>Get started</a>
         </div>
 
         <div className="plan-card featured">
@@ -119,7 +125,7 @@ export default function Pricing({ tenantId }: { tenantId?: string }) {
             <li className="plan-feature">Full dashboard + reports</li>
             <li className="plan-feature">AI executive summaries</li>
           </ul>
-          <a href={getPlanLink('growth')} className="plan-btn">Get started</a>
+          <a href={getPlanLink('growth')} className="plan-btn" onClick={() => tenantId && localStorage.setItem('checkoutTenantId', tenantId)}>Get started</a>
         </div>
 
         <div className="plan-card">
@@ -142,7 +148,7 @@ export default function Pricing({ tenantId }: { tenantId?: string }) {
             <li className="plan-feature">Custom integrations</li>
             <li className="plan-feature">Dedicated engineer hours</li>
           </ul>
-          <a href={getPlanLink('enterprise')} className="plan-btn">{tenantId ? 'Subscribe' : 'Contact sales'}</a>
+          <a href={getPlanLink('enterprise')} className="plan-btn" onClick={() => tenantId && localStorage.setItem('checkoutTenantId', tenantId)}>{tenantId ? 'Subscribe' : 'Contact sales'}</a>
         </div>
       </div>
     </section>

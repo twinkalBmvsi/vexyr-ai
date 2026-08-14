@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/utils/supabase/service-role'
+import { redirect } from 'next/navigation'
 import {
   buildSupabaseAuthLink,
   getAuthRedirectUrl,
@@ -29,56 +30,7 @@ export async function login(prevState: unknown, formData: FormData) {
     return { error: error?.message || 'Login failed' }
   }
 
-  // Fetch all user's assigned tenants
-  const { data: userRecords } = await supabase
-    .from('users')
-    .select('tenant_id')
-    .eq('user_id', authData.user.id)
-
-  if (userRecords && userRecords.length > 0) {
-    if (userRecords.length > 1) {
-      // User belongs to multiple organizations
-      return { redirectUrl: '/org-selector' }
-    }
-
-    const tenantId = userRecords[0].tenant_id
-
-    // Check for active subscription
-    const { data: subscription } = await supabase
-      .from('subscriptions')
-      .select('status')
-      .eq('tenant_id', tenantId)
-      .eq('status', 'active')
-      .maybeSingle()
-
-    if (!subscription) {
-      // No active subscription, redirect to select plan page
-      return { redirectUrl: `/select-plan?tenantId=${tenantId}` }
-    }
-
-    // Fetch the tenant's slug
-    const { data: tenant } = await supabase
-      .from('tenants')
-      .select('slug')
-      .eq('id', tenantId)
-      .single()
-      
-    if (tenant?.slug) {
-      // Instead of Next.js redirect (which fails across subdomains via Server Actions),
-      // we return the URL and let the client do a full page load.
-      const { headers } = await import('next/headers')
-      const headersList = await headers()
-      const host = headersList.get('host') || 'localhost:3000'
-      const protocol = host.includes('localhost') || host.includes('localtest.me') ? 'http' : 'https'
-      
-      const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || (host.includes('localhost') ? 'localtest.me' : host.split(':')[0])
-      const port = host.includes(':') ? `:${host.split(':')[1]}` : ''
-
-      return { redirectUrl: `${protocol}://${tenant.slug}.${rootDomain}${port}/auth/handoff?access_token=${authData.session.access_token}&refresh_token=${authData.session.refresh_token}` }
-    }
-  }
-
-  return { redirectUrl: '/' }
+  return { redirectUrl: '/org-selector' }
 }
 
 export async function signup(prevState: unknown, formData: FormData) {
@@ -86,18 +38,15 @@ export async function signup(prevState: unknown, formData: FormData) {
   
   const email = formData.get('email') as string
   const password = formData.get('password') as string
-  const businessName = formData.get('businessName') as string
   const fullName = formData.get('fullName') as string
 
-  if (!email || !password || !businessName || !fullName) {
+  if (!email || !password || !fullName) {
     return { error: 'All fields are required' }
   }
 
-  let user = null
   let signupActionUrl: string | null = null
   const smtpEnabled = isSmtpConfigured()
 
-  // 1. Create the user in Supabase Auth
   if (smtpEnabled) {
     const adminClient = createAdminClient()
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
@@ -111,6 +60,9 @@ export async function signup(prevState: unknown, formData: FormData) {
     })
 
     if (linkError) {
+      if (linkError.message.toLowerCase().includes('already')) {
+        return { error: 'This email already has an account. Please sign in, then create or select an organization.' }
+      }
       return { error: linkError.message }
     }
 
@@ -118,83 +70,108 @@ export async function signup(prevState: unknown, formData: FormData) {
       return { error: 'Failed to generate verification link.' }
     }
 
-    user = linkData.user
     signupActionUrl = buildSupabaseAuthLink('signup', linkData.properties.hashed_token)
+    await sendSignupEmail(email, signupActionUrl)
   } else {
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        data: { full_name: fullName },
         emailRedirectTo: 'http://localhost:3000/auth/confirm',
       }
     })
 
     if (authError) {
+      if (authError.message.toLowerCase().includes('already')) {
+        return { error: 'This email already has an account. Please sign in, then create or select an organization.' }
+      }
       return { error: authError.message }
     }
 
-    user = authData.user
-  }
-
-  if (user) {
-    // 2. Use Service Role to bypass RLS and create the Tenant & User records
-    const adminClient = createAdminClient()
-
-    // Generate a unique slug from the business name
-    let baseSlug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
-    if (!baseSlug) baseSlug = 'tenant'
-    
-    let slug = baseSlug
-    let isUnique = false
-    let attempts = 0
-    
-    while (!isUnique && attempts < 5) {
-      const { data: existing } = await adminClient.from('tenants').select('id').eq('slug', slug).maybeSingle()
-      if (!existing) {
-        isUnique = true
-      } else {
-        slug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`
-        attempts++
-      }
+    if (!authData.user) {
+      return { error: 'Failed to create account.' }
     }
 
-    // Insert the new tenant
-    const { data: tenant, error: tenantError } = await adminClient
-      .from('tenants')
-      .insert({
-        name: businessName,
-        email: email,
-        slug: slug
-      })
-      .select('id, slug')
-      .single()
-
-    if (tenantError || !tenant) {
-      console.error('Tenant creation failed:', tenantError)
-      return { error: 'Account created, but failed to initialize workspace.' }
-    }
-
-    // Insert the user mapped to this tenant
-    const { error: userError } = await adminClient
-      .from('users')
-      .insert({
-        user_id: user.id, // Maps to auth.users.id
-        tenant_id: tenant.id,
-        role: 'owner',
-        full_name: fullName
-      })
-
-    if (userError) {
-      console.error('User creation failed:', userError)
-      return { error: `Profile init failed: ${userError.message}` }
-    }
-
-    if (smtpEnabled && signupActionUrl) {
-      await sendSignupEmail(email, signupActionUrl)
+    if (authData.user.identities && authData.user.identities.length === 0) {
+      return { error: 'This email already has an account. Please sign in, then create or select an organization.' }
     }
   }
 
-  return { success: 'Check your email to verify your account.' }
+  return { success: 'Account created. Please check your email, then sign in to create or select an organization.' }
+}
+
+async function generateUniqueTenantSlug(adminClient: ReturnType<typeof createAdminClient>, businessName: string) {
+  let baseSlug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+  if (!baseSlug) baseSlug = 'tenant'
+
+  let slug = baseSlug
+  let attempts = 0
+
+  while (attempts < 10) {
+    const { data: existing } = await adminClient.from('tenants').select('id').eq('slug', slug).maybeSingle()
+    if (!existing) {
+      return slug
+    }
+
+    slug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`
+    attempts++
+  }
+
+  return `${baseSlug}-${crypto.randomUUID().slice(0, 8)}`
+}
+
+export async function createOrganization(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/login')
+  }
+
+  const businessName = (formData.get('businessName') as string | null)?.trim()
+
+  if (!businessName) {
+    redirect('/org-selector?error=Organization name is required')
+  }
+
+  const adminClient = createAdminClient()
+  const slug = await generateUniqueTenantSlug(adminClient, businessName)
+
+  const { data: tenant, error: tenantError } = await adminClient
+    .from('tenants')
+    .insert({
+      name: businessName,
+      email: user.email,
+      slug,
+    })
+    .select('id')
+    .single()
+
+  if (tenantError || !tenant) {
+    console.error('Tenant creation failed:', tenantError)
+    redirect('/org-selector?error=Could not create organization')
+  }
+
+  const fullName = typeof user.user_metadata?.full_name === 'string'
+    ? user.user_metadata.full_name
+    : user.email?.split('@')[0] || 'Owner'
+
+  const { error: userError } = await adminClient
+    .from('users')
+    .insert({
+      user_id: user.id,
+      tenant_id: tenant.id,
+      role: 'owner',
+      full_name: fullName,
+    })
+
+  if (userError) {
+    console.error('Organization owner creation failed:', userError)
+    redirect('/org-selector?error=Organization was created, but owner access could not be added')
+  }
+
+  redirect('/org-selector?created=1')
 }
 
 export async function resetPassword(prevState: unknown, formData: FormData) {
