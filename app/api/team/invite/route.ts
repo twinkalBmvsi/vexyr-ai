@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { createAdminClient } from '@/utils/supabase/admin'
+import { createAdminClient } from '@/utils/supabase/service-role'
 import {
   buildSupabaseAuthLink,
   getAuthRedirectUrl,
@@ -53,7 +53,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: userRole, error: roleError } = await supabase
+    const adminAuthClient = createAdminClient()
+
+    const { data: userRole, error: roleError } = await adminAuthClient
       .from('users')
       .select('role')
       .eq('user_id', user.id)
@@ -63,8 +65,6 @@ export async function POST(request: Request) {
     if (roleError || !userRole || userRole.role !== 'owner') {
       return NextResponse.json({ error: 'Only owners can invite team members' }, { status: 403 })
     }
-
-    const adminAuthClient = createAdminClient()
 
     // 2. Invite the user via Supabase Admin API
     const smtpEnabled = isSmtpConfigured()
@@ -143,7 +143,7 @@ export async function POST(request: Request) {
     }
 
     // 3. Add the user to the public.users table as a manager
-    const { error: insertError } = await adminAuthClient
+    const { data: member, error: insertError } = await adminAuthClient
       .from('users')
       .insert({
         user_id: invitedUserId,
@@ -151,6 +151,8 @@ export async function POST(request: Request) {
         role: 'manager',
         full_name: email.split('@')[0], // Default name
       })
+      .select('id, user_id, full_name, role')
+      .single()
 
     if (insertError) {
       if (insertError.code === '23505') {
@@ -177,7 +179,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ message: 'Invitation sent successfully' })
+    return NextResponse.json({ message: 'Invitation sent successfully', member })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected error'
     return NextResponse.json({ error: message }, { status: 500 })

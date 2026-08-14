@@ -1,59 +1,99 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { createAdminClient } from '@/utils/supabase/admin'
+import { createAdminClient } from '@/utils/supabase/service-role'
+
+async function removeTeamMember(targetMemberId: string, tenantId: string) {
+  if (!targetMemberId || !tenantId) {
+    return { error: 'Member ID and tenant ID are required', status: 400 }
+  }
+
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: 'Unauthorized', status: 401 }
+  }
+
+  const adminAuthClient = createAdminClient()
+
+  const { data: userRole, error: roleError } = await adminAuthClient
+    .from('users')
+    .select('id, role')
+    .eq('user_id', user.id)
+    .eq('tenant_id', tenantId)
+    .single()
+
+  if (roleError || !userRole || userRole.role !== 'owner') {
+    return { error: 'Only owners can remove team members', status: 403 }
+  }
+
+  const { data: member, error: memberError } = await adminAuthClient
+    .from('users')
+    .select('id, user_id, role')
+    .eq('tenant_id', tenantId)
+    .or(`id.eq.${targetMemberId},user_id.eq.${targetMemberId}`)
+    .single()
+
+  if (memberError || !member) {
+    return { error: 'Team member not found', status: 404 }
+  }
+
+  if (member.user_id === user.id || member.id === userRole.id) {
+    return { error: 'Cannot remove yourself', status: 400 }
+  }
+
+  if (member.role === 'owner') {
+    return { error: 'Cannot remove another owner', status: 400 }
+  }
+
+  const { error: deleteError } = await adminAuthClient
+    .from('users')
+    .delete()
+    .eq('id', member.id)
+    .eq('tenant_id', tenantId)
+
+  if (deleteError) {
+    return { error: deleteError.message, status: 500 }
+  }
+
+  return { memberId: member.id, message: 'Team member removed successfully' }
+}
 
 export async function DELETE(request: Request) {
   try {
-    const { userId, tenantId } = await request.json()
+    const { memberId, userId, tenantId } = await request.json()
+    const result = await removeTeamMember(memberId || userId, tenantId)
 
-    if (!userId || !tenantId) {
-      return NextResponse.json({ error: 'User ID and tenant ID are required' }, { status: 400 })
+    if ('error' in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status })
     }
 
-    const supabase = await createClient()
+    return NextResponse.json(result)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unexpected error'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
 
-    // 1. Verify the current user is an owner of the tenant
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function POST(request: Request) {
+  try {
+    const formData = await request.formData()
+    const memberId = formData.get('memberId')
+    const tenantId = formData.get('tenantId')
+
+    const result = await removeTeamMember(
+      typeof memberId === 'string' ? memberId : '',
+      typeof tenantId === 'string' ? tenantId : ''
+    )
+
+    if ('error' in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status })
     }
 
-    // Cannot remove yourself
-    if (user.id === userId) {
-      return NextResponse.json({ error: 'Cannot remove yourself' }, { status: 400 })
-    }
-
-    const { data: userRole, error: roleError } = await supabase
-      .from('users')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('tenant_id', tenantId)
-      .single()
-
-    if (roleError || !userRole || userRole.role !== 'owner') {
-      return NextResponse.json({ error: 'Only owners can remove team members' }, { status: 403 })
-    }
-
-    const adminAuthClient = createAdminClient()
-
-    // 2. Remove the user's access from the tenant by deleting the record in `public.users`
-    // Since `id` is a primary key and corresponds to auth.users, and the user only belongs to one tenant,
-    // this removes their access to the app. 
-    const { error: deleteError } = await adminAuthClient
-      .from('users')
-      .delete()
-      .eq('id', userId)
-      .eq('tenant_id', tenantId)
-
-    if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 500 })
-    }
-
-    // Optional: If the user only exists in this tenant, we could also delete their auth.users record.
-    // For now, revoking tenant access is sufficient to block them from logging into this tenant.
-
-    return NextResponse.json({ message: 'Team member removed successfully' })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    const referer = request.headers.get('referer')
+    return NextResponse.redirect(referer || '/', { status: 303 })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unexpected error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

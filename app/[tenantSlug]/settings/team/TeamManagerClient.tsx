@@ -3,6 +3,13 @@
 import { useState } from 'react'
 import { UserPlus, Trash2, Mail, ShieldAlert } from 'lucide-react'
 
+type TeamMember = {
+  id: string
+  user_id: string
+  full_name: string | null
+  role: string
+}
+
 export default function TeamManagerClient({ 
   tenantId, 
   userRole, 
@@ -10,11 +17,12 @@ export default function TeamManagerClient({
 }: { 
   tenantId: string
   userRole: string
-  initialMembers: any[] 
+  initialMembers: TeamMember[] 
 }) {
   const [members, setMembers] = useState(initialMembers)
   const [inviteEmail, setInviteEmail] = useState('')
   const [loading, setLoading] = useState(false)
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   
@@ -42,28 +50,31 @@ export default function TeamManagerClient({
       }
 
       setSuccess('Invitation sent successfully!')
+      if (data.member) {
+        setMembers(currentMembers => [...currentMembers, data.member])
+      }
       setInviteEmail('')
-      // In a real app we might refetch members, but since the user hasn't set their name yet, 
-      // we can just wait for a page reload or add a placeholder to the list.
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to invite user')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleRemove = async (userId: string) => {
+  const handleRemove = async (memberId: string) => {
     if (!isOwner) return
     if (!confirm('Are you sure you want to remove this user from the workspace?')) return
 
     setError(null)
     setSuccess(null)
+    setRemovingMemberId(memberId)
 
     try {
       const res = await fetch('/api/team/remove', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, tenantId })
+        credentials: 'same-origin',
+        body: JSON.stringify({ memberId, tenantId })
       })
 
       const data = await res.json()
@@ -72,10 +83,12 @@ export default function TeamManagerClient({
         throw new Error(data.error || 'Failed to remove user')
       }
 
-      setMembers(members.filter(m => m.id !== userId))
+      setMembers(currentMembers => currentMembers.filter(member => member.id !== memberId))
       setSuccess('User removed successfully')
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove user')
+    } finally {
+      setRemovingMemberId(null)
     }
   }
 
@@ -167,15 +180,29 @@ export default function TeamManagerClient({
                 </td>
                 <td style={{ padding: '1rem', textAlign: 'right' }}>
                   {isOwner && member.role !== 'owner' && (
-                    <button 
-                      onClick={() => handleRemove(member.id)}
-                      style={{ background: 'transparent', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '0.5rem', borderRadius: '4px', transition: 'background 0.2s' }}
-                      onMouseOver={e => e.currentTarget.style.background = 'rgba(220,38,38,0.1)'}
-                      onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                      title="Remove Member"
+                    <form
+                      action="/api/team/remove"
+                      method="post"
+                      onSubmit={(event) => {
+                        event.preventDefault()
+                        void handleRemove(member.id)
+                      }}
+                      style={{ display: 'inline-flex' }}
                     >
-                      <Trash2 size={18} />
-                    </button>
+                      <input type="hidden" name="memberId" value={member.id} />
+                      <input type="hidden" name="tenantId" value={tenantId} />
+                      <button 
+                        type="submit"
+                        disabled={removingMemberId === member.id}
+                        style={{ background: 'transparent', border: 'none', color: '#dc2626', cursor: removingMemberId === member.id ? 'wait' : 'pointer', padding: '0.5rem', borderRadius: '4px', transition: 'background 0.2s', opacity: removingMemberId === member.id ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                        onMouseOver={e => e.currentTarget.style.background = 'rgba(220,38,38,0.1)'}
+                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                        title="Remove Member"
+                        aria-label={`Remove ${member.full_name || 'team member'}`}
+                      >
+                        <Trash2 size={18} pointerEvents="none" />
+                      </button>
+                    </form>
                   )}
                 </td>
               </tr>

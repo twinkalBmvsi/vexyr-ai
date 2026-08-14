@@ -30,9 +30,9 @@ export default async function TeamSettingsPage({ params }: { params: Promise<{ t
   }
 
   // 3. Get all team members for this tenant
-  const { data: members, error } = await supabase
+  const { data: members } = await supabase
     .from('users')
-    .select('id, full_name, role')
+    .select('id, user_id, full_name, role')
     .eq('tenant_id', tenant.id)
     .order('created_at', { ascending: true })
 
