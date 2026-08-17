@@ -2,6 +2,7 @@ import CalendarView from '@/components/dashboard/CalendarView'
 import CalendarSyncButtons from '@/components/dashboard/CalendarSyncButtons'
 import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
+import { Calendar as CalendarIcon, Clock, User, Mail, Phone, CheckCircle2, CalendarX } from 'lucide-react'
 
 export default async function AppointmentsPage({ params }: { params: Promise<{ tenantSlug: string }> }) {
   const resolvedParams = await params
@@ -40,118 +41,130 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
     .from('subscriptions')
     .select('plan_id')
     .eq('tenant_id', tenant.id)
-    .single()
+    .maybeSingle()
 
   const planId = subscription?.plan_id || tenant.plan_id || 'free'
-  
-  // Logic: Only Growth and Enterprise get external calendar sync (for now until add-on checkout is built)
   const isSyncAllowed = planId === 'growth' || planId === 'enterprise'
 
-  // Helper to get local date strings relative to today for dynamic mock data
-  const getOffsetDate = (offsetDays: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + offsetDays);
-    const offset = d.getTimezoneOffset();
-    const local = new Date(d.getTime() - (offset * 60 * 1000));
-    return local.toISOString().split('T')[0];
+  // Helper matching CalendarView's exact YYYY-MM-DD calculation
+  const toYMD = (d: Date) => {
+    const offset = d.getTimezoneOffset()
+    const local = new Date(d.getTime() - (offset * 60 * 1000))
+    return local.toISOString().split('T')[0]
   }
 
-  // Mock appointments formatted for exact dynamic dates
-  const appointments = [
-    { 
-      id: 1, 
-      name: 'John Doe - Lead Call', 
-      date: getOffsetDate(1), // Tomorrow
-      startHour: 9, // 9:00 AM
-      durationHours: 1, // 1 hour
+  // Fetch ONLY real live appointments from Supabase backend
+  const { data: dbAppointments } = await supabase
+    .from('appointments')
+    .select('*, customers(name, email, phone)')
+    .eq('tenant_id', tenant.id)
+    .order('start_time', { ascending: true })
+
+  const liveAppointments = (dbAppointments || []).map((apt: any) => {
+    const start = new Date(apt.start_time)
+    const end = new Date(apt.end_time)
+    const durationHours = Math.max(0.5, (end.getTime() - start.getTime()) / (1000 * 60 * 60))
+    const startHour = start.getHours() + (start.getMinutes() / 60)
+
+    const dateStr = start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+    const timeStr = `${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - ${end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+
+    const customerName = apt.customers?.name || 'Customer'
+    const customerPhone = apt.customers?.phone || ''
+    const customerEmail = apt.customers?.email || ''
+
+    return {
+      id: apt.id,
+      name: apt.title ? apt.title : `Appointment - ${customerName}`,
+      date: toYMD(start), // Exact YYYY-MM-DD matching CalendarView grid
+      startHour,
+      durationHours,
       color: 'var(--gold-light)',
       textColor: '#0c0c0c',
-      type: 'Google Meet',
-      email: 'john.doe@example.com',
-      phone: '+1 (555) 123-4567',
-      notes: 'Customer is interested in the premium package. Asked about scaling limits.',
-      dateStr: new Date(new Date().setDate(new Date().getDate() + 1)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-      timeStr: '9:00 AM - 10:00 AM',
-      teammates: ['Sarah Jenkins']
-    },
-    { 
-      id: 2, 
-      name: 'Sarah Smith - Demo', 
-      date: getOffsetDate(0), // Today
-      startHour: 10.5, // 10:30 AM
-      durationHours: 1.5, // 1.5 hours
-      color: '#e2d3e0', // Soft purple
-      textColor: '#0c0c0c',
-      type: 'Zoom',
-      email: 'sarah.smith@example.com',
-      phone: '+1 (555) 987-6543',
-      notes: 'Wants a live demonstration of the Telegram bot integration.',
-      dateStr: new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-      timeStr: '10:30 AM - 12:00 PM',
-      teammates: ['Michael Scott', 'Jim Halpert']
-    },
-    { 
-      id: 3, 
-      name: 'Mike Johnson - Follow up', 
-      date: getOffsetDate(2), // 2 days from now
-      startHour: 14, // 2:00 PM
-      durationHours: 0.5, // 30 mins
-      color: '#c9dbdb', // Soft teal
-      textColor: '#0c0c0c',
-      type: 'Phone Call',
-      email: 'mike.j@example.com',
-      phone: '+1 (555) 456-7890',
-      notes: 'Following up on the proposal sent last week.',
-      dateStr: new Date(new Date().setDate(new Date().getDate() + 2)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-      timeStr: '2:00 PM - 2:30 PM',
-      teammates: []
-    },
-    { 
-      id: 4, 
-      name: 'Designers Meeting', 
-      date: getOffsetDate(-1), // Yesterday
-      startHour: 11, // 11:00 AM
-      durationHours: 2, // 2 hours
-      color: '#d4dae8', // Soft blue
-      textColor: '#0c0c0c',
-      type: 'Google Meet',
-      email: 'design@vexyr.ai',
-      phone: '',
-      notes: 'Weekly sync with the design team.',
-      dateStr: new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-      timeStr: '11:00 AM - 1:00 PM',
-      teammates: ['Alice', 'Bob']
-    },
-    { 
-      id: 5, 
-      name: 'Brain storming', 
-      date: getOffsetDate(0), // Today
-      startHour: 13, // 1:00 PM
-      durationHours: 1.5, // 1.5 hours
-      color: 'var(--cream)',
-      textColor: 'var(--ink)',
-      type: 'In Person',
-      email: 'team@vexyr.ai',
-      phone: '',
-      notes: 'Brainstorming new features for Q4.',
-      dateStr: new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-      timeStr: '1:00 PM - 2:30 PM',
-      teammates: ['Sarah Jenkins', 'Alice']
-    },
-  ]
+      type: 'AI Booked',
+      email: customerEmail,
+      phone: customerPhone,
+      customerName,
+      notes: `Booked via AI Agent. Status: ${apt.status}`,
+      dateStr,
+      timeStr,
+      status: apt.status,
+      teammates: ['AI Agent']
+    }
+  })
 
   return (
     <div>
       <div className="dash-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 className="dash-title">Appointments</h1>
-          <p className="dash-subtitle">Manage your AI-booked meetings and connect external calendars.</p>
+          <p className="dash-subtitle">Manage your live AI-booked meetings and view scheduled appointments.</p>
         </div>
         
         <CalendarSyncButtons isSyncAllowed={isSyncAllowed} />
       </div>
 
-      <CalendarView appointments={appointments} />
+      {/* Calendar Grid View displaying ONLY real live backend appointments */}
+      <CalendarView appointments={liveAppointments} />
+
+      {/* Live Booked Appointments Table */}
+      <div style={{ marginTop: '3rem' }}>
+        <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.8rem', color: 'var(--ink)', marginBottom: '1rem' }}>
+          Real Booked Appointments ({liveAppointments.length})
+        </h2>
+
+        {liveAppointments.length === 0 ? (
+          <div className="dash-card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--muted)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <CalendarX size={40} color="var(--gold)" style={{ marginBottom: '1rem' }} />
+            <h3 style={{ fontSize: '1.2rem', color: 'var(--ink)', marginBottom: '0.5rem' }}>No Real Appointments Booked Yet</h3>
+            <p style={{ maxWidth: '450px', fontSize: '0.85rem', lineHeight: 1.6 }}>
+              Send a message to your Telegram or WhatsApp bot (e.g., <em>"I want to book an appointment for tomorrow 4PM"</em>) to schedule a real appointment live!
+            </p>
+          </div>
+        ) : (
+          <div className="dash-grid" style={{ gap: '1.25rem', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
+            {liveAppointments.map(apt => (
+              <div key={apt.id} className="dash-card" style={{ borderLeft: '4px solid #2a7a4a' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--ink)' }}>{apt.name}</h3>
+                  <span style={{ fontSize: '0.75rem', background: 'rgba(42, 122, 74, 0.1)', color: '#2a7a4a', padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
+                    <CheckCircle2 size={12} /> {apt.status.toUpperCase()}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <CalendarIcon size={14} color="var(--gold)" />
+                    <span>{apt.dateStr}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Clock size={14} color="var(--gold)" />
+                    <span>{apt.timeStr}</span>
+                  </div>
+                  {apt.customerName && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <User size={14} color="var(--gold)" />
+                      <span>{apt.customerName}</span>
+                    </div>
+                  )}
+                  {apt.phone && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Phone size={14} color="var(--gold)" />
+                      <span>{apt.phone}</span>
+                    </div>
+                  )}
+                  {apt.email && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Mail size={14} color="var(--gold)" />
+                      <span>{apt.email}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

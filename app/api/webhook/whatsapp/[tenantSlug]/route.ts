@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import OpenAI from 'openai'
+import { executeAppointmentBooking } from '@/utils/booking'
 
 // Initialize Supabase admin client to bypass RLS for unauthenticated webhooks
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -15,6 +16,46 @@ const openai = new OpenAI({
     'X-Title': 'Vexyr AI',
   }
 })
+
+const appointmentTools = [
+  {
+    type: 'function' as const,
+    function: {
+      name: 'book_appointment',
+      description: 'Book an appointment when customer provides their name, phone, email, date/time, and service or appointment title.',
+      parameters: {
+        type: 'object',
+        properties: {
+          customer_name: {
+            type: 'string',
+            description: 'Customer full name'
+          },
+          customer_phone: {
+            type: 'string',
+            description: 'Customer phone number'
+          },
+          customer_email: {
+            type: 'string',
+            description: 'Customer email address'
+          },
+          appointment_title: {
+            type: 'string',
+            description: 'Service or meeting requested (e.g. Massage Therapy, Consultation, Haircut)'
+          },
+          preferred_datetime: {
+            type: 'string',
+            description: 'Requested date and time (e.g., "tomorrow at 4 PM", "2026-08-18 16:00")'
+          },
+          notes: {
+            type: 'string',
+            description: 'Additional notes or requirements'
+          }
+        },
+        required: ['customer_name', 'preferred_datetime']
+      }
+    }
+  }
+]
 
 // GET handler for Meta Webhook Verification
 export async function GET(
@@ -222,23 +263,71 @@ export async function POST(
       }
     }
 
+    const currentDateFormatted = new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+
+    const systemInstruction = `TODAY'S DATE IS: ${currentDateFormatted} (Year ${new Date().getFullYear()}).
+${agent.prompt || 'You are a helpful scheduling assistant.'} 
+
+CRITICAL INSTRUCTIONS:
+- Today is ${currentDateFormatted}. Always use Year ${new Date().getFullYear()} for appointment dates.
+- Your primary goal is to help customers schedule appointments.
+- When a customer wants to book an appointment, collect their:
+  1. Full Name
+  2. Phone Number
+  3. Email Address
+  4. Preferred Date and Time
+  5. Desired Service / Meeting Reason
+- Once the customer provides these details, YOU MUST IMMEDIATELY CALL THE 'book_appointment' TOOL to register the appointment in the database and send them a confirmation.`
+
     const aiMessages = conversationHistory.length > 0 ? [
-      { role: 'system', content: agent.prompt || 'You are a helpful assistant.' },
+      { role: 'system', content: systemInstruction },
       ...conversationHistory
     ] : [
-      { role: 'system', content: agent.prompt || 'You are a helpful assistant.' },
+      { role: 'system', content: systemInstruction },
       { role: 'user', content: text }
     ]
 
-    // 8. Generate AI completion
+    // 8. Generate AI completion with Tool Calling
     let replyText = ''
     try {
       const completion = await openai.chat.completions.create({
         model: 'openai/gpt-4o-mini',
         messages: aiMessages as any,
+        tools: appointmentTools,
+        tool_choice: 'auto',
         temperature: agent.temperature || 0.7,
       })
-      replyText = completion.choices[0]?.message?.content || 'Sorry, I could not process your request.'
+
+      const responseMessage = completion.choices[0]?.message
+
+      if (responseMessage?.tool_calls && responseMessage.tool_calls.length > 0) {
+        const toolCall: any = responseMessage.tool_calls[0]
+        if (toolCall?.function?.name === 'book_appointment') {
+          const bookingArgs = JSON.parse(toolCall.function.arguments)
+          
+          const bookingResult = await executeAppointmentBooking({
+            tenantId: tenant.id,
+            agentId: agent.id,
+            customerId: customer.id,
+            channelId: channel?.id,
+            params: bookingArgs
+          })
+
+          if (bookingResult.success) {
+            replyText = `Great news, ${bookingArgs.customer_name || 'there'}! Your appointment for "${bookingArgs.appointment_title || 'Massage Therapy'}" has been successfully booked for ${bookingResult.formattedDate} at ${bookingResult.formattedTime}.${bookingResult.emailSent ? ` A confirmation email has been sent to ${bookingArgs.customer_email}.` : ''}`
+          } else {
+            replyText = `I attempted to book your appointment, but ran into an issue: ${bookingResult.error || 'Unable to complete booking'}. Please confirm your preferred date and time again!`
+          }
+        }
+      } else {
+        replyText = responseMessage?.content || 'Sorry, I could not process your request.'
+      }
+
     } catch (aiErr: any) {
       console.error('OpenRouter AI call failed:', aiErr)
       replyText = `Hello! I received your message: "${text}".`
