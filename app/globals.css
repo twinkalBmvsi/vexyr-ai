@@ -278,6 +278,12 @@ h1 em {
   animation: fadeSlide 0.5s ease both;
 }
 
+.msg.user-msg {
+  flex-direction: row-reverse !important;
+  align-self: flex-end !important;
+  text-align: right !important;
+}
+
 @keyframes fadeSlide {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }

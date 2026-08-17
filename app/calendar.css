@@ -123,7 +123,7 @@
 
 .calendar-day-card.active {
   background: linear-gradient(135deg, var(--gold-light), #fff);
-  color: var(--ink);
+  color: var(--paper);
   box-shadow: 0 4px 12px rgba(201, 168, 76, 0.2);
 }
 
@@ -217,7 +217,7 @@
   font-family: 'DM Sans', sans-serif;
   font-size: 0.85rem;
   font-weight: 500;
-  color: var(--ink);
+  color: inherit;
   margin-bottom: 0.25rem;
   white-space: nowrap;
   overflow: hidden;
@@ -227,7 +227,7 @@
 .calendar-event-time {
   font-family: 'DM Mono', monospace;
   font-size: 0.7rem;
-  color: var(--muted);
+  opacity: 0.8;
 }
 
 .calendar-month-days-header {
@@ -274,7 +274,7 @@
 }
 
 .calendar-month-date.active {
-  color: var(--ink);
+  color: var(--paper);
   font-weight: 600;
   background: var(--gold-light);
   width: 20px;
@@ -291,7 +291,7 @@
   font-size: 0.7rem;
   padding: 0.25rem 0.4rem;
   border-radius: 4px;
-  color: var(--ink);
+  color: inherit;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;

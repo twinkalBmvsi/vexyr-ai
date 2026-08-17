@@ -19,6 +19,7 @@ export default async function AppointmentsPage() {
       startHour: 9, // 9:00 AM
       durationHours: 1, // 1 hour
       color: 'var(--gold-light)',
+      textColor: '#0c0c0c',
       type: 'Google Meet',
       email: 'john.doe@example.com',
       phone: '+1 (555) 123-4567',
@@ -34,6 +35,7 @@ export default async function AppointmentsPage() {
       startHour: 10.5, // 10:30 AM
       durationHours: 1.5, // 1.5 hours
       color: '#e2d3e0', // Soft purple
+      textColor: '#0c0c0c',
       type: 'Zoom',
       email: 'sarah.smith@example.com',
       phone: '+1 (555) 987-6543',
@@ -49,6 +51,7 @@ export default async function AppointmentsPage() {
       startHour: 14, // 2:00 PM
       durationHours: 0.5, // 30 mins
       color: '#c9dbdb', // Soft teal
+      textColor: '#0c0c0c',
       type: 'Phone Call',
       email: 'mike.j@example.com',
       phone: '+1 (555) 456-7890',
@@ -64,6 +67,7 @@ export default async function AppointmentsPage() {
       startHour: 11, // 11:00 AM
       durationHours: 2, // 2 hours
       color: '#d4dae8', // Soft blue
+      textColor: '#0c0c0c',
       type: 'Google Meet',
       email: 'design@vexyr.ai',
       phone: '',
@@ -79,6 +83,7 @@ export default async function AppointmentsPage() {
       startHour: 13, // 1:00 PM
       durationHours: 1.5, // 1.5 hours
       color: 'var(--cream)',
+      textColor: 'var(--ink)',
       type: 'In Person',
       email: 'team@vexyr.ai',
       phone: '',

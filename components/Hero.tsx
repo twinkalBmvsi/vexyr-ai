@@ -22,7 +22,7 @@ export default function Hero() {
           </div>
 
           <div className="chat-transcript">
-            <div className="msg" style={{ animationDelay: '0.5s' }}>
+            <div className="msg user-msg" style={{ animationDelay: '0.5s' }}>
               <span className="msg-label user">User</span>
               <span className="msg-text muted">HI, I need an appointment.</span>
             </div>
@@ -30,7 +30,7 @@ export default function Hero() {
               <span className="msg-label ai">AI</span>
               <span className="msg-text">Hello! I'd be happy to help. We have openings at 2 PM and 4 PM on Saturday. Which works best?</span>
             </div>
-            <div className="msg" style={{ animationDelay: '1.5s' }}>
+            <div className="msg user-msg" style={{ animationDelay: '1.5s' }}>
               <span className="msg-label user">User</span>
               <span className="msg-text muted">2 PM please. My email is priya@example.com.</span>
             </div>

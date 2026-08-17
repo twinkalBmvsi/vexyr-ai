@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { MessageCircle, Smartphone, CheckCircle2, AlertCircle, X, ExternalLink, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { saveChannelConfig } from '@/app/actions/channels'
+import { registerTelegramWebhook } from '@/app/actions/telegram'
 
 export default function ChannelConnections({
   tenantSlug,
@@ -20,6 +21,10 @@ export default function ChannelConnections({
   const [activeModal, setActiveModal] = useState<'whatsapp' | 'telegram' | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [hasWhatsapp, setHasWhatsapp] = useState(initialHasWhatsapp)
+  const [hasTelegram, setHasTelegram] = useState(initialHasTelegram)
+  const [webhookUrl, setWebhookUrl] = useState('')
+  const [isRegisteringWebhook, setIsRegisteringWebhook] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -46,7 +51,7 @@ export default function ChannelConnections({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-            {initialHasWhatsapp ? (
+            {hasWhatsapp ? (
               <>
                 <CheckCircle2 size={18} color="#2a7a4a" />
                 <span style={{ fontSize: '0.85rem', color: 'var(--ink)' }}>Connected successfully</span>
@@ -59,7 +64,7 @@ export default function ChannelConnections({
             )}
           </div>
 
-          {initialHasWhatsapp ? (
+          {hasWhatsapp ? (
             <div style={{ background: 'rgba(12,12,12,0.03)', padding: '1rem', borderRadius: '8px', marginBottom: '2rem' }}>
               <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Connected Number</p>
               <p style={{ fontFamily: 'DM Mono', fontSize: '0.9rem', color: 'var(--ink)' }}>{initialWaNumber || '+1 (555) 019-2834'}</p>
@@ -72,13 +77,13 @@ export default function ChannelConnections({
 
           <div style={{ marginTop: 'auto' }}>
             <button
-              className={initialHasWhatsapp ? "btn-secondary" : "btn-primary"}
+              className={hasWhatsapp ? "btn-secondary" : "btn-primary"}
               style={{ width: '100%' }}
               onClick={() => {
                 setActiveModal('whatsapp')
               }}
             >
-              {initialHasWhatsapp ? 'Manage Connection' : 'Connect WhatsApp'}
+              {hasWhatsapp ? 'Manage Connection' : 'Connect WhatsApp'}
             </button>
           </div>
         </div>
@@ -91,7 +96,7 @@ export default function ChannelConnections({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-            {initialHasTelegram ? (
+            {hasTelegram ? (
               <>
                 <CheckCircle2 size={18} color="#2a7a4a" />
                 <span style={{ fontSize: '0.85rem', color: 'var(--ink)' }}>Connected successfully</span>
@@ -110,11 +115,11 @@ export default function ChannelConnections({
 
           <div style={{ marginTop: 'auto' }}>
             <button
-              className={initialHasTelegram ? "btn-secondary" : "btn-primary"}
+              className={hasTelegram ? "btn-secondary" : "btn-primary"}
               style={{ width: '100%' }}
               onClick={() => setActiveModal('telegram')}
             >
-              {initialHasTelegram ? 'Manage Connection' : 'Connect Telegram'}
+              {hasTelegram ? 'Manage Connection' : 'Connect Telegram'}
             </button>
           </div>
         </div>
@@ -189,6 +194,47 @@ export default function ChannelConnections({
                       onChange={(e) => setTgConfig({ ...tgConfig, token: e.target.value })}
                     />
                   </div>
+
+                  {hasTelegram && (
+                    <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'rgba(12,12,12,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--ink)', marginBottom: '0.5rem' }}>Webhook Registration</h3>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+                        To receive messages, you must register a webhook URL. If you are developing locally, enter your ngrok URL.
+                        In production, leave it blank to auto-detect.
+                      </p>
+                      <div className="dash-form-group" style={{ marginBottom: '1rem' }}>
+                        <label className="dash-label">Base URL (optional)</label>
+                        <input
+                          type="text"
+                          className="dash-input"
+                          placeholder="https://your-ngrok-url.ngrok-free.app"
+                          value={webhookUrl}
+                          onChange={(e) => setWebhookUrl(e.target.value)}
+                        />
+                      </div>
+                      <button
+                        className="btn-secondary"
+                        disabled={isRegisteringWebhook}
+                        onClick={async () => {
+                          setIsRegisteringWebhook(true)
+                          try {
+                            const res = await registerTelegramWebhook(tenantSlug, webhookUrl)
+                            if (res.success) {
+                              toast.success(res.message || 'Webhook registered!')
+                            } else {
+                              toast.error(res.error || 'Failed to register webhook')
+                            }
+                          } catch (e) {
+                            toast.error('Unexpected error registering webhook')
+                          } finally {
+                            setIsRegisteringWebhook(false)
+                          }
+                        }}
+                      >
+                        {isRegisteringWebhook ? 'Registering...' : 'Register Webhook'}
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -275,6 +321,7 @@ export default function ChannelConnections({
                       toast.error('Please enter the Bot Token')
                       return
                     }
+                    tgConfig.token = tgConfig.token.trim()
                   }
 
                   setIsSaving(true)
@@ -286,6 +333,8 @@ export default function ChannelConnections({
 
                     if (result.success) {
                       toast.success(`${provider === 'whatsapp' ? 'WhatsApp' : 'Telegram'} configuration saved!`)
+                      if (provider === 'whatsapp') setHasWhatsapp(true)
+                      if (provider === 'telegram') setHasTelegram(true)
                       setActiveModal(null)
                     } else {
                       toast.error(result.error || 'Failed to save configuration')

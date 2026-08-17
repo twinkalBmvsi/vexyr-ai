@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import { revalidatePath } from 'next/cache'
 
 export async function saveChannelConfig(tenantSlug: string, provider: 'whatsapp' | 'telegram', config: any) {
   const supabase = await createClient()
@@ -84,5 +85,6 @@ export async function saveChannelConfig(tenantSlug: string, provider: 'whatsapp'
     }
   }
 
+  revalidatePath(`/${tenantSlug}/connections`)
   return { success: true }
 }

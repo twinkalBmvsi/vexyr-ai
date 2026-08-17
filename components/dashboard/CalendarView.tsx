@@ -10,6 +10,7 @@ type GridAppointment = {
   startHour: number // e.g. 9.5 for 9:30 AM
   durationHours: number // e.g. 1.5
   color: string
+  textColor?: string
   // Details
   type: string
   email: string
@@ -147,7 +148,7 @@ export default function CalendarView({ appointments }: { appointments: GridAppoi
                         <div 
                           key={apt.id} 
                           className="calendar-month-event"
-                          style={{ backgroundColor: apt.color }}
+                          style={{ backgroundColor: apt.color, color: apt.textColor || 'var(--ink)' }}
                           onClick={() => setSelectedApt(apt)}
                         >
                           {apt.timeStr.split(' ')[0]} {apt.name}
@@ -213,6 +214,7 @@ export default function CalendarView({ appointments }: { appointments: GridAppoi
                         top: `${top}px`, 
                         minHeight: `${height}px`,
                         backgroundColor: apt.color,
+                        color: apt.textColor || 'var(--ink)',
                       }}
                       onClick={() => setSelectedApt(apt)}
                     >
@@ -279,20 +281,21 @@ export default function CalendarView({ appointments }: { appointments: GridAppoi
                       top: `${top}px`, 
                       minHeight: `${height}px`,
                       backgroundColor: apt.color,
+                      color: apt.textColor || 'var(--ink)',
                     }}
                     onClick={() => setSelectedApt(apt)}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <h4 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--ink)' }}>{apt.name}</h4>
-                      <span style={{ fontFamily: 'DM Mono', fontSize: '0.85rem', color: 'var(--ink)', opacity: 0.7, background: 'rgba(255,255,255,0.4)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>{apt.timeStr}</span>
+                      <h4 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'inherit' }}>{apt.name}</h4>
+                      <span style={{ fontFamily: 'DM Mono', fontSize: '0.85rem', color: 'inherit', opacity: 0.7, background: 'rgba(255,255,255,0.4)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>{apt.timeStr}</span>
                     </div>
                     
-                    <p style={{ fontSize: '0.85rem', color: 'var(--ink)', opacity: 0.8, maxWidth: '600px', lineHeight: 1.5 }}>
+                    <p style={{ fontSize: '0.85rem', color: 'inherit', opacity: 0.8, maxWidth: '600px', lineHeight: 1.5 }}>
                       {apt.notes}
                     </p>
 
                     <div style={{ marginTop: 'auto', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--ink)', opacity: 0.7 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'inherit', opacity: 0.7 }}>
                         <Video size={14} /> {apt.type}
                       </span>
                       {apt.teammates && apt.teammates.length > 0 && (
@@ -320,7 +323,8 @@ export default function CalendarView({ appointments }: { appointments: GridAppoi
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              background: '#ffffff',
+              background: 'var(--cream)',
+              border: '1px solid var(--border)',
               borderRadius: '16px',
               width: '380px',
               padding: '1.5rem',
@@ -368,7 +372,7 @@ export default function CalendarView({ appointments }: { appointments: GridAppoi
               {selectedApt.teammates && selectedApt.teammates.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {selectedApt.teammates.map((tm, idx) => (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--paper)', padding: '0.5rem 0.75rem', borderRadius: '8px' }}>
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--paper)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--gold)' }} />
                         <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>{tm}</span>
