@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { MessageCircle, Smartphone, CheckCircle2, AlertCircle, X, ExternalLink, Loader2 } from 'lucide-react'
+import { MessageCircle, Smartphone, CheckCircle2, AlertCircle, X, ExternalLink, Loader2, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { saveChannelConfig } from '@/app/actions/channels'
 import { registerTelegramWebhook } from '@/app/actions/telegram'
@@ -11,12 +11,16 @@ export default function ChannelConnections({
   tenantSlug,
   initialHasWhatsapp,
   initialHasTelegram,
-  initialWaNumber
+  initialWaNumber,
+  initialTgConfig = { token: '' },
+  initialWaConfig = { token: '', phoneId: '', wabaId: '' }
 }: {
   tenantSlug: string;
   initialHasWhatsapp: boolean;
   initialHasTelegram: boolean;
   initialWaNumber: string;
+  initialTgConfig?: { token: string };
+  initialWaConfig?: { token: string; phoneId: string; wabaId: string };
 }) {
   const [activeModal, setActiveModal] = useState<'whatsapp' | 'telegram' | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -30,15 +34,16 @@ export default function ChannelConnections({
     setMounted(true)
   }, [])
 
-  const [waConfig, setWaConfig] = useState({
-    token: '',
-    phoneId: '',
-    wabaId: ''
-  })
+  const [waConfig, setWaConfig] = useState(initialWaConfig)
+  const [tgConfig, setTgConfig] = useState(initialTgConfig)
 
-  const [tgConfig, setTgConfig] = useState({
-    token: ''
-  })
+  useEffect(() => {
+    setWaConfig(initialWaConfig)
+  }, [initialWaConfig])
+
+  useEffect(() => {
+    setTgConfig(initialTgConfig)
+  }, [initialTgConfig])
 
   return (
     <>
@@ -66,8 +71,8 @@ export default function ChannelConnections({
 
           {hasWhatsapp ? (
             <div style={{ background: 'rgba(12,12,12,0.03)', padding: '1rem', borderRadius: '8px', marginBottom: '2rem' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Connected Number</p>
-              <p style={{ fontFamily: 'DM Mono', fontSize: '0.9rem', color: 'var(--ink)' }}>{initialWaNumber || '+1 (555) 019-2834'}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Connected Number / Status</p>
+              <p style={{ fontFamily: 'DM Mono', fontSize: '0.9rem', color: 'var(--ink)' }}>{initialWaNumber || 'WhatsApp API Configured'}</p>
             </div>
           ) : (
             <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.6, marginBottom: '2rem' }}>
@@ -109,9 +114,18 @@ export default function ChannelConnections({
             )}
           </div>
 
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.6, marginBottom: '2rem' }}>
-            Connect a Telegram Bot to allow your AI agents to interact with customers on Telegram.
-          </p>
+          {hasTelegram ? (
+            <div style={{ background: 'rgba(12,12,12,0.03)', padding: '1rem', borderRadius: '8px', marginBottom: '2rem' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Status & Token</p>
+              <p style={{ fontFamily: 'DM Mono', fontSize: '0.85rem', color: 'var(--ink)', wordBreak: 'break-all' }}>
+                {tgConfig.token ? `${tgConfig.token.substring(0, 10)}... (Configured)` : 'Telegram Bot Token Configured'}
+              </p>
+            </div>
+          ) : (
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.6, marginBottom: '2rem' }}>
+              Connect a Telegram Bot to allow your AI agents to interact with customers on Telegram.
+            </p>
+          )}
 
           <div style={{ marginTop: 'auto' }}>
             <button
@@ -174,13 +188,36 @@ export default function ChannelConnections({
 
               {activeModal === 'telegram' && (
                 <>
+                  {hasTelegram && (
+                    <div style={{ 
+                      marginBottom: '1.5rem', 
+                      padding: '1rem 1.25rem', 
+                      background: 'rgba(42, 122, 74, 0.08)', 
+                      borderRadius: '8px', 
+                      border: '1px solid rgba(42, 122, 74, 0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem'
+                    }}>
+                      <ShieldCheck size={20} color="#2a7a4a" />
+                      <div>
+                        <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#2a7a4a', margin: 0 }}>
+                          Telegram Connection Configured
+                        </p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: 0 }}>
+                          Your Bot Token is stored and active in the backend.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <div style={{ marginBottom: '2.5rem' }}>
                     <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--ink)', marginBottom: '1rem' }}>Configuration Steps</h3>
                     <ol style={{ paddingLeft: '1.25rem', color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.7 }}>
                       <li style={{ marginBottom: '0.5rem' }}>Open Telegram and search for <strong>@BotFather</strong>.</li>
                       <li style={{ marginBottom: '0.5rem' }}>Send the command <code>/newbot</code> and follow the instructions to create a new bot.</li>
                       <li style={{ marginBottom: '0.5rem' }}>Copy the HTTP API Token provided by BotFather.</li>
-                      <li>Paste the token in the field below to connect your bot.</li>
+                      <li>Paste or update the token in the field below.</li>
                     </ol>
                   </div>
 
@@ -195,58 +232,78 @@ export default function ChannelConnections({
                     />
                   </div>
 
-                  {hasTelegram && (
-                    <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'rgba(12,12,12,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                      <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--ink)', marginBottom: '0.5rem' }}>Webhook Registration</h3>
-                      <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem' }}>
-                        To receive messages, you must register a webhook URL. If you are developing locally, enter your ngrok URL.
-                        In production, leave it blank to auto-detect.
-                      </p>
-                      <div className="dash-form-group" style={{ marginBottom: '1rem' }}>
-                        <label className="dash-label">Base URL (optional)</label>
-                        <input
-                          type="text"
-                          className="dash-input"
-                          placeholder="https://your-ngrok-url.ngrok-free.app"
-                          value={webhookUrl}
-                          onChange={(e) => setWebhookUrl(e.target.value)}
-                        />
-                      </div>
-                      <button
-                        className="btn-secondary"
-                        disabled={isRegisteringWebhook}
-                        onClick={async () => {
-                          setIsRegisteringWebhook(true)
-                          try {
-                            const res = await registerTelegramWebhook(tenantSlug, webhookUrl)
-                            if (res.success) {
-                              toast.success(res.message || 'Webhook registered!')
-                            } else {
-                              toast.error(res.error || 'Failed to register webhook')
-                            }
-                          } catch (e) {
-                            toast.error('Unexpected error registering webhook')
-                          } finally {
-                            setIsRegisteringWebhook(false)
-                          }
-                        }}
-                      >
-                        {isRegisteringWebhook ? 'Registering...' : 'Register Webhook'}
-                      </button>
+                  <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'rgba(12,12,12,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--ink)', marginBottom: '0.5rem' }}>Webhook Registration</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+                      To receive messages, register your webhook URL. If running locally, enter your ngrok URL (e.g., <code>https://abc.ngrok-free.app</code>). In production, leave it blank to auto-detect.
+                    </p>
+                    <div className="dash-form-group" style={{ marginBottom: '1rem' }}>
+                      <label className="dash-label">Base URL (optional)</label>
+                      <input
+                        type="text"
+                        className="dash-input"
+                        placeholder="https://your-ngrok-url.ngrok-free.app"
+                        value={webhookUrl}
+                        onChange={(e) => setWebhookUrl(e.target.value)}
+                      />
                     </div>
-                  )}
+                    <button
+                      className="btn-secondary"
+                      disabled={isRegisteringWebhook || (!tgConfig.token && !hasTelegram)}
+                      onClick={async () => {
+                        setIsRegisteringWebhook(true)
+                        try {
+                          const res = await registerTelegramWebhook(tenantSlug, webhookUrl)
+                          if (res.success) {
+                            toast.success(res.message || 'Webhook registered!')
+                          } else {
+                            toast.error(res.error || 'Failed to register webhook')
+                          }
+                        } catch (e) {
+                          toast.error('Unexpected error registering webhook')
+                        } finally {
+                          setIsRegisteringWebhook(false)
+                        }
+                      }}
+                    >
+                      {isRegisteringWebhook ? 'Registering...' : 'Register Webhook'}
+                    </button>
+                  </div>
                 </>
               )}
 
               {activeModal === 'whatsapp' && (
                 <>
+                  {hasWhatsapp && (
+                    <div style={{ 
+                      marginBottom: '1.5rem', 
+                      padding: '1rem 1.25rem', 
+                      background: 'rgba(42, 122, 74, 0.08)', 
+                      borderRadius: '8px', 
+                      border: '1px solid rgba(42, 122, 74, 0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem'
+                    }}>
+                      <ShieldCheck size={20} color="#2a7a4a" />
+                      <div>
+                        <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#2a7a4a', margin: 0 }}>
+                          WhatsApp API Configured
+                        </p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: 0 }}>
+                          Your WhatsApp credentials are saved and active.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <div style={{ marginBottom: '2.5rem' }}>
                     <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--ink)', marginBottom: '1rem' }}>Configuration Steps</h3>
                     <ol style={{ paddingLeft: '1.25rem', color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.7 }}>
                       <li style={{ marginBottom: '0.5rem' }}>Go to the <a href="https://developers.facebook.com/" target="_blank" rel="noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>Meta for Developers <ExternalLink size={12} /></a> dashboard.</li>
                       <li style={{ marginBottom: '0.5rem' }}>Create a new App or select an existing one with WhatsApp set up.</li>
                       <li style={{ marginBottom: '0.5rem' }}>Navigate to <strong>WhatsApp &gt; API Setup</strong> to find your Phone Number ID and WABA ID.</li>
-                      <li>Generate a Permanent Token in the System Users settings and paste it below.</li>
+                      <li>Generate a Permanent Token in System Users settings and paste below.</li>
                     </ol>
                   </div>
 

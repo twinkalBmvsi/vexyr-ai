@@ -9,6 +9,9 @@ export default async function ConnectionsPage({ params }: { params: Promise<{ te
   let hasTelegram = false
   let waNumber = ''
 
+  let initialTgConfig = { token: '' }
+  let initialWaConfig = { token: '', phoneId: '', wabaId: '' }
+
   const { data: tenant } = await supabase
     .from('tenants')
     .select('id')
@@ -16,18 +19,38 @@ export default async function ConnectionsPage({ params }: { params: Promise<{ te
     .single()
 
   if (tenant) {
+    // Delete any empty dummy channel rows that have no provider configuration
+    await supabase
+      .from('channels')
+      .delete()
+      .eq('tenant_id', tenant.id)
+      .or('provider_config.is.null,provider_config.eq.{}')
+
     const { data: channels } = await supabase
       .from('channels')
       .select('provider, provider_config')
       .eq('tenant_id', tenant.id)
 
     if (channels) {
-      hasWhatsapp = channels.some(c => c.provider === 'whatsapp')
-      hasTelegram = channels.some(c => c.provider === 'telegram')
-      
       const waChannel = channels.find(c => c.provider === 'whatsapp')
-      if (waChannel && waChannel.provider_config?.phone_number) {
-        waNumber = waChannel.provider_config.phone_number
+      if (waChannel && waChannel.provider_config) {
+        initialWaConfig = {
+          token: waChannel.provider_config.token || '',
+          phoneId: waChannel.provider_config.phoneId || '',
+          wabaId: waChannel.provider_config.wabaId || ''
+        }
+        if (waChannel.provider_config.phone_number) {
+          waNumber = waChannel.provider_config.phone_number
+        }
+        hasWhatsapp = Boolean(initialWaConfig.token || initialWaConfig.phoneId || waNumber)
+      }
+
+      const tgChannel = channels.find(c => c.provider === 'telegram')
+      if (tgChannel && tgChannel.provider_config) {
+        initialTgConfig = {
+          token: tgChannel.provider_config.token || ''
+        }
+        hasTelegram = Boolean(initialTgConfig.token)
       }
     }
   }
@@ -43,7 +66,9 @@ export default async function ConnectionsPage({ params }: { params: Promise<{ te
         tenantSlug={resolvedParams.tenantSlug}
         initialHasWhatsapp={hasWhatsapp} 
         initialHasTelegram={hasTelegram} 
-        initialWaNumber={waNumber} 
+        initialWaNumber={waNumber}
+        initialTgConfig={initialTgConfig}
+        initialWaConfig={initialWaConfig}
       />
     </div>
   )

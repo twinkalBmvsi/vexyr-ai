@@ -188,7 +188,7 @@ export async function saveAgentConfig(
     }
   }
 
-  // Update channels table for WhatsApp
+  // Update channels table for WhatsApp if record exists
   const { data: existingWa } = await supabase
     .from('channels')
     .select('id')
@@ -202,37 +202,15 @@ export async function saveAgentConfig(
       .update({ is_active: data.whatsapp, agent_id: targetAgentId })
       .eq('id', existingWa.id)
     
-    // Fallback if is_active column does not exist yet
     if (errWa) {
       await supabase
         .from('channels')
         .update({ agent_id: targetAgentId })
         .eq('id', existingWa.id)
     }
-  } else {
-    const { error: errWa } = await supabase
-      .from('channels')
-      .insert({
-        tenant_id: tenant.id,
-        agent_id: targetAgentId,
-        provider: 'whatsapp',
-        provider_config: {},
-        is_active: data.whatsapp
-      })
-
-    if (errWa) {
-      await supabase
-        .from('channels')
-        .insert({
-          tenant_id: tenant.id,
-          agent_id: targetAgentId,
-          provider: 'whatsapp',
-          provider_config: {}
-        })
-    }
   }
 
-  // Update channels table for Telegram
+  // Update channels table for Telegram if record exists
   const { data: existingTg } = await supabase
     .from('channels')
     .select('id')
@@ -251,27 +229,6 @@ export async function saveAgentConfig(
         .from('channels')
         .update({ agent_id: targetAgentId })
         .eq('id', existingTg.id)
-    }
-  } else {
-    const { error: errTg } = await supabase
-      .from('channels')
-      .insert({
-        tenant_id: tenant.id,
-        agent_id: targetAgentId,
-        provider: 'telegram',
-        provider_config: {},
-        is_active: data.telegram
-      })
-
-    if (errTg) {
-      await supabase
-        .from('channels')
-        .insert({
-          tenant_id: tenant.id,
-          agent_id: targetAgentId,
-          provider: 'telegram',
-          provider_config: {}
-        })
     }
   }
 
