@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { MessageCircle, Smartphone, CheckCircle2, AlertCircle, X, ExternalLink, Loader2, ShieldCheck } from 'lucide-react'
+import { MessageCircle, Smartphone, CheckCircle2, AlertCircle, X, ExternalLink, Loader2, ShieldCheck, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { saveChannelConfig } from '@/app/actions/channels'
-import { registerTelegramWebhook } from '@/app/actions/telegram'
+import { registerTelegramWebhook, getTelegramWebhookInfo } from '@/app/actions/telegram'
 
 export default function ChannelConnections({
   tenantSlug,
@@ -30,6 +30,9 @@ export default function ChannelConnections({
   const [webhookUrl, setWebhookUrl] = useState('')
   const [isRegisteringWebhook, setIsRegisteringWebhook] = useState(false)
 
+  const [isCheckingWebhook, setIsCheckingWebhook] = useState(false)
+  const [liveWebhookInfo, setLiveWebhookInfo] = useState<any>(null)
+
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -44,6 +47,23 @@ export default function ChannelConnections({
   useEffect(() => {
     setTgConfig(initialTgConfig)
   }, [initialTgConfig])
+
+  const checkLiveWebhookStatus = async () => {
+    setIsCheckingWebhook(true)
+    try {
+      const res = await getTelegramWebhookInfo(tenantSlug)
+      if (res.success) {
+        setLiveWebhookInfo(res.webhookInfo)
+        toast.success('Retrieved Telegram webhook status!')
+      } else {
+        toast.error(res.error || 'Failed to query Telegram webhook status')
+      }
+    } catch (e) {
+      toast.error('Error connecting to Telegram API')
+    } finally {
+      setIsCheckingWebhook(false)
+    }
+  }
 
   return (
     <>
@@ -233,12 +253,13 @@ export default function ChannelConnections({
                   </div>
 
                   <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'rgba(12,12,12,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--ink)', marginBottom: '0.5rem' }}>Webhook Registration</h3>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem' }}>
-                      To receive messages, register your webhook URL. If running locally, enter your ngrok URL (e.g., <code>https://abc.ngrok-free.app</code>). In production, leave it blank to auto-detect.
+                    <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--ink)', marginBottom: '0.5rem' }}>Webhook Registration & ngrok Setup</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem', lineHeight: 1.5 }}>
+                      When testing locally with <code>ngrok</code>, enter your current ngrok URL (e.g. <code>https://abc123.ngrok-free.app</code>). 
+                      Note: Every time ngrok restarts, re-enter your new ngrok URL below and click <strong>Register Webhook</strong> so Telegram routes webhooks to your active ngrok tunnel.
                     </p>
                     <div className="dash-form-group" style={{ marginBottom: '1rem' }}>
-                      <label className="dash-label">Base URL (optional)</label>
+                      <label className="dash-label">Active ngrok / Public Domain URL</label>
                       <input
                         type="text"
                         className="dash-input"
@@ -247,27 +268,54 @@ export default function ChannelConnections({
                         onChange={(e) => setWebhookUrl(e.target.value)}
                       />
                     </div>
-                    <button
-                      className="btn-secondary"
-                      disabled={isRegisteringWebhook || (!tgConfig.token && !hasTelegram)}
-                      onClick={async () => {
-                        setIsRegisteringWebhook(true)
-                        try {
-                          const res = await registerTelegramWebhook(tenantSlug, webhookUrl)
-                          if (res.success) {
-                            toast.success(res.message || 'Webhook registered!')
-                          } else {
-                            toast.error(res.error || 'Failed to register webhook')
+
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                      <button
+                        className="btn-secondary"
+                        disabled={isRegisteringWebhook || (!tgConfig.token && !hasTelegram)}
+                        onClick={async () => {
+                          setIsRegisteringWebhook(true)
+                          try {
+                            const res = await registerTelegramWebhook(tenantSlug, webhookUrl)
+                            if (res.success) {
+                              toast.success(res.message || 'Webhook registered!')
+                              checkLiveWebhookStatus()
+                            } else {
+                              toast.error(res.error || 'Failed to register webhook')
+                            }
+                          } catch (e) {
+                            toast.error('Unexpected error registering webhook')
+                          } finally {
+                            setIsRegisteringWebhook(false)
                           }
-                        } catch (e) {
-                          toast.error('Unexpected error registering webhook')
-                        } finally {
-                          setIsRegisteringWebhook(false)
-                        }
-                      }}
-                    >
-                      {isRegisteringWebhook ? 'Registering...' : 'Register Webhook'}
-                    </button>
+                        }}
+                      >
+                        {isRegisteringWebhook ? 'Registering...' : 'Register Webhook'}
+                      </button>
+
+                      <button
+                        className="btn-secondary"
+                        disabled={isCheckingWebhook || (!tgConfig.token && !hasTelegram)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                        onClick={checkLiveWebhookStatus}
+                      >
+                        {isCheckingWebhook ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                        Check Telegram Live Webhook Status
+                      </button>
+                    </div>
+
+                    {liveWebhookInfo && (
+                      <div style={{ marginTop: '1rem', padding: '1rem', background: '#111', color: '#fff', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'DM Mono', lineHeight: 1.6 }}>
+                        <p style={{ margin: 0, color: 'var(--gold)', fontWeight: 600 }}>[Telegram Server Webhook Status]</p>
+                        <p style={{ margin: '0.25rem 0' }}>URL in Telegram: {liveWebhookInfo.url || '(No webhook registered)'}</p>
+                        <p style={{ margin: '0.25rem 0' }}>Pending Updates: {liveWebhookInfo.pending_update_count ?? 0}</p>
+                        {liveWebhookInfo.last_error_message && (
+                          <p style={{ margin: '0.25rem 0', color: '#ff6b6b' }}>
+                            Last Telegram Delivery Error: {liveWebhookInfo.last_error_message}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </>
               )}

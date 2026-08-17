@@ -3,8 +3,14 @@ import type { NextRequest } from 'next/server'
 import { updateSession } from '@/utils/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
-  const { supabaseResponse, user, supabase } = await updateSession(request)
   const url = request.nextUrl
+
+  // 0. Skip authentication and subdomain redirection for API routes & public webhooks
+  if (url.pathname.startsWith('/api/')) {
+    return NextResponse.next()
+  }
+
+  const { supabaseResponse, user, supabase } = await updateSession(request)
   
   // Get hostname of request (e.g. demo.localhost:3000 or demo.localtest.me:3000)
   const hostname = request.headers.get('host') || 'localhost:3000'
