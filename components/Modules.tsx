@@ -11,8 +11,8 @@ export default function Modules() {
 
       <div className="modules-grid">
         <div className="module-item">
-          <span className="module-name">Appointment Booking</span>
-          <span className="module-price">+$39/mo</span>
+          <span className="module-name">3rd-Party Calendar Sync</span>
+          <span className="module-price">+$9/mo</span>
         </div>
         <div className="module-item">
           <span className="module-name">Custom Email Templates</span>
@@ -39,7 +39,7 @@ export default function Modules() {
           <span className="module-price">+$49/mo</span>
         </div>
         <div className="module-item">
-          <span className="module-name">LinkedIn Ads Reporting</span>
+          <span className="module-name">Telegram Ads Reporting</span>
           <span className="module-price">+$49/mo</span>
         </div>
       </div>

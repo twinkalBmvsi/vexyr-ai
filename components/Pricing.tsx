@@ -97,7 +97,8 @@ export default function Pricing({ tenantId }: { tenantId?: string }) {
             <li className="plan-feature">Up to 1,000 chats / month</li>
             <li className="plan-feature">Basic dashboard</li>
             <li className="plan-feature">Weekly email report</li>
-            <li className="plan-feature dimmed">Appointment Booking</li>
+            <li className="plan-feature">Appointment Booking (In-App)</li>
+            <li className="plan-feature dimmed">3rd-Party Calendar Sync</li>
             <li className="plan-feature dimmed">Automated Follow-ups</li>
             <li className="plan-feature dimmed">Reputation Management</li>
           </ul>
@@ -118,7 +119,7 @@ export default function Pricing({ tenantId }: { tenantId?: string }) {
             <li className="plan-feature">1 AI chat agent</li>
             <li className="plan-feature">2 Messaging integrations</li>
             <li className="plan-feature">Customer Support (FAQ)</li>
-            <li className="plan-feature">Appointment Booking</li>
+            <li className="plan-feature">Appointment Booking (Inc. External Sync)</li>
             <li className="plan-feature">Automated Follow-ups</li>
             <li className="plan-feature">Reputation Management</li>
             <li className="plan-feature">Up to 5,000 chats / month</li>
