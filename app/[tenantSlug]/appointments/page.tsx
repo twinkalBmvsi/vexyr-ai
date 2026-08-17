@@ -2,7 +2,7 @@ import CalendarView from '@/components/dashboard/CalendarView'
 import CalendarSyncButtons from '@/components/dashboard/CalendarSyncButtons'
 import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
-import { Calendar as CalendarIcon, Clock, User, Mail, Phone, CheckCircle2, CalendarX } from 'lucide-react'
+import { Calendar as CalendarIcon, Clock, User, Mail, Phone, CheckCircle2, XCircle, CalendarX } from 'lucide-react'
 
 export default async function AppointmentsPage({ params }: { params: Promise<{ tenantSlug: string }> }) {
   const resolvedParams = await params
@@ -53,7 +53,7 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
     return local.toISOString().split('T')[0]
   }
 
-  // Fetch ONLY real live appointments from Supabase backend
+  // Fetch live appointments from Supabase backend
   const { data: dbAppointments } = await supabase
     .from('appointments')
     .select('*, customers(name, email, phone)')
@@ -73,14 +73,16 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
     const customerPhone = apt.customers?.phone || ''
     const customerEmail = apt.customers?.email || ''
 
+    const isCancelled = apt.status === 'cancelled'
+
     return {
       id: apt.id,
       name: apt.title ? apt.title : `Appointment - ${customerName}`,
-      date: toYMD(start), // Exact YYYY-MM-DD matching CalendarView grid
+      date: toYMD(start),
       startHour,
       durationHours,
-      color: 'var(--gold-light)',
-      textColor: '#0c0c0c',
+      color: isCancelled ? '#fee2e2' : 'var(--gold-light)',
+      textColor: isCancelled ? '#991b1b' : '#0c0c0c',
       type: 'AI Booked',
       email: customerEmail,
       phone: customerPhone,
@@ -93,24 +95,27 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
     }
   })
 
+  // Filter out cancelled appointments for the active calendar grid
+  const calendarAppointments = liveAppointments.filter(apt => apt.status !== 'cancelled')
+
   return (
     <div>
       <div className="dash-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 className="dash-title">Appointments</h1>
-          <p className="dash-subtitle">Manage your live AI-booked meetings and view scheduled appointments.</p>
+          <p className="dash-subtitle">Manage your live AI-booked meetings, reschedules, and cancellations.</p>
         </div>
         
         <CalendarSyncButtons isSyncAllowed={isSyncAllowed} />
       </div>
 
-      {/* Calendar Grid View displaying ONLY real live backend appointments */}
-      <CalendarView appointments={liveAppointments} />
+      {/* Calendar Grid View displaying active real appointments */}
+      <CalendarView appointments={calendarAppointments} />
 
       {/* Live Booked Appointments Table */}
       <div style={{ marginTop: '3rem' }}>
         <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.8rem', color: 'var(--ink)', marginBottom: '1rem' }}>
-          Real Booked Appointments ({liveAppointments.length})
+          All Booked Appointments ({liveAppointments.length})
         </h2>
 
         {liveAppointments.length === 0 ? (
@@ -123,45 +128,54 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
           </div>
         ) : (
           <div className="dash-grid" style={{ gap: '1.25rem', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
-            {liveAppointments.map(apt => (
-              <div key={apt.id} className="dash-card" style={{ borderLeft: '4px solid #2a7a4a' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--ink)' }}>{apt.name}</h3>
-                  <span style={{ fontSize: '0.75rem', background: 'rgba(42, 122, 74, 0.1)', color: '#2a7a4a', padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
-                    <CheckCircle2 size={12} /> {apt.status.toUpperCase()}
-                  </span>
-                </div>
+            {liveAppointments.map(apt => {
+              const isCancelled = apt.status === 'cancelled'
+              const statusBg = isCancelled ? 'rgba(239, 68, 68, 0.1)' : 'rgba(42, 122, 74, 0.1)'
+              const statusColor = isCancelled ? '#dc2626' : '#2a7a4a'
+              const borderColor = isCancelled ? '#dc2626' : '#2a7a4a'
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <CalendarIcon size={14} color="var(--gold)" />
-                    <span>{apt.dateStr}</span>
+              return (
+                <div key={apt.id} className="dash-card" style={{ borderLeft: `4px solid ${borderColor}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--ink)', textDecoration: isCancelled ? 'line-through' : 'none' }}>
+                      {apt.name}
+                    </h3>
+                    <span style={{ fontSize: '0.75rem', background: statusBg, color: statusColor, padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
+                      {isCancelled ? <XCircle size={12} /> : <CheckCircle2 size={12} />} {apt.status.toUpperCase()}
+                    </span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Clock size={14} color="var(--gold)" />
-                    <span>{apt.timeStr}</span>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <CalendarIcon size={14} color="var(--gold)" />
+                      <span>{apt.dateStr}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Clock size={14} color="var(--gold)" />
+                      <span>{apt.timeStr}</span>
+                    </div>
+                    {apt.customerName && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <User size={14} color="var(--gold)" />
+                        <span>{apt.customerName}</span>
+                      </div>
+                    )}
+                    {apt.phone && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Phone size={14} color="var(--gold)" />
+                        <span>{apt.phone}</span>
+                      </div>
+                    )}
+                    {apt.email && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Mail size={14} color="var(--gold)" />
+                        <span>{apt.email}</span>
+                      </div>
+                    )}
                   </div>
-                  {apt.customerName && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <User size={14} color="var(--gold)" />
-                      <span>{apt.customerName}</span>
-                    </div>
-                  )}
-                  {apt.phone && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <Phone size={14} color="var(--gold)" />
-                      <span>{apt.phone}</span>
-                    </div>
-                  )}
-                  {apt.email && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <Mail size={14} color="var(--gold)" />
-                      <span>{apt.email}</span>
-                    </div>
-                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

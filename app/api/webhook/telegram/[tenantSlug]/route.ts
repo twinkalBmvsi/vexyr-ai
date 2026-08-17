@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import OpenAI from 'openai'
-import { executeAppointmentBooking } from '@/utils/booking'
+import { 
+  executeAppointmentBooking, 
+  executeAppointmentReschedule, 
+  executeAppointmentCancel 
+} from '@/utils/booking'
 
 // Initialize Supabase admin client to bypass RLS for unauthenticated webhooks
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -18,41 +22,58 @@ const openai = new OpenAI({
   }
 })
 
-const appointmentTools = [
+// Tools when customer has NO active appointment → only book
+const bookingOnlyTools = [
   {
     type: 'function' as const,
     function: {
       name: 'book_appointment',
-      description: 'Book an appointment when customer provides their name, phone, email, date/time, and service or appointment title.',
+      description: 'Book a new appointment when customer provides name, phone, email, service, date and time.',
       parameters: {
         type: 'object',
         properties: {
-          customer_name: {
-            type: 'string',
-            description: 'Customer full name'
-          },
-          customer_phone: {
-            type: 'string',
-            description: 'Customer phone number'
-          },
-          customer_email: {
-            type: 'string',
-            description: 'Customer email address'
-          },
-          appointment_title: {
-            type: 'string',
-            description: 'Service or meeting requested (e.g. Massage Therapy, Consultation, Haircut)'
-          },
-          preferred_datetime: {
-            type: 'string',
-            description: 'Requested date and time (e.g., "tomorrow at 4 PM", "2026-08-18 16:00")'
-          },
-          notes: {
-            type: 'string',
-            description: 'Additional notes or requirements'
-          }
+          customer_name: { type: 'string', description: 'Customer full name' },
+          customer_phone: { type: 'string', description: 'Customer phone number' },
+          customer_email: { type: 'string', description: 'Customer email address' },
+          appointment_title: { type: 'string', description: 'Service requested (e.g. Massage Therapy, Haircut)' },
+          preferred_datetime: { type: 'string', description: 'Requested date and time (e.g. "tomorrow at 4 PM")' },
+          notes: { type: 'string', description: 'Additional notes' }
         },
         required: ['customer_name', 'preferred_datetime']
+      }
+    }
+  }
+]
+
+// Tools when customer HAS an active appointment → only manage (cancel/reschedule)
+const managementOnlyTools = [
+  {
+    type: 'function' as const,
+    function: {
+      name: 'cancel_appointment',
+      description: 'Cancel the existing appointment after customer confirms.',
+      parameters: {
+        type: 'object',
+        properties: {
+          customer_name: { type: 'string', description: 'Customer full name' },
+          reason: { type: 'string', description: 'Reason for cancellation if provided' }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'reschedule_appointment',
+      description: 'Reschedule the existing appointment to a new date and time after customer provides the new slot.',
+      parameters: {
+        type: 'object',
+        properties: {
+          customer_name: { type: 'string', description: 'Customer full name' },
+          new_datetime: { type: 'string', description: 'New date and time (e.g. "tomorrow at 5 PM")' }
+        },
+        required: ['new_datetime']
       }
     }
   }
@@ -71,7 +92,6 @@ export async function POST(
   try {
     const body = await request.json()
 
-    // Telegram sends updates in `message` object
     if (!body.message) {
       return NextResponse.json({ status: 'ignored', reason: 'No message object' }, { status: 200 })
     }
@@ -84,7 +104,7 @@ export async function POST(
       return NextResponse.json({ status: 'ignored', reason: 'No text content' }, { status: 200 })
     }
 
-    // 1. Find the tenant bypassing RLS
+    // 1. Find tenant bypassing RLS
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
       .select('id')
@@ -92,11 +112,10 @@ export async function POST(
       .maybeSingle()
 
     if (!tenant) {
-      console.warn(`Telegram Webhook: Tenant '${tenantSlug}' not found`)
       return NextResponse.json({ status: 'ignored', reason: `Tenant '${tenantSlug}' not found` }, { status: 200 })
     }
 
-    // 2. Find the Telegram channel config bypassing RLS
+    // 2. Find Telegram channel config
     const { data: channel } = await supabaseAdmin
       .from('channels')
       .select('id, provider_config, agent_id, is_active')
@@ -107,7 +126,6 @@ export async function POST(
       .maybeSingle()
 
     if (!channel || !channel.provider_config?.token) {
-      console.warn(`Telegram Webhook: Telegram channel not configured for tenant ${tenantSlug}`)
       return NextResponse.json({ status: 'ignored', reason: 'Telegram channel not configured' }, { status: 200 })
     }
 
@@ -117,70 +135,55 @@ export async function POST(
       return NextResponse.json({ status: 'ignored', reason: 'Telegram channel deactivated' }, { status: 200 })
     }
 
-    // 3. Find the Agent bypassing RLS
+    // 3. Find Agent
     let agent: any = null
     if (channel.agent_id) {
-      const { data } = await supabaseAdmin
-        .from('agents')
-        .select('*')
-        .eq('id', channel.agent_id)
-        .maybeSingle()
+      const { data } = await supabaseAdmin.from('agents').select('*').eq('id', channel.agent_id).maybeSingle()
       agent = data
     }
-
     if (!agent) {
-      const { data: agents } = await supabaseAdmin
-        .from('agents')
-        .select('*')
-        .eq('tenant_id', tenant.id)
-        .order('created_at', { ascending: true })
-        .limit(1)
-      if (agents && agents.length > 0) {
-        agent = agents[0]
-      }
+      const { data: agents } = await supabaseAdmin.from('agents').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }).limit(1)
+      if (agents && agents.length > 0) agent = agents[0]
     }
 
     if (!agent) {
       await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: 'Sorry, this bot has no AI agent configured yet.'
-        })
+        body: JSON.stringify({ chat_id: chatId, text: 'Sorry, this bot has no AI agent configured yet.' })
       })
       return NextResponse.json({ status: 'success' }, { status: 200 })
     }
 
-    // Check active_channels in business_rules
     if (agent.business_rules) {
       try {
         const rules = JSON.parse(agent.business_rules)
         if (Array.isArray(rules.active_channels) && !rules.active_channels.includes('telegram')) {
           return NextResponse.json({ status: 'ignored', reason: 'Telegram is deactivated for this agent' }, { status: 200 })
         }
-      } catch (e) {
-        // Ignore JSON parse error
-      }
+      } catch (e) { /* Ignore */ }
     }
 
-    // 4. Find or Create Customer
+    // 4. Find or Create Customer (matched by Telegram chat ID stored as phone)
     const telegramSender = message.from
-    const senderName = [telegramSender?.first_name, telegramSender?.last_name].filter(Boolean).join(' ') || telegramSender?.username || `Telegram User (${chatId})`
+    const senderName = [telegramSender?.first_name, telegramSender?.last_name].filter(Boolean).join(' ') 
+      || telegramSender?.username 
+      || `Telegram User (${chatId})`
 
     let customer: any = null
-    const { data: existingCustomers } = await supabaseAdmin
+    // First try exact match by chatId (stored as phone)
+    const { data: exactMatch } = await supabaseAdmin
       .from('customers')
       .select('*')
       .eq('tenant_id', tenant.id)
       .eq('channel', 'telegram')
-      .order('created_at', { ascending: false })
+      .eq('phone', chatId.toString())
+      .maybeSingle()
 
-    if (existingCustomers && existingCustomers.length > 0) {
-      customer = existingCustomers.find((c: any) => c.phone === chatId.toString() || c.name === senderName) || existingCustomers[0]
-    }
-
-    if (!customer) {
+    if (exactMatch) {
+      customer = exactMatch
+    } else {
+      // Create new customer record for this Telegram chat ID
       const { data: newCustomer, error: custErr } = await supabaseAdmin
         .from('customers')
         .insert({
@@ -194,12 +197,51 @@ export async function POST(
 
       if (custErr) {
         console.error('Error creating customer:', custErr)
+        // Fallback: find any existing customer for this tenant
+        const { data: fallback } = await supabaseAdmin
+          .from('customers')
+          .select('*')
+          .eq('tenant_id', tenant.id)
+          .eq('channel', 'telegram')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        customer = fallback
       } else {
         customer = newCustomer
       }
     }
 
-    // 5. Find or Create Active Conversation
+    // 5. Look up active appointment specifically for this customer
+    let activeAppointment: any = null
+    if (customer) {
+      const { data: apts } = await supabaseAdmin
+        .from('appointments')
+        .select('*')
+        .eq('tenant_id', tenant.id)
+        .eq('customer_id', customer.id)
+        .neq('status', 'cancelled')
+        .order('start_time', { ascending: true })
+        .limit(1)
+
+      if (apts && apts.length > 0) {
+        activeAppointment = apts[0]
+      }
+    }
+
+    const hasActiveAppointment = !!activeAppointment
+    let formattedActiveDate = ''
+    let formattedActiveTime = ''
+    if (activeAppointment) {
+      const start = new Date(activeAppointment.start_time)
+      formattedActiveDate = start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      formattedActiveTime = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    }
+
+    const isNamedCustomer = customer?.name && !customer.name.startsWith('Telegram User') && !customer.name.startsWith('WhatsApp User')
+    const customerDisplayName = isNamedCustomer ? customer.name : null
+
+    // 6. Find or Create Active Conversation
     let conversation: any = null
     if (customer) {
       const { data: existingConvs } = await supabaseAdmin
@@ -234,7 +276,7 @@ export async function POST(
       }
     }
 
-    // 6. Save incoming User message to database
+    // 7. Save incoming User message
     if (conversation) {
       await supabaseAdmin
         .from('messages')
@@ -247,18 +289,20 @@ export async function POST(
         })
     }
 
-    // 7. Load conversation history for AI context
+    // 8. Load recent conversation history (only last 8 messages to avoid stale context)
     const conversationHistory: any[] = []
     if (conversation) {
       const { data: pastMsgs } = await supabaseAdmin
         .from('messages')
-        .select('sender_type, content')
+        .select('sender_type, content, created_at')
         .eq('conversation_id', conversation.id)
-        .order('created_at', { ascending: true })
-        .limit(12)
+        .order('created_at', { ascending: false })
+        .limit(8)
 
       if (pastMsgs) {
-        pastMsgs.forEach((m: any) => {
+        // Reverse to get chronological order
+        const reversed = [...pastMsgs].reverse()
+        reversed.forEach((m: any) => {
           if (m.sender_type === 'user' || m.sender_type === 'assistant') {
             conversationHistory.push({
               role: m.sender_type === 'user' ? 'user' : 'assistant',
@@ -276,70 +320,134 @@ export async function POST(
       day: 'numeric'
     })
 
-    const systemInstruction = `TODAY'S DATE IS: ${currentDateFormatted} (Year ${new Date().getFullYear()}).
-${agent.prompt || 'You are a helpful scheduling assistant.'} 
+    // Build system prompt based on whether customer has active appointment
+    let systemInstruction: string
+    let selectedTools: any[]
 
-CRITICAL INSTRUCTIONS:
-- Today is ${currentDateFormatted}. Always use Year ${new Date().getFullYear()} for appointment dates.
-- Your primary goal is to help customers schedule appointments.
-- When a customer wants to book an appointment, collect their:
-  1. Full Name
-  2. Phone Number
-  3. Email Address
-  4. Preferred Date and Time
-  5. Desired Service / Meeting Reason
-- Once the customer provides these details, YOU MUST IMMEDIATELY CALL THE 'book_appointment' TOOL to register the appointment in the database and send them a confirmation. DO NOT tell the user to wait or that you will check availability later without calling the tool.`
+    if (hasActiveAppointment) {
+      // Customer has active appointment — only allow cancel/reschedule
+      selectedTools = managementOnlyTools
+      systemInstruction = `TODAY'S DATE IS: ${currentDateFormatted} (Year ${new Date().getFullYear()}).
 
-    const aiMessages = conversationHistory.length > 0 ? [
+You are **Chhaya**, the friendly scheduling assistant for **Glamour Studio**.
+
+### CUSTOMER CONTEXT
+- Customer Name: ${customerDisplayName ? `"${customerDisplayName}"` : 'Customer'}
+- ACTIVE APPOINTMENT: "${activeAppointment.title}" on ${formattedActiveDate} at ${formattedActiveTime}
+
+### STRICT RULES
+- You CANNOT book a new appointment. The customer already has one.
+- You can ONLY help with: cancellation or rescheduling.
+
+### GREETING
+- If customer says "hello", "hi", "hey": Reply "Hi${customerDisplayName ? ` ${customerDisplayName}` : ''}! How can I help you? I can help you reschedule or cancel your existing appointment for ${activeAppointment.title} on ${formattedActiveDate} at ${formattedActiveTime}."
+
+### CANCELLATION FLOW
+1. When customer asks to cancel: Reply "I can see your appointment for **${activeAppointment.title}** is scheduled on **${formattedActiveDate} at ${formattedActiveTime}**. Are you sure you want to cancel it?"
+2. When customer says "yes" / "confirm" / "cancel it": Reply "Noted. Let me cancel your appointment." and call the 'cancel_appointment' tool.
+3. After tool succeeds: Confirm "Your appointment has been successfully cancelled. You'll receive a confirmation email shortly."
+
+### RESCHEDULING FLOW
+1. When customer asks to reschedule: Reply "I can see your appointment for **${activeAppointment.title}** is scheduled on **${formattedActiveDate} at ${formattedActiveTime}**. What new date and time would you prefer?"
+2. When customer provides new date/time: Call the 'reschedule_appointment' tool.
+3. After tool succeeds: Confirm the new date and time to the customer.`
+
+    } else {
+      // Customer has NO active appointment — only allow booking
+      selectedTools = bookingOnlyTools
+      systemInstruction = `TODAY'S DATE IS: ${currentDateFormatted} (Year ${new Date().getFullYear()}).
+
+You are **Chhaya**, the friendly scheduling assistant for **Glamour Studio**, a women's grooming and beauty studio.
+
+### CUSTOMER CONTEXT
+- Customer Name: ${customerDisplayName ? `"${customerDisplayName}"` : 'New Customer'}
+- ACTIVE APPOINTMENT: None
+
+### GREETING
+- If customer says "hello", "hi", "hey": Reply "Greetings! How can I help you? I can help you book an appointment at Glamour Studio."
+
+### BOOKING FLOW
+1. Collect details one at a time: Name, Phone, Email, Service, Date, and Time.
+2. Once you have all details, call 'book_appointment'.
+3. After tool succeeds: Confirm appointment details to the customer.`
+    }
+
+    const aiMessages = [
       { role: 'system', content: systemInstruction },
       ...conversationHistory
-    ] : [
-      { role: 'system', content: systemInstruction },
-      { role: 'user', content: text }
     ]
 
-    // 8. Call AI model via OpenRouter with Tool Calling
+    // 9. Call AI model via OpenRouter
     let replyText = ''
     try {
       const completion = await openai.chat.completions.create({
         model: 'openai/gpt-4o-mini',
         messages: aiMessages as any,
-        tools: appointmentTools,
+        tools: selectedTools,
         tool_choice: 'auto',
-        temperature: agent.temperature || 0.7,
+        temperature: 0.5,
       })
 
       const responseMessage = completion.choices[0]?.message
 
       if (responseMessage?.tool_calls && responseMessage.tool_calls.length > 0) {
-        const toolCall: any = responseMessage.tool_calls[0]
-        if (toolCall?.function?.name === 'book_appointment') {
-          const bookingArgs = JSON.parse(toolCall.function.arguments)
-          
-          const bookingResult = await executeAppointmentBooking({
-            tenantId: tenant.id,
-            agentId: agent.id,
-            customerId: customer.id,
-            channelId: channel?.id,
-            params: bookingArgs
-          })
+        aiMessages.push(responseMessage as any)
 
-          if (bookingResult.success) {
-            replyText = `Great news, ${bookingArgs.customer_name || 'there'}! Your appointment for "${bookingArgs.appointment_title || 'Massage Therapy'}" has been successfully booked for ${bookingResult.formattedDate} at ${bookingResult.formattedTime}.${bookingResult.emailSent ? ` A confirmation email has been sent to ${bookingArgs.customer_email}.` : ''}`
-          } else {
-            replyText = `I attempted to book your appointment, but ran into an issue: ${bookingResult.error || 'Unable to complete booking'}. Please confirm your preferred date and time again!`
+        for (const toolCall of responseMessage.tool_calls) {
+          const fnName = (toolCall as any).function?.name
+          const fnArgs = JSON.parse((toolCall as any).function?.arguments || '{}')
+          let toolOutput: any = {}
+
+          if (fnName === 'book_appointment') {
+            toolOutput = await executeAppointmentBooking({
+              tenantId: tenant.id,
+              agentId: agent.id,
+              customerId: customer.id,
+              channelId: channel?.id,
+              params: fnArgs
+            })
+          } else if (fnName === 'reschedule_appointment') {
+            toolOutput = await executeAppointmentReschedule({
+              tenantId: tenant.id,
+              customerId: customer.id,
+              newDateTime: fnArgs.new_datetime,
+              customerName: fnArgs.customer_name || customer.name,
+              customerEmail: customer.email
+            })
+          } else if (fnName === 'cancel_appointment') {
+            toolOutput = await executeAppointmentCancel({
+              tenantId: tenant.id,
+              customerId: customer.id,
+              reason: fnArgs.reason,
+              customerName: fnArgs.customer_name || customer.name,
+              customerEmail: customer.email
+            })
           }
+
+          aiMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: JSON.stringify(toolOutput)
+          } as any)
         }
+
+        const secondCompletion = await openai.chat.completions.create({
+          model: 'openai/gpt-4o-mini',
+          messages: aiMessages as any,
+          temperature: 0.5,
+        })
+
+        replyText = secondCompletion.choices[0]?.message?.content || 'Your request has been processed.'
       } else {
-        replyText = responseMessage?.content || 'Sorry, I could not process your request.'
+        replyText = responseMessage?.content || 'Greetings! How can I help you?'
       }
 
     } catch (aiErr: any) {
       console.error('OpenRouter AI call failed:', aiErr)
-      replyText = `Hello! I received your message: "${text}".`
+      replyText = `Greetings! How can I help you today at Glamour Studio?`
     }
 
-    // 9. Save outgoing AI Assistant message to database
+    // 10. Save outgoing AI Assistant message
     if (conversation) {
       await supabaseAdmin
         .from('messages')
@@ -352,14 +460,11 @@ CRITICAL INSTRUCTIONS:
         })
     }
 
-    // 10. Send reply back to Telegram
+    // 11. Send reply back to Telegram
     const tgResponse = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: replyText
-      })
+      body: JSON.stringify({ chat_id: chatId, text: replyText })
     })
 
     if (!tgResponse.ok) {
@@ -371,22 +476,15 @@ CRITICAL INSTRUCTIONS:
 
   } catch (error: any) {
     console.error('Error handling Telegram webhook:', error)
-
     if (telegramToken && chatId) {
       try {
         await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: 'An error occurred while processing your request.'
-          })
+          body: JSON.stringify({ chat_id: chatId, text: 'An error occurred while processing your request.' })
         })
-      } catch (e) {
-        // Ignore secondary error
-      }
+      } catch (e) { /* Ignore */ }
     }
-
     return NextResponse.json({ status: 'success' }, { status: 200 })
   }
 }

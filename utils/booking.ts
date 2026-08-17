@@ -71,6 +71,40 @@ export function parseDateTimeString(dateTimeStr: string): { start: Date; end: Da
   return { start: startDate, end: endDate }
 }
 
+export async function checkSlotAvailability({
+  tenantId,
+  preferredDateTime
+}: {
+  tenantId: string
+  preferredDateTime: string
+}) {
+  try {
+    const { start, end } = parseDateTimeString(preferredDateTime)
+
+    const { data: conflicts } = await supabaseAdmin
+      .from('appointments')
+      .select('id, title, start_time, end_time')
+      .eq('tenant_id', tenantId)
+      .neq('status', 'cancelled')
+      .lt('start_time', end.toISOString())
+      .gt('end_time', start.toISOString())
+
+    const isAvailable = !conflicts || conflicts.length === 0
+    const formattedDate = start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    const formattedTime = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+
+    return {
+      available: isAvailable,
+      formattedDate,
+      formattedTime,
+      conflictsCount: conflicts ? conflicts.length : 0
+    }
+  } catch (err: any) {
+    console.error('Error checking availability:', err)
+    return { available: true, formattedDate: '', formattedTime: '', conflictsCount: 0 }
+  }
+}
+
 export async function executeAppointmentBooking({
   tenantId,
   agentId,
@@ -127,6 +161,25 @@ export async function executeAppointmentBooking({
 
     // 3. Parse start & end times
     const { start, end } = parseDateTimeString(params.preferred_datetime)
+
+    // Check for conflicting appointments in tenant
+    const { data: conflicts } = await supabaseAdmin
+      .from('appointments')
+      .select('id, title')
+      .eq('tenant_id', tenantId)
+      .neq('status', 'cancelled')
+      .neq('customer_id', customerId)
+      .lt('start_time', end.toISOString())
+      .gt('end_time', start.toISOString())
+
+    if (conflicts && conflicts.length > 0) {
+      const conflictDate = start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      const conflictTime = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+      return {
+        success: false,
+        error: `The requested slot (${conflictDate} at ${conflictTime}) is already booked by another customer. Please suggest an alternative date or time.`
+      }
+    }
 
     const title = params.appointment_title 
       ? `${params.appointment_title} - ${params.customer_name}`
@@ -203,6 +256,215 @@ export async function executeAppointmentBooking({
     return {
       success: false,
       error: error?.message || 'Failed to complete appointment booking'
+    }
+  }
+}
+
+export async function executeAppointmentReschedule({
+  tenantId,
+  customerId,
+  newDateTime,
+  customerName,
+  customerEmail
+}: {
+  tenantId: string
+  customerId: string
+  newDateTime: string
+  customerName?: string
+  customerEmail?: string
+}) {
+  try {
+    let existingApt: any = null
+    const { data: byCustomer } = await supabaseAdmin
+      .from('appointments')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('customer_id', customerId)
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    existingApt = byCustomer
+
+    if (!existingApt) {
+      const { data: latestTenantApt } = await supabaseAdmin
+        .from('appointments')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      existingApt = latestTenantApt
+    }
+
+    if (!existingApt) {
+      return {
+        success: false,
+        error: 'No active appointment found to reschedule.'
+      }
+    }
+
+    const { start, end } = parseDateTimeString(newDateTime)
+
+    // Check for conflicting appointments in tenant (excluding this appointment)
+    const { data: conflicts } = await supabaseAdmin
+      .from('appointments')
+      .select('id, title')
+      .eq('tenant_id', tenantId)
+      .neq('id', existingApt.id)
+      .neq('status', 'cancelled')
+      .lt('start_time', end.toISOString())
+      .gt('end_time', start.toISOString())
+
+    if (conflicts && conflicts.length > 0) {
+      const conflictDate = start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      const conflictTime = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+      return {
+        success: false,
+        error: `The requested time slot (${conflictDate} at ${conflictTime}) is unavailable. Please select another date or time.`
+      }
+    }
+
+    const { data: updatedApt, error: updateErr } = await supabaseAdmin
+      .from('appointments')
+      .update({
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
+        status: 'confirmed'
+      })
+      .eq('id', existingApt.id)
+      .select('*')
+      .single()
+
+    if (updateErr) {
+      throw new Error(`Failed to update appointment: ${updateErr.message}`)
+    }
+
+    const formattedDate = start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    const formattedTime = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+
+    if (customerEmail && isSmtpConfigured()) {
+      sendSmtpEmail({
+        to: customerEmail,
+        subject: `Appointment Rescheduled: ${existingApt.title}`,
+        text: `Hi ${customerName || 'there'},\n\nYour appointment "${existingApt.title}" has been rescheduled to ${formattedDate} at ${formattedTime}.\n\nThank you!`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 24px; color: #1a1a1a;">
+            <h2 style="color: #2a7a4a;">Appointment Rescheduled</h2>
+            <p>Hello <strong>${customerName || 'there'}</strong>,</p>
+            <p>Your appointment has been updated to your requested new date and time:</p>
+            <div style="background: #f9f9fb; padding: 16px; border-radius: 6px; margin: 16px 0;">
+              <p style="margin: 4px 0;"><strong>Title:</strong> ${existingApt.title}</p>
+              <p style="margin: 4px 0;"><strong>New Date:</strong> ${formattedDate}</p>
+              <p style="margin: 4px 0;"><strong>New Time:</strong> ${formattedTime}</p>
+            </div>
+          </div>
+        `
+      }).catch(err => console.error('SMTP Error:', err))
+    }
+
+    return {
+      success: true,
+      appointment: updatedApt,
+      formattedDate,
+      formattedTime,
+      title: existingApt.title
+    }
+  } catch (error: any) {
+    console.error('Error rescheduling appointment:', error)
+    return {
+      success: false,
+      error: error?.message || 'Failed to reschedule appointment'
+    }
+  }
+}
+
+export async function executeAppointmentCancel({
+  tenantId,
+  customerId,
+  reason,
+  customerName,
+  customerEmail
+}: {
+  tenantId: string
+  customerId: string
+  reason?: string
+  customerName?: string
+  customerEmail?: string
+}) {
+  try {
+    let existingApt: any = null
+    const { data: byCustomer } = await supabaseAdmin
+      .from('appointments')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('customer_id', customerId)
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    existingApt = byCustomer
+
+    if (!existingApt) {
+      const { data: latestTenantApt } = await supabaseAdmin
+        .from('appointments')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      existingApt = latestTenantApt
+    }
+
+    if (!existingApt) {
+      return {
+        success: false,
+        error: 'No active appointment found to cancel.'
+      }
+    }
+
+    const { data: cancelledApt, error: updateErr } = await supabaseAdmin
+      .from('appointments')
+      .update({
+        status: 'cancelled'
+      })
+      .eq('id', existingApt.id)
+      .select('*')
+      .single()
+
+    if (updateErr) {
+      throw new Error(`Failed to cancel appointment: ${updateErr.message}`)
+    }
+
+    if (customerEmail && isSmtpConfigured()) {
+      sendSmtpEmail({
+        to: customerEmail,
+        subject: `Appointment Cancelled: ${existingApt.title}`,
+        text: `Hi ${customerName || 'there'},\n\nYour appointment "${existingApt.title}" has been cancelled as requested.\n\nThank you!`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 24px; color: #1a1a1a;">
+            <h2 style="color: #c93b2b;">Appointment Cancelled</h2>
+            <p>Hello <strong>${customerName || 'there'}</strong>,</p>
+            <p>Your appointment <strong>${existingApt.title}</strong> has been cancelled as requested.</p>
+          </div>
+        `
+      }).catch(err => console.error('SMTP Error:', err))
+    }
+
+    return {
+      success: true,
+      appointment: cancelledApt,
+      title: existingApt.title
+    }
+  } catch (error: any) {
+    console.error('Error cancelling appointment:', error)
+    return {
+      success: false,
+      error: error?.message || 'Failed to cancel appointment'
     }
   }
 }
