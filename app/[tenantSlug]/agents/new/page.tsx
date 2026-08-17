@@ -40,10 +40,11 @@ export default async function NewAgentPage({
       business_name,
       description,
       working_hours,
-      appointment_duration
+      appointment_duration,
+      active_channels: ['whatsapp', 'telegram']
     })
 
-    const { error } = await supabase
+    const { data: newAgent, error } = await supabase
       .from('agents')
       .insert({
         tenant_id: tenant.id,
@@ -53,10 +54,11 @@ export default async function NewAgentPage({
         timezone,
         business_rules: businessRules
       })
+      .select('id')
+      .single()
 
     if (error) {
       console.error("Error creating agent:", error)
-      // Normally we'd return an error state, but for simplicity we'll just redirect or throw
     }
 
     redirect(`/${resolvedParams.tenantSlug}/agents`)

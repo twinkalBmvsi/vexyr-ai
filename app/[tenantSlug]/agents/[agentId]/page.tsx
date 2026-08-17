@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import AgentForm from '@/components/dashboard/AgentForm'
+import { getAgentConfig } from '@/app/actions/agents'
 
 export default async function AgentConfigPage({
   params,
@@ -10,10 +11,18 @@ export default async function AgentConfigPage({
   const resolvedParams = await params
   const isNew = resolvedParams.agentId === 'new'
 
+  const configData = await getAgentConfig(resolvedParams.tenantSlug, resolvedParams.agentId)
+
+  const initialData = configData?.agent ? {
+    name: configData.agent.name,
+    identity: configData.agent.personality || '',
+    initialPrompt: configData.agent.prompt || ''
+  } : null
+
   return (
     <div>
       <div style={{ marginBottom: '2rem' }}>
-        <Link href={`/agents`} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--muted)', textDecoration: 'none', fontSize: '0.8rem', fontFamily: 'DM Mono', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+        <Link href={`/${resolvedParams.tenantSlug}/agents`} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--muted)', textDecoration: 'none', fontSize: '0.8rem', fontFamily: 'DM Mono', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
           <ArrowLeft size={16} /> Back to Agents
         </Link>
       </div>
@@ -23,7 +32,13 @@ export default async function AgentConfigPage({
         <p className="dash-subtitle">Set up the identity, tone, and system prompt for this AI agent.</p>
       </div>
 
-      <AgentForm agentId={resolvedParams.agentId} tenantSlug={resolvedParams.tenantSlug} />
+      <AgentForm 
+        agentId={resolvedParams.agentId} 
+        tenantSlug={resolvedParams.tenantSlug} 
+        initialData={initialData}
+        initialWhatsapp={configData?.whatsappActive ?? true}
+        initialTelegram={configData?.telegramActive ?? false}
+      />
     </div>
   )
 }

@@ -51,13 +51,17 @@ export async function POST(
     // 2. Find the Telegram channel and agent config
     const { data: channel } = await supabase
       .from('channels')
-      .select('provider_config, agent_id')
+      .select('provider_config, agent_id, is_active')
       .eq('tenant_id', tenant.id)
       .eq('provider', 'telegram')
       .single()
 
     if (!channel || !channel.provider_config?.token) {
       return NextResponse.json({ error: 'Telegram channel not configured' }, { status: 404 })
+    }
+
+    if (channel.is_active === false) {
+      return NextResponse.json({ status: 'ignored', reason: 'Telegram channel deactivated' })
     }
 
     const telegramToken = channel.provider_config.token
@@ -80,6 +84,18 @@ export async function POST(
         })
       })
       return NextResponse.json({ status: 'success' })
+    }
+
+    // Check if Telegram is active in agent's active_channels list
+    if (agent.business_rules) {
+      try {
+        const rules = JSON.parse(agent.business_rules)
+        if (Array.isArray(rules.active_channels) && !rules.active_channels.includes('telegram')) {
+          return NextResponse.json({ status: 'ignored', reason: 'Telegram is not active for this agent' })
+        }
+      } catch (e) {
+        // Ignore JSON parse error
+      }
     }
 
     // 4. Call OpenRouter AI

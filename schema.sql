@@ -129,6 +129,7 @@ CREATE TABLE public.channels (
   agent_id uuid REFERENCES public.agents(id) ON DELETE CASCADE NOT NULL,
   provider text NOT NULL, -- e.g., 'whatsapp', 'telegram', 'web'
   provider_config jsonb DEFAULT '{}'::jsonb,
+  is_active boolean DEFAULT true,
   created_at timestamptz DEFAULT now() NOT NULL
 );
 
