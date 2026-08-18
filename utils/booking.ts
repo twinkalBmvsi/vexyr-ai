@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { sendSmtpEmail, isSmtpConfigured } from '@/utils/email/smtp'
+import { getBusinessHours } from '@/app/actions/settings'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -162,6 +163,23 @@ export async function executeAppointmentBooking({
     // 3. Parse start & end times
     const { start, end } = parseDateTimeString(params.preferred_datetime)
 
+    // Validate business hours
+    const businessHours = await getBusinessHours(tenantId)
+    if (businessHours.offDays.includes(start.getDay())) {
+      return {
+        success: false,
+        error: `The requested day is a scheduled off-day. Please choose a different day.`
+      }
+    }
+    const startHour = start.getHours()
+    const endHour = end.getHours()
+    if (startHour < businessHours.startHour || endHour > businessHours.endHour || (endHour === businessHours.endHour && end.getMinutes() > 0)) {
+      return {
+        success: false,
+        error: `The requested time is outside business hours (${businessHours.startHour}:00 - ${businessHours.endHour}:00).`
+      }
+    }
+
     // Check for conflicting appointments in tenant
     const { data: conflicts } = await supabaseAdmin
       .from('appointments')
@@ -307,6 +325,23 @@ export async function executeAppointmentReschedule({
     }
 
     const { start, end } = parseDateTimeString(newDateTime)
+
+    // Validate business hours
+    const businessHours = await getBusinessHours(tenantId)
+    if (businessHours.offDays.includes(start.getDay())) {
+      return {
+        success: false,
+        error: `The requested day is a scheduled off-day. Please choose a different day.`
+      }
+    }
+    const startHour = start.getHours()
+    const endHour = end.getHours()
+    if (startHour < businessHours.startHour || endHour > businessHours.endHour || (endHour === businessHours.endHour && end.getMinutes() > 0)) {
+      return {
+        success: false,
+        error: `The requested time is outside business hours (${businessHours.startHour}:00 - ${businessHours.endHour}:00).`
+      }
+    }
 
     // Check for conflicting appointments in tenant (excluding this appointment)
     const { data: conflicts } = await supabaseAdmin

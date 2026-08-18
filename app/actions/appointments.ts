@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { sendSmtpEmail, isSmtpConfigured } from '@/utils/email/smtp'
+import { getBusinessHours } from '@/app/actions/settings'
 
 export async function scheduleAppointment(
   tenantId: string, 
@@ -20,6 +21,18 @@ export async function scheduleAppointment(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return { success: false, error: 'Unauthorized' }
+  }
+
+  // Validate business hours
+  const businessHours = await getBusinessHours(tenantId)
+  const reqStart = new Date(startTime)
+  if (businessHours.offDays.includes(reqStart.getDay())) {
+    return { success: false, error: 'Cannot schedule an appointment on a day off.' }
+  }
+  const reqStartHour = reqStart.getHours()
+  const reqEndHour = new Date(endTime).getHours()
+  if (reqStartHour < businessHours.startHour || reqEndHour > businessHours.endHour || (reqEndHour === businessHours.endHour && new Date(endTime).getMinutes() > 0)) {
+    return { success: false, error: `Outside business hours (${businessHours.startHour}:00 - ${businessHours.endHour}:00).` }
   }
 
   // Find or create customer based on name
@@ -229,6 +242,22 @@ export async function rescheduleAppointment(appointmentId: string, newStartTime:
     .select('*, customers(name, email)')
     .eq('id', appointmentId)
     .single()
+
+  if (!existingApt) {
+    return { success: false, error: 'Appointment not found' }
+  }
+
+  // Validate business hours
+  const businessHours = await getBusinessHours(existingApt.tenant_id)
+  const reqStart = new Date(newStartTime)
+  if (businessHours.offDays.includes(reqStart.getDay())) {
+    return { success: false, error: 'Cannot reschedule to a day off.' }
+  }
+  const reqStartHour = reqStart.getHours()
+  const reqEndHour = new Date(newEndTime).getHours()
+  if (reqStartHour < businessHours.startHour || reqEndHour > businessHours.endHour || (reqEndHour === businessHours.endHour && new Date(newEndTime).getMinutes() > 0)) {
+    return { success: false, error: `Outside business hours (${businessHours.startHour}:00 - ${businessHours.endHour}:00).` }
+  }
 
   const { error } = await supabase
     .from('appointments')

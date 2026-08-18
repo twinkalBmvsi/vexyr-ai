@@ -1463,6 +1463,11 @@ h1 { animation-delay: 0.2s; }
   transition: border-color 0.2s;
 }
 
+select.dash-input option, select option {
+  background-color: var(--paper);
+  color: var(--ink);
+}
+
 .dash-textarea {
   min-height: 200px;
   resize: vertical;

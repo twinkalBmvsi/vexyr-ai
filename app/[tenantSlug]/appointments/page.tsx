@@ -4,6 +4,7 @@ import ScheduleAppointmentButton from '@/components/dashboard/ScheduleAppointmen
 import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import { Calendar as CalendarIcon, Clock, User, Mail, Phone, CheckCircle2, XCircle, CalendarX } from 'lucide-react'
+import { getBusinessHours } from '@/app/actions/settings'
 
 export default async function AppointmentsPage({ params }: { params: Promise<{ tenantSlug: string }> }) {
   const resolvedParams = await params
@@ -46,6 +47,8 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
 
   const planId = subscription?.plan_id || tenant.plan_id || 'free'
   const isSyncAllowed = planId === 'growth' || planId === 'enterprise'
+
+  const businessHours = await getBusinessHours(tenant.id)
 
   // Helper matching CalendarView's exact YYYY-MM-DD calculation
   const toYMD = (d: Date) => {
@@ -113,7 +116,7 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
       </div>
 
       {/* Calendar Grid View displaying active real appointments */}
-      <CalendarView appointments={calendarAppointments} tenantId={tenant.id} />
+      <CalendarView appointments={calendarAppointments} tenantId={tenant.id} businessHours={businessHours} />
 
       {/* Live Booked Appointments Table */}
       <div style={{ marginTop: '3rem' }}>

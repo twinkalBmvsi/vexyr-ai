@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, X, Mail, Phone, Video, Users, CheckCircle2 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import type { BusinessHoursConfig } from '@/app/actions/settings'
 
 type GridAppointment = {
   id: string | number
@@ -38,7 +39,7 @@ function isSameDate(date1Str: string, date2Str: string) {
   return false
 }
 
-export default function CalendarView({ appointments, tenantId }: { appointments: GridAppointment[], tenantId: string }) {
+export default function CalendarView({ appointments, tenantId, businessHours }: { appointments: GridAppointment[], tenantId: string, businessHours: BusinessHoursConfig }) {
   const [selectedApt, setSelectedApt] = useState<GridAppointment | null>(null)
   const [activeTab, setActiveTab] = useState<'Month' | 'Week' | 'Day'>('Week')
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -127,11 +128,13 @@ export default function CalendarView({ appointments, tenantId }: { appointments:
   for (let i = 0; i < 7; i++) {
     const currDay = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i)
     const isToday = new Date().toDateString() === currDay.toDateString()
+    const isOff = businessHours.offDays.includes(currDay.getDay())
     weekDays.push({
       name: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i],
       num: currDay.getDate(),
       dateObj: currDay,
-      active: isToday
+      active: isToday,
+      isOff
     })
   }
 
@@ -156,9 +159,9 @@ export default function CalendarView({ appointments, tenantId }: { appointments:
   const activeDayName = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][activeDayIndex]
   const activeDayNum = currentDate.getDate()
 
-  // Hours: 6 AM to 11 PM (18 hours)
-  const startDayHour = 6;
-  const hoursCount = 18;
+  // Hours from Business Hours Settings
+  const startDayHour = businessHours.startHour;
+  const hoursCount = Math.max(1, businessHours.endHour - businessHours.startHour);
   const hours = Array.from({ length: hoursCount }, (_, i) => i + startDayHour);
   const slotHeight = 80;
 
@@ -243,10 +246,10 @@ export default function CalendarView({ appointments, tenantId }: { appointments:
                 const cellApts = appointments.filter(a => isSameDate(a.date, cellYMD))
 
                 return (
-                  <div key={i} className={`calendar-month-cell ${!cell.isCurrentMonth ? 'empty' : ''}`}>
+                  <div key={i} className={`calendar-month-cell ${!cell.isCurrentMonth ? 'empty' : ''}`} style={{ background: businessHours.offDays.includes(cell.dateObj.getDay()) && cell.isCurrentMonth ? 'var(--paper)' : '' }}>
                     {cell.isCurrentMonth && (
                       <>
-                        <div className={`calendar-month-date ${cell.isToday ? 'active' : ''}`}>
+                        <div className={`calendar-month-date ${cell.isToday ? 'active' : ''}`} style={{ opacity: businessHours.offDays.includes(cell.dateObj.getDay()) ? 0.4 : 1 }}>
                           {cell.dateNum}
                         </div>
                         {/* Plot events mapping to this exact date */}
@@ -281,8 +284,8 @@ export default function CalendarView({ appointments, tenantId }: { appointments:
               </div>
               {weekDays.map((d, i) => (
                 <div key={i} className="calendar-day-cell">
-                  <div className={`calendar-day-card ${d.active ? 'active' : ''}`}>
-                    <span className="calendar-day-name">{d.name}</span>
+                  <div className={`calendar-day-card ${d.active ? 'active' : ''}`} style={{ opacity: d.isOff ? 0.5 : 1 }}>
+                    <span className="calendar-day-name">{d.name} {d.isOff && '(Off)'}</span>
                     <span className="calendar-day-num">{d.num}</span>
                   </div>
                 </div>
@@ -303,12 +306,12 @@ export default function CalendarView({ appointments, tenantId }: { appointments:
               </div>
 
               {/* Day Columns */}
-              {weekDays.map((_, dayIndex) => {
+              {weekDays.map((d, dayIndex) => {
                 const cellYMD = toYMD(weekDays[dayIndex].dateObj)
                 const cellApts = appointments.filter(a => isSameDate(a.date, cellYMD))
 
                 return (
-                  <div key={dayIndex} className="calendar-day-col">
+                  <div key={dayIndex} className="calendar-day-col" style={{ background: d.isOff ? 'rgba(0,0,0,0.02)' : '' }}>
                     {hours.map((_, i) => (
                       <div key={i} className="calendar-grid-line"></div>
                     ))}

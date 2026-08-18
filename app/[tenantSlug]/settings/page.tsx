@@ -1,5 +1,7 @@
 import { Bot, Building2, Clock3, Globe2, Mail, MapPin } from 'lucide-react'
 import { createClient } from '@/utils/supabase/server'
+import BusinessHoursSettings from '@/components/settings/BusinessHoursSettings'
+import { getBusinessHours } from '@/app/actions/settings'
 
 export default async function GeneralSettingsPage({
   params,
@@ -11,13 +13,15 @@ export default async function GeneralSettingsPage({
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('name, email, slug')
+    .select('id, name, email, slug')
     .eq('slug', resolvedParams.tenantSlug)
     .single()
 
   const workspaceName = tenant?.name || 'My AI Workspace'
   const supportEmail = tenant?.email || 'support@example.com'
   const workspaceSlug = tenant?.slug || resolvedParams.tenantSlug
+
+  const businessHours = await getBusinessHours(tenant?.id)
 
   return (
     <div className="settings-page settings-page-refined">
@@ -139,38 +143,7 @@ export default async function GeneralSettingsPage({
         </div>
       </section>
 
-      <section className="settings-refined-section">
-        <div className="settings-refined-heading">
-          <Clock3 size={18} />
-          <div>
-            <h3>Operating Defaults</h3>
-            <p>Baseline settings used by booking, reminders, and reports.</p>
-          </div>
-        </div>
-
-        <div className="settings-field-grid three">
-          <label>
-            <span>Timezone</span>
-            <select defaultValue="America/Chicago">
-              <option value="America/Chicago">Central Time</option>
-              <option value="America/New_York">Eastern Time</option>
-              <option value="America/Denver">Mountain Time</option>
-              <option value="America/Los_Angeles">Pacific Time</option>
-            </select>
-          </label>
-          <label>
-            <span>Business hours</span>
-            <input type="text" defaultValue="Mon-Fri, 9 AM-5 PM" />
-          </label>
-          <label>
-            <span>Location</span>
-            <div className="settings-input-with-icon">
-              <MapPin size={16} />
-              <input type="text" placeholder="City, state" />
-            </div>
-          </label>
-        </div>
-      </section>
+      <BusinessHoursSettings tenantId={tenant?.id} initialConfig={businessHours} />
 
       <div className="settings-actions refined">
         <button className="btn-secondary">Cancel</button>
