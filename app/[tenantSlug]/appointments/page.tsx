@@ -1,5 +1,6 @@
 import CalendarView from '@/components/dashboard/CalendarView'
 import CalendarSyncButtons from '@/components/dashboard/CalendarSyncButtons'
+import ScheduleAppointmentButton from '@/components/dashboard/ScheduleAppointmentButton'
 import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import { Calendar as CalendarIcon, Clock, User, Mail, Phone, CheckCircle2, XCircle, CalendarX } from 'lucide-react'
@@ -105,12 +106,14 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
           <h1 className="dash-title">Appointments</h1>
           <p className="dash-subtitle">Manage your live AI-booked meetings, reschedules, and cancellations.</p>
         </div>
-        
-        <CalendarSyncButtons isSyncAllowed={isSyncAllowed} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <ScheduleAppointmentButton tenantId={tenant.id} />
+          <CalendarSyncButtons isSyncAllowed={isSyncAllowed} />
+        </div>
       </div>
 
       {/* Calendar Grid View displaying active real appointments */}
-      <CalendarView appointments={calendarAppointments} />
+      <CalendarView appointments={calendarAppointments} tenantId={tenant.id} />
 
       {/* Live Booked Appointments Table */}
       <div style={{ marginTop: '3rem' }}>

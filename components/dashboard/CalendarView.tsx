@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, X, Mail, Phone, Video, Users, CheckCircle2 } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 
 type GridAppointment = {
   id: string | number
@@ -17,6 +18,7 @@ type GridAppointment = {
   notes: string
   dateStr: string
   timeStr: string
+  status: string
   teammates?: string[]
 }
 
@@ -36,10 +38,58 @@ function isSameDate(date1Str: string, date2Str: string) {
   return false
 }
 
-export default function CalendarView({ appointments }: { appointments: GridAppointment[] }) {
+export default function CalendarView({ appointments, tenantId }: { appointments: GridAppointment[], tenantId: string }) {
   const [selectedApt, setSelectedApt] = useState<GridAppointment | null>(null)
   const [activeTab, setActiveTab] = useState<'Month' | 'Week' | 'Day'>('Week')
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [isRescheduling, setIsRescheduling] = useState(false)
+  const [rescheduleData, setRescheduleData] = useState({ date: '', time: '', durationMinutes: '60' })
+  const [loadingAction, setLoadingAction] = useState(false)
+  
+  const handleAction = async (action: 'completed' | 'cancelled') => {
+    if (!selectedApt) return
+    setLoadingAction(true)
+    try {
+      // @ts-ignore
+      const { updateAppointmentStatus } = await import('@/app/actions/appointments')
+      const res = await updateAppointmentStatus(selectedApt.id.toString(), action)
+      if (res.success) {
+        toast.success(`Appointment marked as ${action}`)
+        setSelectedApt(null)
+      } else {
+        toast.error(res.error || 'Action failed')
+      }
+    } catch (e) {
+      toast.error('An error occurred')
+    } finally {
+      setLoadingAction(false)
+    }
+  }
+
+  const handleReschedule = async () => {
+    if (!selectedApt) return
+    setLoadingAction(true)
+    try {
+      const startDateTime = new Date(`${rescheduleData.date}T${rescheduleData.time}`)
+      const endDateTime = new Date(startDateTime.getTime() + parseInt(rescheduleData.durationMinutes) * 60000)
+
+      // @ts-ignore
+      const { rescheduleAppointment } = await import('@/app/actions/appointments')
+      const res = await rescheduleAppointment(selectedApt.id.toString(), startDateTime.toISOString(), endDateTime.toISOString())
+      
+      if (res.success) {
+        toast.success('Appointment rescheduled')
+        setIsRescheduling(false)
+        setSelectedApt(null)
+      } else {
+        toast.error(res.error || 'Action failed')
+      }
+    } catch (e) {
+      toast.error('An error occurred')
+    } finally {
+      setLoadingAction(false)
+    }
+  }
 
   const navigate = (direction: 1 | -1) => {
     const newDate = new Date(currentDate)
@@ -152,6 +202,7 @@ export default function CalendarView({ appointments }: { appointments: GridAppoi
                       setCurrentDate(new Date(parts[0], parts[1] - 1, parts[2]))
                     }
                     setSelectedApt(apt)
+                    setIsRescheduling(false)
                   }}
                   style={{
                     background: apt.color || 'var(--gold-light)',
@@ -204,7 +255,10 @@ export default function CalendarView({ appointments }: { appointments: GridAppoi
                             key={apt.id} 
                             className="calendar-month-event"
                             style={{ backgroundColor: apt.color, color: apt.textColor || 'var(--ink)' }}
-                            onClick={() => setSelectedApt(apt)}
+                            onClick={() => {
+                              setSelectedApt(apt)
+                              setIsRescheduling(false)
+                            }}
                           >
                             {apt.timeStr.split(' ')[0]} {apt.name}
                           </div>
@@ -274,7 +328,10 @@ export default function CalendarView({ appointments }: { appointments: GridAppoi
                             backgroundColor: apt.color,
                             color: apt.textColor || 'var(--ink)',
                           }}
-                          onClick={() => setSelectedApt(apt)}
+                          onClick={() => {
+                            setSelectedApt(apt)
+                            setIsRescheduling(false)
+                          }}
                         >
                           <h4 className="calendar-event-title">{apt.name}</h4>
                           <span className="calendar-event-time">{apt.timeStr}</span>
@@ -341,7 +398,10 @@ export default function CalendarView({ appointments }: { appointments: GridAppoi
                         backgroundColor: apt.color,
                         color: apt.textColor || 'var(--ink)',
                       }}
-                      onClick={() => setSelectedApt(apt)}
+                      onClick={() => {
+                        setSelectedApt(apt)
+                        setIsRescheduling(false)
+                      }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <h4 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'inherit' }}>{apt.name}</h4>
@@ -395,50 +455,107 @@ export default function CalendarView({ appointments }: { appointments: GridAppoi
                 {selectedApt.name}
               </h3>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                <div>
-                  <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>
-                    <CalendarIcon size={14} /> Date
-                  </p>
-                  <p style={{ fontSize: '0.85rem', fontWeight: 500 }}>{selectedApt.dateStr}</p>
+              {isRescheduling ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Select new date and time for this appointment.</p>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--ink)', marginBottom: '0.4rem', display: 'block' }}>Date</label>
+                    <input type="date" value={rescheduleData.date} onChange={e => setRescheduleData({...rescheduleData, date: e.target.value})} className="dash-input" style={{ width: '100%' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--ink)', marginBottom: '0.4rem', display: 'block' }}>Time</label>
+                    <input type="time" value={rescheduleData.time} onChange={e => setRescheduleData({...rescheduleData, time: e.target.value})} className="dash-input" style={{ width: '100%' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--ink)', marginBottom: '0.4rem', display: 'block' }}>Duration</label>
+                    <select value={rescheduleData.durationMinutes} onChange={e => setRescheduleData({...rescheduleData, durationMinutes: e.target.value})} className="dash-input" style={{ width: '100%' }}>
+                      <option value="15">15 Minutes</option>
+                      <option value="30">30 Minutes</option>
+                      <option value="45">45 Minutes</option>
+                      <option value="60">1 Hour</option>
+                      <option value="90">1.5 Hours</option>
+                      <option value="120">2 Hours</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>
-                    <Clock size={14} /> Time
-                  </p>
-                  <p style={{ fontSize: '0.85rem', fontWeight: 500 }}>{selectedApt.timeStr}</p>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div>
+                      <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>
+                        <CalendarIcon size={14} /> Date
+                      </p>
+                      <p style={{ fontSize: '0.85rem', fontWeight: 500 }}>{selectedApt.dateStr}</p>
+                    </div>
+                    <div>
+                      <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>
+                        <Clock size={14} /> Time
+                      </p>
+                      <p style={{ fontSize: '0.85rem', fontWeight: 500 }}>{selectedApt.timeStr}</p>
+                    </div>
+                  </div>
 
-              {selectedApt.phone && (
-                <div style={{ marginBottom: '0.75rem' }}>
-                  <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>
-                    <Phone size={14} /> Phone
-                  </p>
-                  <p style={{ fontSize: '0.85rem', fontWeight: 500 }}>{selectedApt.phone}</p>
-                </div>
+                  {selectedApt.phone && (
+                    <div style={{ marginBottom: '0.75rem' }}>
+                      <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>
+                        <Phone size={14} /> Phone
+                      </p>
+                      <p style={{ fontSize: '0.85rem', fontWeight: 500 }}>{selectedApt.phone}</p>
+                    </div>
+                  )}
+
+                  {selectedApt.email && (
+                    <div style={{ marginBottom: '0.75rem' }}>
+                      <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>
+                        <Mail size={14} /> Email
+                      </p>
+                      <p style={{ fontSize: '0.85rem', fontWeight: 500 }}>{selectedApt.email}</p>
+                    </div>
+                  )}
+
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>
+                      Notes / Description
+                    </p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--ink)', background: 'var(--paper)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                      {selectedApt.notes}
+                    </p>
+                  </div>
+                </>
               )}
 
-              {selectedApt.email && (
-                <div style={{ marginBottom: '0.75rem' }}>
-                  <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>
-                    <Mail size={14} /> Email
-                  </p>
-                  <p style={{ fontSize: '0.85rem', fontWeight: 500 }}>{selectedApt.email}</p>
-                </div>
-              )}
-
-              <div style={{ marginBottom: '1.5rem' }}>
-                <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>
-                  Notes / Description
-                </p>
-                <p style={{ fontSize: '0.85rem', color: 'var(--ink)', background: 'var(--paper)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                  {selectedApt.notes}
-                </p>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <button className="btn-primary" onClick={() => setSelectedApt(null)} style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', fontSize: '0.8rem' }}>Close</button>
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                {isRescheduling ? (
+                  <>
+                    <button className="btn-secondary" onClick={() => setIsRescheduling(false)} style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', fontSize: '0.8rem' }} disabled={loadingAction}>Cancel</button>
+                    <button className="btn-primary" onClick={handleReschedule} style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', fontSize: '0.8rem' }} disabled={loadingAction}>{loadingAction ? '...' : 'Confirm Reschedule'}</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="btn-secondary" onClick={() => setSelectedApt(null)} style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', fontSize: '0.8rem' }}>Close</button>
+                    {(selectedApt.status === 'pending' || selectedApt.status === 'confirmed' || selectedApt.status === 'rescheduled') && (
+                      <>
+                        <button className="btn-secondary" onClick={() => {
+                          const [hourStr, minStr] = selectedApt.timeStr.split(' - ')[0].split(':')
+                          const isPm = minStr.includes('PM')
+                          let h = parseInt(hourStr)
+                          if (isPm && h !== 12) h += 12
+                          if (!isPm && h === 12) h = 0
+                          const formattedTime = `${h.toString().padStart(2, '0')}:${minStr.replace(/[^0-9]/g, '')}`
+                          setRescheduleData({
+                            date: selectedApt.date,
+                            time: formattedTime,
+                            durationMinutes: (selectedApt.durationHours * 60).toString()
+                          })
+                          setIsRescheduling(true)
+                        }} style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', fontSize: '0.8rem', background: 'var(--paper)' }}>Reschedule</button>
+                        
+                        <button className="btn-secondary" onClick={() => handleAction('cancelled')} style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', fontSize: '0.8rem', color: '#dc2626', borderColor: '#fca5a5' }} disabled={loadingAction}>{loadingAction ? '...' : 'Cancel'}</button>
+                        <button className="btn-primary" onClick={() => handleAction('completed')} style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', fontSize: '0.8rem', background: '#2a7a4a' }} disabled={loadingAction}>{loadingAction ? '...' : 'Complete'}</button>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </>

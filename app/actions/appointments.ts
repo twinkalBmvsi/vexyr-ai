@@ -1,0 +1,275 @@
+'use server'
+
+import { createClient } from '@/utils/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { sendSmtpEmail, isSmtpConfigured } from '@/utils/email/smtp'
+
+export async function scheduleAppointment(
+  tenantId: string, 
+  customerName: string, 
+  customerEmail: string,
+  customerPhone: string,
+  title: string, 
+  startTime: string, 
+  endTime: string, 
+  notes?: string
+) {
+  const supabase = await createClient()
+  
+  // Verify auth
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  // Find or create customer based on name
+  let customerId = null
+  let customerData = null
+  const { data: existingCustomer } = await supabase
+    .from('customers')
+    .select('id, name, email, phone')
+    .eq('tenant_id', tenantId)
+    .eq('name', customerName)
+    .limit(1)
+    .maybeSingle()
+
+  if (existingCustomer) {
+    customerId = existingCustomer.id
+    customerData = existingCustomer
+
+    // Update customer if email/phone provided but missing in db
+    const updates: any = {}
+    if (customerEmail && existingCustomer.email !== customerEmail) updates.email = customerEmail
+    if (customerPhone && existingCustomer.phone !== customerPhone) updates.phone = customerPhone
+    
+    if (Object.keys(updates).length > 0) {
+      await supabase.from('customers').update(updates).eq('id', customerId)
+      customerData = { ...existingCustomer, ...updates }
+    }
+  } else {
+    // Create new customer
+    const { data: newCustomer, error: customerErr } = await supabase
+      .from('customers')
+      .insert({
+        tenant_id: tenantId,
+        name: customerName,
+        email: customerEmail || null,
+        phone: customerPhone || null,
+        channel: 'web'
+      })
+      .select('id, name, email, phone')
+      .single()
+
+    if (customerErr || !newCustomer) {
+      console.error('Failed to create customer:', customerErr)
+      return { success: false, error: 'Failed to create customer' }
+    }
+    customerId = newCustomer.id
+    customerData = newCustomer
+  }
+
+  // Find a default internal calendar for this tenant
+  let calendarId = null
+  const { data: existingCalendar } = await supabase
+    .from('calendars')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .limit(1)
+    .maybeSingle()
+
+  if (existingCalendar) {
+    calendarId = existingCalendar.id
+  } else {
+    // Create default calendar
+    const { data: newCalendar, error: calErr } = await supabase
+      .from('calendars')
+      .insert({
+        tenant_id: tenantId,
+        name: 'Default Calendar',
+        provider: 'internal'
+      })
+      .select('id')
+      .single()
+      
+    if (calErr || !newCalendar) {
+      console.error('Failed to create default calendar:', calErr)
+      return { success: false, error: 'Failed to create calendar' }
+    }
+    calendarId = newCalendar.id
+  }
+
+  const finalTitle = title || `Appointment with ${customerName}`
+
+  // Insert the appointment
+  const { data: appointment, error } = await supabase
+    .from('appointments')
+    .insert({
+      tenant_id: tenantId,
+      customer_id: customerId,
+      calendar_id: calendarId,
+      title: finalTitle,
+      start_time: startTime,
+      end_time: endTime,
+      status: 'confirmed',
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Failed to schedule appointment:', error)
+    return { success: false, error: 'Failed to schedule appointment' }
+  }
+
+  // Send confirmation email
+  const start = new Date(startTime)
+  const formattedDate = start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  const formattedTime = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+
+  if (customerData.email && isSmtpConfigured()) {
+    sendSmtpEmail({
+      to: customerData.email,
+      subject: `Appointment Confirmed: ${finalTitle}`,
+      text: `Hi ${customerData.name},\n\nYour appointment for ${finalTitle} is confirmed for ${formattedDate} at ${formattedTime}.\n\nThank you!`,
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e5e5; border-radius: 8px;">
+          <h2 style="color: #2a7a4a; margin-top: 0;">Appointment Confirmed!</h2>
+          <p>Hello <strong>${customerData.name}</strong>,</p>
+          <p>Your appointment has been successfully scheduled. Here are the details:</p>
+          <div style="background: #f9f9fb; padding: 16px; border-radius: 6px; margin: 20px 0; border: 1px solid #eeeeee;">
+            <p style="margin: 6px 0;"><strong>Service / Meeting:</strong> ${finalTitle}</p>
+            <p style="margin: 6px 0;"><strong>Date:</strong> ${formattedDate}</p>
+            <p style="margin: 6px 0;"><strong>Time:</strong> ${formattedTime}</p>
+            <p style="margin: 6px 0;"><strong>Status:</strong> Confirmed</p>
+          </div>
+        </div>
+      `
+    }).catch(err => console.error('SMTP Error:', err))
+  }
+
+  revalidatePath('/[tenantSlug]/appointments', 'page')
+  return { success: true, appointment }
+}
+
+export async function updateAppointmentStatus(appointmentId: string, status: 'completed' | 'cancelled' | 'confirmed') {
+  const supabase = await createClient()
+
+  // Verify auth
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  // Get appointment details for email
+  const { data: existingApt } = await supabase
+    .from('appointments')
+    .select('*, customers(name, email)')
+    .eq('id', appointmentId)
+    .single()
+
+  const { error } = await supabase
+    .from('appointments')
+    .update({ status })
+    .eq('id', appointmentId)
+
+  if (error) {
+    console.error(`Failed to update appointment status to ${status}:`, error)
+    return { success: false, error: 'Failed to update appointment status' }
+  }
+
+  // Send email if applicable
+  if (existingApt && existingApt.customers?.email && isSmtpConfigured()) {
+    const customer = existingApt.customers
+    const aptDate = new Date(existingApt.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    
+    if (status === 'cancelled') {
+      sendSmtpEmail({
+        to: customer.email,
+        subject: `Appointment Cancelled: ${existingApt.title}`,
+        text: `Hi ${customer.name},\n\nYour appointment "${existingApt.title}" on ${aptDate} has been cancelled.\n\nThank you!`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 24px; color: #1a1a1a;">
+            <h2 style="color: #c93b2b;">Appointment Cancelled</h2>
+            <p>Hello <strong>${customer.name}</strong>,</p>
+            <p>Your appointment <strong>${existingApt.title}</strong> on ${aptDate} has been cancelled.</p>
+          </div>
+        `
+      }).catch(err => console.error('SMTP Error:', err))
+    } else if (status === 'completed') {
+      sendSmtpEmail({
+        to: customer.email,
+        subject: `Thank you for visiting! (${existingApt.title})`,
+        text: `Hi ${customer.name},\n\nYour appointment "${existingApt.title}" is now complete. Thank you for your business!\n\nBest regards,`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 24px; color: #1a1a1a;">
+            <h2 style="color: #2a7a4a;">Appointment Complete</h2>
+            <p>Hello <strong>${customer.name}</strong>,</p>
+            <p>Your appointment <strong>${existingApt.title}</strong> has been marked as complete. Thank you for visiting us!</p>
+          </div>
+        `
+      }).catch(err => console.error('SMTP Error:', err))
+    }
+  }
+
+  revalidatePath('/[tenantSlug]/appointments', 'page')
+  return { success: true }
+}
+
+export async function rescheduleAppointment(appointmentId: string, newStartTime: string, newEndTime: string) {
+  const supabase = await createClient()
+
+  // Verify auth
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  // Get appointment details for email
+  const { data: existingApt } = await supabase
+    .from('appointments')
+    .select('*, customers(name, email)')
+    .eq('id', appointmentId)
+    .single()
+
+  const { error } = await supabase
+    .from('appointments')
+    .update({ 
+      start_time: newStartTime,
+      end_time: newEndTime,
+      status: 'confirmed'
+    })
+    .eq('id', appointmentId)
+
+  if (error) {
+    console.error('Failed to reschedule appointment:', error)
+    return { success: false, error: 'Failed to reschedule appointment' }
+  }
+
+  // Send confirmation email
+  if (existingApt && existingApt.customers?.email && isSmtpConfigured()) {
+    const customer = existingApt.customers
+    const start = new Date(newStartTime)
+    const formattedDate = start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    const formattedTime = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+
+    sendSmtpEmail({
+      to: customer.email,
+      subject: `Appointment Rescheduled: ${existingApt.title}`,
+      text: `Hi ${customer.name},\n\nYour appointment "${existingApt.title}" has been rescheduled to ${formattedDate} at ${formattedTime}.\n\nThank you!`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 24px; color: #1a1a1a;">
+          <h2 style="color: #2a7a4a;">Appointment Rescheduled</h2>
+          <p>Hello <strong>${customer.name}</strong>,</p>
+          <p>Your appointment has been updated to your requested new date and time:</p>
+          <div style="background: #f9f9fb; padding: 16px; border-radius: 6px; margin: 16px 0;">
+            <p style="margin: 4px 0;"><strong>Title:</strong> ${existingApt.title}</p>
+            <p style="margin: 4px 0;"><strong>New Date:</strong> ${formattedDate}</p>
+            <p style="margin: 4px 0;"><strong>New Time:</strong> ${formattedTime}</p>
+          </div>
+        </div>
+      `
+    }).catch(err => console.error('SMTP Error:', err))
+  }
+
+  revalidatePath('/[tenantSlug]/appointments', 'page')
+  return { success: true }
+}
