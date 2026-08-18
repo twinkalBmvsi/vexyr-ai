@@ -99,10 +99,10 @@ export async function saveAgentConfig(
     return { success: false, error: 'Not authenticated' }
   }
 
-  // 2. Get tenant ID
+  // 2. Get tenant ID and plan
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id')
+    .select('id, plan_id')
     .eq('slug', tenantSlug)
     .single()
 
@@ -126,9 +126,35 @@ export async function saveAgentConfig(
   if (data.whatsapp) activeChannels.push('whatsapp')
   if (data.telegram) activeChannels.push('telegram')
 
+  // Enforce no free tier
+  if (!tenant.plan_id) {
+    return { success: false, error: 'You do not have an active subscription. Please subscribe to a plan to create an agent.' }
+  }
+
+  // Check channel limits based on plan
+  const planId = tenant.plan_id
+  if (planId === 'starter' && activeChannels.length > 1) {
+    return { success: false, error: 'Starter plan only allows 1 messaging integration. Please upgrade to Growth or select only one.' }
+  }
+  // Growth allows 2, Enterprise allows unlimited, so no check needed for them since we only have 2 channels right now.
+
   let targetAgentId = agentId
 
   if (agentId === 'new') {
+    // Enforce Agent Limits
+    const { count, error: countError } = await supabase
+      .from('agents')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenant.id)
+
+    if (countError) {
+      return { success: false, error: 'Failed to check agent limits' }
+    }
+
+    if ((planId === 'starter' || planId === 'growth') && count && count >= 1) {
+      return { success: false, error: 'Your current plan only allows 1 AI agent. Please upgrade to Enterprise to create multiple agents.' }
+    }
+
     // Create new agent
     const { data: newAgent, error: createError } = await supabase
       .from('agents')
