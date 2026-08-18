@@ -72,6 +72,14 @@ export default function CalendarView({ appointments, tenantId, businessHours }: 
     setLoadingAction(true)
     try {
       const startDateTime = new Date(`${rescheduleData.date}T${rescheduleData.time}`)
+      
+      // Local frontend validation
+      if (startDateTime.getTime() < new Date().getTime()) {
+        toast.error("Cannot reschedule to a past time.")
+        setLoadingAction(false)
+        return
+      }
+
       const endDateTime = new Date(startDateTime.getTime() + parseInt(rescheduleData.durationMinutes) * 60000)
 
       // @ts-ignore
@@ -164,6 +172,10 @@ export default function CalendarView({ appointments, tenantId, businessHours }: 
   const hoursCount = Math.max(1, businessHours.endHour - businessHours.startHour);
   const hours = Array.from({ length: hoursCount }, (_, i) => i + startDayHour);
   const slotHeight = 80;
+
+  const todayStr = new Date().toISOString().split('T')[0]
+  const isRescheduleToday = rescheduleData.date === todayStr
+  const currentRescheduleTime = isRescheduleToday ? `${new Date().getHours().toString().padStart(2, '0')}:${new Date().getMinutes().toString().padStart(2, '0')}` : undefined
 
   return (
     <>
@@ -463,11 +475,11 @@ export default function CalendarView({ appointments, tenantId, businessHours }: 
                   <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Select new date and time for this appointment.</p>
                   <div>
                     <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--ink)', marginBottom: '0.4rem', display: 'block' }}>Date</label>
-                    <input type="date" value={rescheduleData.date} onChange={e => setRescheduleData({...rescheduleData, date: e.target.value})} className="dash-input" style={{ width: '100%' }} />
+                    <input type="date" value={rescheduleData.date} min={todayStr} onChange={e => setRescheduleData({...rescheduleData, date: e.target.value})} className="dash-input" style={{ width: '100%' }} />
                   </div>
                   <div>
                     <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--ink)', marginBottom: '0.4rem', display: 'block' }}>Time</label>
-                    <input type="time" value={rescheduleData.time} onChange={e => setRescheduleData({...rescheduleData, time: e.target.value})} className="dash-input" style={{ width: '100%' }} />
+                    <input type="time" value={rescheduleData.time} min={currentRescheduleTime} onChange={e => setRescheduleData({...rescheduleData, time: e.target.value})} className="dash-input" style={{ width: '100%' }} />
                   </div>
                   <div>
                     <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--ink)', marginBottom: '0.4rem', display: 'block' }}>Duration</label>

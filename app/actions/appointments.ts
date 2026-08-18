@@ -23,9 +23,14 @@ export async function scheduleAppointment(
     return { success: false, error: 'Unauthorized' }
   }
 
-  // Validate business hours
-  const businessHours = await getBusinessHours(tenantId)
+  // Validate business hours and past dates
   const reqStart = new Date(startTime)
+  const now = new Date()
+  if (reqStart.getTime() < now.getTime()) {
+    return { success: false, error: 'Cannot schedule appointments in the past.' }
+  }
+
+  const businessHours = await getBusinessHours(tenantId)
   if (businessHours.offDays.includes(reqStart.getDay())) {
     return { success: false, error: 'Cannot schedule an appointment on a day off.' }
   }
@@ -247,9 +252,14 @@ export async function rescheduleAppointment(appointmentId: string, newStartTime:
     return { success: false, error: 'Appointment not found' }
   }
 
-  // Validate business hours
-  const businessHours = await getBusinessHours(existingApt.tenant_id)
+  // Validate business hours and past dates
   const reqStart = new Date(newStartTime)
+  const now = new Date()
+  if (reqStart.getTime() < now.getTime()) {
+    return { success: false, error: 'Cannot reschedule appointments to the past.' }
+  }
+
+  const businessHours = await getBusinessHours(existingApt.tenant_id)
   if (businessHours.offDays.includes(reqStart.getDay())) {
     return { success: false, error: 'Cannot reschedule to a day off.' }
   }

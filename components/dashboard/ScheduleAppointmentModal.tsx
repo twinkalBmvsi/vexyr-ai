@@ -17,7 +17,7 @@ export default function ScheduleAppointmentModal({ tenantId, onClose }: Schedule
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
   const tomorrowStr = tomorrow.toISOString().split('T')[0]
-
+  
   const [formData, setFormData] = useState({
     customerName: '',
     customerEmail: '',
@@ -29,6 +29,10 @@ export default function ScheduleAppointmentModal({ tenantId, onClose }: Schedule
     notes: ''
   })
 
+  const todayStr = new Date().toISOString().split('T')[0]
+  const isToday = formData?.date === todayStr
+  const currentTime = isToday ? `${new Date().getHours().toString().padStart(2, '0')}:${new Date().getMinutes().toString().padStart(2, '0')}` : undefined
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
@@ -39,6 +43,14 @@ export default function ScheduleAppointmentModal({ tenantId, onClose }: Schedule
 
     try {
       const startDateTime = new Date(`${formData.date}T${formData.time}`)
+      
+      // Local frontend validation
+      if (startDateTime.getTime() < new Date().getTime()) {
+        toast.error("Cannot schedule an appointment in the past.")
+        setLoading(false)
+        return
+      }
+
       const endDateTime = new Date(startDateTime.getTime() + parseInt(formData.durationMinutes) * 60000)
 
       const result = await scheduleAppointment(
@@ -177,6 +189,7 @@ export default function ScheduleAppointmentModal({ tenantId, onClose }: Schedule
                 type="date"
                 name="date"
                 value={formData.date}
+                min={todayStr}
                 onChange={handleChange}
                 required
                 className="dash-input"
@@ -193,6 +206,7 @@ export default function ScheduleAppointmentModal({ tenantId, onClose }: Schedule
                 type="time"
                 name="time"
                 value={formData.time}
+                min={currentTime}
                 onChange={handleChange}
                 required
                 className="dash-input"
