@@ -127,6 +127,14 @@ export async function POST(
       return NextResponse.json({ status: 'ignored', reason: `Tenant '${tenantSlug}' not found` }, { status: 200 })
     }
 
+    // Log the incoming webhook
+    await supabaseAdmin.from('webhook_logs').insert({
+      tenant_id: tenant.id,
+      event_type: 'whatsapp_message',
+      payload: body,
+      status: 'received'
+    })
+
     // 2. Find WhatsApp channel
     const { data: channel } = await supabaseAdmin
       .from('channels')
