@@ -122,26 +122,37 @@ export async function saveAgentConfig(
     return { success: false, error: 'Unauthorized for this tenant' }
   }
 
+  // 4. Resolve plan from subscriptions table first (same as billing page)
+  const { data: subscription } = await supabase
+    .from('subscriptions')
+    .select('plan_id')
+    .eq('tenant_id', tenant.id)
+    .maybeSingle()
+
+  const planId = subscription?.plan_id || tenant.plan_id || 'free'
+
+  // Enforce no free/unknown plan
+  if (planId === 'free' || !planId) {
+    return { success: false, error: 'You do not have an active subscription. Please subscribe to a plan to create an agent.' }
+  }
+
   const activeChannels: string[] = []
   if (data.whatsapp) activeChannels.push('whatsapp')
   if (data.telegram) activeChannels.push('telegram')
 
-  // Enforce no free tier
-  if (!tenant.plan_id) {
-    return { success: false, error: 'You do not have an active subscription. Please subscribe to a plan to create an agent.' }
-  }
-
-  // Check channel limits based on plan
-  const planId = tenant.plan_id
+  // Enforce channel limits per plan
   if (planId === 'starter' && activeChannels.length > 1) {
     return { success: false, error: 'Starter plan only allows 1 messaging integration. Please upgrade to Growth or select only one.' }
   }
-  // Growth allows 2, Enterprise allows unlimited, so no check needed for them since we only have 2 channels right now.
+  // Growth allows 2, Enterprise allows unlimited
 
   let targetAgentId = agentId
 
   if (agentId === 'new') {
-    // Enforce Agent Limits
+    // Enforce Agent Limits per plan:
+    // starter → max 1 agent
+    // growth  → max 1 agent
+    // enterprise → unlimited
     const { count, error: countError } = await supabase
       .from('agents')
       .select('id', { count: 'exact', head: true })
@@ -151,8 +162,8 @@ export async function saveAgentConfig(
       return { success: false, error: 'Failed to check agent limits' }
     }
 
-    if ((planId === 'starter' || planId === 'growth') && count && count >= 1) {
-      return { success: false, error: 'Your current plan only allows 1 AI agent. Please upgrade to Enterprise to create multiple agents.' }
+    if ((planId === 'starter' || planId === 'growth') && count !== null && count >= 1) {
+      return { success: false, error: `Your ${planId === 'starter' ? 'Starter' : 'Growth'} plan only allows 1 AI agent. Please upgrade to Enterprise to create multiple agents.` }
     }
 
     // Create new agent
@@ -286,4 +297,71 @@ export async function saveAgentConfig(
   revalidatePath(`/${tenantSlug}/agents/${targetAgentId}`)
 
   return { success: true, agentId: targetAgentId }
+}
+
+export async function deleteAgent(tenantSlug: string, agentId: string) {
+  const supabase = await createClient()
+
+  // 1. Verify auth
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { success: false, error: 'Not authenticated' }
+  }
+
+  // 2. Get tenant
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('id')
+    .eq('slug', tenantSlug)
+    .single()
+
+  if (!tenant) {
+    return { success: false, error: 'Tenant not found' }
+  }
+
+  // 3. Verify user belongs to tenant
+  const { data: userRecord } = await supabase
+    .from('users')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('tenant_id', tenant.id)
+    .maybeSingle()
+
+  if (!userRecord) {
+    return { success: false, error: 'Unauthorized for this tenant' }
+  }
+
+  // 4. Verify agent belongs to this tenant
+  const { data: agent } = await supabase
+    .from('agents')
+    .select('id')
+    .eq('id', agentId)
+    .eq('tenant_id', tenant.id)
+    .maybeSingle()
+
+  if (!agent) {
+    return { success: false, error: 'Agent not found' }
+  }
+
+  // 5. Nullify agent_id on all linked channels so webhooks don't break
+  await supabase
+    .from('channels')
+    .update({ agent_id: null })
+    .eq('agent_id', agentId)
+    .eq('tenant_id', tenant.id)
+
+  // 6. Delete the agent
+  const { error: deleteError } = await supabase
+    .from('agents')
+    .delete()
+    .eq('id', agentId)
+    .eq('tenant_id', tenant.id)
+
+  if (deleteError) {
+    return { success: false, error: deleteError.message }
+  }
+
+  revalidatePath(`/${tenantSlug}/agents`)
+
+  return { success: true }
 }
