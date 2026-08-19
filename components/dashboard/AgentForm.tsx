@@ -11,8 +11,9 @@ interface AgentFormProps {
   tenantSlug: string
   initialData?: {
     name?: string
-    identity?: string
-    initialPrompt?: string
+    businessName?: string
+    description?: string
+    services?: string
   } | null
   initialWhatsapp?: boolean
   initialTelegram?: boolean
@@ -33,8 +34,9 @@ export default function AgentForm({
   
   const [formData, setFormData] = useState({
     name: initialData?.name || (isNew ? '' : 'Sales Assistant'),
-    identity: initialData?.identity || (isNew ? '' : 'Friendly, professional, helpful.'),
-    initialPrompt: initialData?.initialPrompt || (isNew ? '' : 'You are a sales assistant for Glamour Studio. Answer questions politely.'),
+    businessName: initialData?.businessName || '',
+    description: initialData?.description || '',
+    services: initialData?.services || '',
     whatsapp: initialWhatsapp,
     telegram: initialTelegram
   })
@@ -44,8 +46,9 @@ export default function AgentForm({
     setFormData(prev => ({
       ...prev,
       name: initialData?.name || prev.name,
-      identity: initialData?.identity || prev.identity,
-      initialPrompt: initialData?.initialPrompt || prev.initialPrompt,
+      businessName: initialData?.businessName || prev.businessName,
+      description: initialData?.description || prev.description,
+      services: initialData?.services || prev.services,
       whatsapp: initialWhatsapp,
       telegram: initialTelegram
     }))
@@ -127,6 +130,7 @@ export default function AgentForm({
 
   return (
     <>
+
       {/* ── Delete Confirmation Modal ── */}
       {showDeleteModal && (
         <div style={{
@@ -229,24 +233,35 @@ export default function AgentForm({
               </div>
 
               <div className="dash-form-group">
-                <label className="dash-label">Tone & Tuning</label>
+                <label className="dash-label">Business Name</label>
                 <input 
                   type="text" 
                   className="dash-input" 
-                  value={formData.identity}
-                  onChange={e => setFormData({ ...formData, identity: e.target.value })}
-                  placeholder="e.g. Friendly, professional, uses emojis"
+                  value={formData.businessName}
+                  onChange={e => setFormData({ ...formData, businessName: e.target.value })}
+                  placeholder="e.g. ABC Dental Clinic"
                   required
                 />
               </div>
 
               <div className="dash-form-group">
-                <label className="dash-label">Initial System Prompt</label>
+                <label className="dash-label">Description</label>
+                <input 
+                  type="text" 
+                  className="dash-input" 
+                  value={formData.description}
+                  onChange={e => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Short description of the organization"
+                />
+              </div>
+
+              <div className="dash-form-group">
+                <label className="dash-label">Services Provided</label>
                 <textarea 
                   className="dash-textarea" 
-                  value={formData.initialPrompt}
-                  onChange={e => setFormData({ ...formData, initialPrompt: e.target.value })}
-                  placeholder="Give your agent detailed instructions on how to handle customers..."
+                  value={formData.services}
+                  onChange={e => setFormData({ ...formData, services: e.target.value })}
+                  placeholder="e.g. Teeth cleaning, whitening, root canals..."
                   required
                 />
               </div>

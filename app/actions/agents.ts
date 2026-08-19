@@ -5,8 +5,9 @@ import { revalidatePath } from 'next/cache'
 
 export interface SaveAgentConfigParams {
   name: string
-  identity: string
-  initialPrompt: string
+  businessName: string
+  description: string
+  services: string
   whatsapp: boolean
   telegram: boolean
 }
@@ -79,10 +80,25 @@ export async function getAgentConfig(tenantSlug: string, agentId: string) {
     telegramActive = tg ? (tg.is_active ?? false) : false
   }
 
+  let businessName = ''
+  let description = ''
+  let services = ''
+  if (agent?.business_rules) {
+    try {
+      const rules = JSON.parse(agent.business_rules)
+      businessName = rules.business_name || ''
+      description = rules.description || ''
+      services = rules.services || ''
+    } catch (e) {}
+  }
+
   return {
     agent,
     whatsappActive,
-    telegramActive
+    telegramActive,
+    businessName,
+    description,
+    services
   }
 }
 
@@ -172,8 +188,11 @@ export async function saveAgentConfig(
       .insert({
         tenant_id: tenant.id,
         name: data.name,
-        prompt: data.initialPrompt,
-        personality: data.identity,
+        business_rules: JSON.stringify({
+          business_name: data.businessName,
+          description: data.description,
+          services: data.services
+        })
       })
       .select('id')
       .single()
@@ -198,8 +217,11 @@ export async function saveAgentConfig(
         .insert({
           tenant_id: tenant.id,
           name: data.name,
-          prompt: data.initialPrompt,
-          personality: data.identity,
+          business_rules: JSON.stringify({
+            business_name: data.businessName,
+            description: data.description,
+            services: data.services
+          })
         })
         .select('id')
         .single()
@@ -213,8 +235,6 @@ export async function saveAgentConfig(
         .from('agents')
         .update({
           name: data.name,
-          prompt: data.initialPrompt,
-          personality: data.identity,
         })
         .eq('id', agentId)
         .eq('tenant_id', tenant.id)
@@ -285,6 +305,9 @@ export async function saveAgentConfig(
     parsedRules = {}
   }
   parsedRules.active_channels = activeChannels
+  parsedRules.business_name = data.businessName
+  parsedRules.description = data.description
+  parsedRules.services = data.services
 
   await supabase
     .from('agents')

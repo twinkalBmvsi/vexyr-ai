@@ -332,13 +332,27 @@ export async function POST(
     let systemInstruction: string
     let selectedTools: any[]
 
+    let businessName = 'Business'
+    let description = 'Organization'
+    let services = 'Services'
+    if (agent?.business_rules) {
+      try {
+        const rules = JSON.parse(agent.business_rules)
+        businessName = rules.business_name || businessName
+        description = rules.description || description
+        services = rules.services || services
+      } catch (e) {}
+    }
+
     if (hasActiveAppointment) {
       // Customer has active appointment — only allow cancel/reschedule
       selectedTools = managementOnlyTools
       systemInstruction = `TODAY'S DATE IS: ${currentDateFormatted} (Year ${new Date().getFullYear()}).
 
-      ${agent?.personality || 'You are a helpful scheduling assistant.'}
-      ${agent?.prompt || ''}
+      You are **${agent?.name || 'Agent'}**, the friendly scheduling assistant for **${businessName}**.
+      Business Description: ${description}
+      Services Provided: ${services}
+      Answer questions politely and assist customers.
 
       ### CUSTOMER CONTEXT
       - Customer Name: ${customerDisplayName ? `"${customerDisplayName}"` : 'Customer'}
@@ -366,8 +380,10 @@ export async function POST(
       selectedTools = bookingOnlyTools
       systemInstruction = `TODAY'S DATE IS: ${currentDateFormatted} (Year ${new Date().getFullYear()}).
 
-        ${agent?.personality || 'You are a helpful scheduling assistant.'}
-        ${agent?.prompt || ''}
+        You are **${agent?.name || 'Agent'}**, the friendly scheduling assistant for **${businessName}**.
+        Business Description: ${description}
+        Services Provided: ${services}
+        Answer questions politely and assist customers.
 
         ### CUSTOMER CONTEXT
         - Customer Name: ${customerDisplayName ? `"${customerDisplayName}"` : 'New Customer'}
