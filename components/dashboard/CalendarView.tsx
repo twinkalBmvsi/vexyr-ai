@@ -114,11 +114,17 @@ export default function CalendarView({ appointments, tenantId, businessHours }: 
 
   const goToday = () => setCurrentDate(new Date())
 
-  // Helper to format local date as YYYY-MM-DD
+  const timeZone = businessHours.timeZone || 'UTC'
+
+  // Helper to format date as YYYY-MM-DD in the correct timezone
   const toYMD = (d: Date) => {
-    const offset = d.getTimezoneOffset()
-    const local = new Date(d.getTime() - (offset * 60 * 1000))
-    return local.toISOString().split('T')[0]
+    const f = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+    return f.format(d)
   }
 
   // --- Dynamic Date Calculations ---
@@ -339,7 +345,7 @@ export default function CalendarView({ appointments, tenantId, businessHours }: 
                           className="calendar-event"
                           style={{ 
                             top: `${top}px`, 
-                            minHeight: `${height}px`,
+                            height: `${height}px`,
                             backgroundColor: apt.color,
                             color: apt.textColor || 'var(--ink)',
                           }}
@@ -409,7 +415,7 @@ export default function CalendarView({ appointments, tenantId, businessHours }: 
                       className="calendar-day-event-wide"
                       style={{ 
                         top: `${top}px`, 
-                        minHeight: `${height}px`,
+                        height: `${height}px`,
                         backgroundColor: apt.color,
                         color: apt.textColor || 'var(--ink)',
                       }}
