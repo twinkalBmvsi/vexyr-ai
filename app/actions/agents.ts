@@ -24,29 +24,29 @@ export async function getAgentConfig(tenantSlug: string, agentId: string) {
 
   if (!tenant) return null
 
-  // 2. Fetch agent
-  let agent: any = null
-  if (agentId !== 'new') {
-    const { data } = await supabase
-      .from('agents')
-      .select('*')
-      .eq('id', agentId)
-      .eq('tenant_id', tenant.id)
-      .maybeSingle()
-    agent = data
+  if (agentId === 'new') {
+    return {
+      agent: null,
+      whatsappActive: false,
+      telegramActive: false,
+      businessName: '',
+      description: '',
+      services: ''
+    }
   }
 
+  // 2. Fetch agent
+  let agent: any = null
+  const { data } = await supabase
+    .from('agents')
+    .select('*')
+    .eq('id', agentId)
+    .eq('tenant_id', tenant.id)
+    .maybeSingle()
+  agent = data
+
   if (!agent) {
-    // Check if tenant has any agent
-    const { data } = await supabase
-      .from('agents')
-      .select('*')
-      .eq('tenant_id', tenant.id)
-      .order('created_at', { ascending: true })
-      .limit(1)
-    if (data && data.length > 0) {
-      agent = data[0]
-    }
+    return null
   }
 
   // 3. Fetch channels for this tenant
@@ -67,7 +67,7 @@ export async function getAgentConfig(tenantSlug: string, agentId: string) {
     }
   }
 
-  let whatsappActive = true
+  let whatsappActive = false
   let telegramActive = false
 
   if (activeChannelsFromRules !== null) {
@@ -76,7 +76,7 @@ export async function getAgentConfig(tenantSlug: string, agentId: string) {
   } else if (channels && channels.length > 0) {
     const wa = channels.find(c => c.provider === 'whatsapp')
     const tg = channels.find(c => c.provider === 'telegram')
-    whatsappActive = wa ? (wa.is_active ?? true) : true
+    whatsappActive = wa ? (wa.is_active ?? false) : false
     telegramActive = tg ? (tg.is_active ?? false) : false
   }
 
@@ -147,28 +147,32 @@ export async function saveAgentConfig(
 
   const planId = subscription?.plan_id || tenant.plan_id || 'free'
 
-  // Enforce no free/unknown plan
-  if (planId === 'free' || !planId) {
-    return { success: false, error: 'You do not have an active subscription. Please subscribe to a plan to create an agent.' }
-  }
-
   const activeChannels: string[] = []
   if (data.whatsapp) activeChannels.push('whatsapp')
   if (data.telegram) activeChannels.push('telegram')
 
-  // Enforce channel limits per plan
-  if (planId === 'starter' && activeChannels.length > 1) {
-    return { success: false, error: 'Starter plan only allows 1 messaging integration. Please upgrade to Growth or select only one.' }
+  // Check purchased channel modules
+  const { data: moduleSub } = await supabase
+    .from('subscriptions')
+    .select('modules')
+    .eq('tenant_id', tenant.id)
+    .maybeSingle()
+
+  const modules = moduleSub?.modules || {}
+
+  // Each channel requires its own purchased module
+  if (data.whatsapp && !modules.whatsappChannel) {
+    return { success: false, error: 'You need to purchase the WhatsApp Channel module from the Store to activate WhatsApp.' }
   }
-  // Growth allows 2, Enterprise allows unlimited
+  if (data.telegram && !modules.telegramChannel) {
+    return { success: false, error: 'You need to purchase the Telegram Channel module from the Store to activate Telegram.' }
+  }
 
   let targetAgentId = agentId
 
   if (agentId === 'new') {
-    // Enforce Agent Limits per plan:
-    // starter → max 1 agent
-    // growth  → max 1 agent
-    // enterprise → unlimited
+    // Free Base Engine: max 1 agent
+    // Extra Agents module: allows more
     const { count, error: countError } = await supabase
       .from('agents')
       .select('id', { count: 'exact', head: true })
@@ -178,8 +182,10 @@ export async function saveAgentConfig(
       return { success: false, error: 'Failed to check agent limits' }
     }
 
-    if ((planId === 'starter' || planId === 'growth') && count !== null && count >= 1) {
-      return { success: false, error: `Your ${planId === 'starter' ? 'Starter' : 'Growth'} plan only allows 1 AI agent. Please upgrade to Enterprise to create multiple agents.` }
+    const maxAgents = modules.extraAgents ? 5 : 1
+
+    if (count !== null && count >= maxAgents) {
+      return { success: false, error: `You can have up to ${maxAgents} agent${maxAgents > 1 ? 's' : ''} on your current plan. Purchase the Extra Agents module from the Store to add more.` }
     }
 
     // Create new agent
@@ -191,7 +197,8 @@ export async function saveAgentConfig(
         business_rules: JSON.stringify({
           business_name: data.businessName,
           description: data.description,
-          services: data.services
+          services: data.services,
+          active_channels: []
         })
       })
       .select('id')
@@ -220,7 +227,8 @@ export async function saveAgentConfig(
           business_rules: JSON.stringify({
             business_name: data.businessName,
             description: data.description,
-            services: data.services
+            services: data.services,
+            active_channels: []
           })
         })
         .select('id')

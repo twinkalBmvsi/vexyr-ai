@@ -23,7 +23,7 @@ export default function AgentForm({
   agentId,
   tenantSlug,
   initialData,
-  initialWhatsapp = true,
+  initialWhatsapp = false,
   initialTelegram = false
 }: AgentFormProps) {
   const router = useRouter()

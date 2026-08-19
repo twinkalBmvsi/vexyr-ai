@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Bot, LogOut, Calendar, Users, Settings, Smartphone, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Bot, LogOut, Calendar, Users, Settings, Smartphone, Menu, X, ShoppingBag, MessageCircle } from 'lucide-react'
 
 export default function Sidebar({ companyName }: { tenantSlug: string, companyName: string }) {
   const pathname = usePathname()
@@ -13,8 +13,10 @@ export default function Sidebar({ companyName }: { tenantSlug: string, companyNa
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Appointments', href: '/appointments', icon: Calendar },
     { name: 'Agents', href: '/agents', icon: Bot },
+    { name: 'Test Chat', href: '/test-chat', icon: MessageCircle },
     { name: 'Channels', href: '/connections', icon: Smartphone },
     { name: 'Customers', href: '/customers', icon: Users },
+    { name: 'Store', href: '/store', icon: ShoppingBag },
     { name: 'Settings', href: '/settings', icon: Settings },
   ]
 

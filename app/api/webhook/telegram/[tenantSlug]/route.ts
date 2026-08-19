@@ -6,6 +6,7 @@ import {
   executeAppointmentReschedule,
   executeAppointmentCancel
 } from '@/utils/booking'
+import { checkChatLimit } from '@/utils/chatLimits'
 
 // Initialize Supabase admin client to bypass RLS for unauthenticated webhooks
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -141,6 +142,19 @@ export async function POST(
 
     if (channel.is_active === false) {
       return NextResponse.json({ status: 'ignored', reason: 'Telegram channel deactivated' }, { status: 200 })
+    }
+
+    // 2.5 Check Chat Limit
+    const limitCheck = await checkChatLimit(tenant.id)
+    if (!limitCheck.allowed) {
+      // Send the rejection message
+      await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: 'Our AI assistant is currently unavailable due to high volume. Please contact the business directly.' })
+      })
+      // We still return 200 so Telegram doesn't retry
+      return NextResponse.json({ status: 'ignored', reason: 'Rate limit reached' }, { status: 200 })
     }
 
     // 3. Find Agent

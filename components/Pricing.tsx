@@ -1,157 +1,152 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 export default function Pricing({ tenantId }: { tenantId?: string }) {
-  const [isYearly, setIsYearly] = useState(false);
-
   useEffect(() => {
     if (tenantId) {
       localStorage.setItem('checkoutTenantId', tenantId);
     }
   }, [tenantId]);
 
-  const getPlanLink = (planId: 'starter' | 'growth' | 'enterprise') => {
-    if (!tenantId) return '/login';
-    
-    let link = '';
-    if (planId === 'starter') {
-      link = isYearly ? 'https://buy.stripe.com/test_5kQ6oJbZnfsr9mtbq7gIo03' : 'https://buy.stripe.com/test_14A28t9Rf3JJeGN9hZgIo02';
-    } else if (planId === 'growth') {
-      link = isYearly ? 'https://buy.stripe.com/test_4gM5kF4wV2FF1U1cubgIo05' : 'https://buy.stripe.com/test_dRmcN7d3r2FFgOVcubgIo04';
-    } else if (planId === 'enterprise') {
-      link = isYearly ? 'https://buy.stripe.com/test_4gM28t3sReon4299hZgIo07' : 'https://buy.stripe.com/test_aFa4gBgfDcgf1U1fGngIo06';
-    }
-    
-    const interval = isYearly ? 'year' : 'month';
-    return `${link}?client_reference_id=${tenantId}_${planId}_${interval}`;
-  };
-
   return (
-    <section className="pricing" id="pricing">
-      <div className="pricing-intro">
-        <div>
-          <div className="section-label">Pricing</div>
-          <h2 className="section-title">Simple, <em>modular</em><br/>pricing</h2>
+    <section className="pricing" id="pricing" style={{ position: 'relative', overflow: 'hidden' }}>
+      {/* Subtle Background Glow */}
+      <div style={{ position: 'absolute', top: '10%', left: '50%', transform: 'translate(-50%, -50%)', width: '80vw', height: '80vw', background: 'radial-gradient(circle, rgba(201, 168, 76, 0.03) 0%, rgba(0,0,0,0) 70%)', pointerEvents: 'none', zIndex: 0 }}></div>
+
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        
+        {/* Intro */}
+        <div style={{ marginBottom: '5rem' }}>
+          <div className="section-label" style={{ marginBottom: '1.5rem' }}>Pricing</div>
+          <h2 className="section-title" style={{ maxWidth: '100%', margin: '0' }}>
+            Start for free.<br/><em>Bolt on</em> power.
+          </h2>
         </div>
-        <div>
-          <p className="pricing-note" style={{ marginBottom: '2rem' }}>Every plan includes the core text AI infrastructure. Activate only the modules your business needs. No contracts, no hidden fees. Cancel anytime.</p>
+
+        {/* Base Platform & Philosophy Split */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2.5rem', marginBottom: '8rem' }}>
           
-          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <div style={{ display: 'inline-flex', background: 'var(--paper)', border: '1px solid var(--border-strong)', borderRadius: '40px', padding: '6px' }}>
-              <button 
-                onClick={() => setIsYearly(false)}
-                style={{ 
-                  padding: '0.7rem 1.8rem', 
-                  borderRadius: '30px', 
-                  border: 'none', 
-                  background: !isYearly ? 'var(--ink)' : 'transparent', 
-                  color: !isYearly ? 'var(--paper)' : 'var(--muted)', 
-                  cursor: 'pointer', 
-                  fontFamily: "'DM Mono', monospace", 
-                  fontSize: '0.75rem', 
-                  letterSpacing: '0.1em', 
-                  textTransform: 'uppercase', 
-                  transition: 'all 0.3s ease' 
-                }}
-              >
-                Monthly
-              </button>
-              <button 
-                onClick={() => setIsYearly(true)}
-                style={{ 
-                  padding: '0.7rem 1.8rem', 
-                  borderRadius: '30px', 
-                  border: 'none', 
-                  background: isYearly ? 'var(--ink)' : 'transparent', 
-                  color: isYearly ? 'var(--paper)' : 'var(--muted)', 
-                  cursor: 'pointer', 
-                  fontFamily: "'DM Mono', monospace", 
-                  fontSize: '0.75rem', 
-                  letterSpacing: '0.1em', 
-                  textTransform: 'uppercase', 
-                  transition: 'all 0.3s ease' 
-                }}
-              >
-                Yearly <span style={{ color: isYearly ? 'var(--gold-light)' : 'var(--gold)', marginLeft: '6px' }}>-20%</span>
-              </button>
+          {/* The Core Engine */}
+          <div className="plan-card featured" style={{ display: 'flex', flexDirection: 'column', padding: '3.5rem' }}>
+            <div className="featured-badge">Included for Everyone</div>
+            <div style={{ flexGrow: 1 }}>
+              <div className="plan-name" style={{ fontSize: '0.8rem', letterSpacing: '0.2em' }}>Vexyr Base Engine</div>
+              <div className="plan-price" style={{ fontSize: '4.5rem', margin: '1rem 0' }}>
+                <sup style={{ fontSize: '1.8rem' }}>$</sup>0<sub style={{ fontSize: '1rem' }}>/mo</sub>
+              </div>
+              <p className="plan-tagline" style={{ fontSize: '0.9rem', marginBottom: '2.5rem' }}>
+                Everything you need to launch your AI automation journey, completely risk-free.
+              </p>
+              <hr className="plan-divider" style={{ marginBottom: '2.5rem' }} />
+              <ul className="plan-features" style={{ gap: '1.2rem' }}>
+                <li className="plan-feature">1 Intelligent AI Chat Agent</li>
+                <li className="plan-feature">50 free interactions / month</li>
+                <li className="plan-feature">Embeddable Web Widget</li>
+                <li className="plan-feature">In-App Appointment Booking</li>
+                <li className="plan-feature">Core Analytics Dashboard</li>
+              </ul>
+            </div>
+            <div style={{ marginTop: '3rem' }}>
+              <a href="/login" className="plan-btn" style={{ padding: '1.2rem', fontSize: '0.8rem' }}>Create Free Account</a>
+            </div>
+          </div>
+
+          {/* The Philosophy */}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '3.5rem 0' }}>
+            <h3 style={{ fontSize: '2.2rem', fontFamily: 'Cormorant Garamond', fontWeight: 300, marginBottom: '1.5rem', lineHeight: 1.2 }}>
+              Why pay for what you <span style={{ color: 'var(--gold)', fontStyle: 'italic' }}>don't use?</span>
+            </h3>
+            <p style={{ fontSize: '0.95rem', color: 'var(--muted)', lineHeight: 1.8, marginBottom: '3rem' }}>
+              Traditional SaaS platforms force you into expensive, bloated subscription tiers. Vexyr changes the paradigm. 
+              <br/><br/>
+              You get our powerful core engine for free. From there, you simply bolt on the specific modules, integrations, and reporting features your business actually needs. No hidden fees. No wasted money.
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ padding: '0.8rem 1.2rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--gold)' }}></span>
+                <span style={{ fontSize: '0.7rem', fontFamily: 'DM Mono', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)' }}>Zero Bloat</span>
+              </div>
+              <div style={{ padding: '0.8rem 1.2rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--gold)' }}></span>
+                <span style={{ fontSize: '0.7rem', fontFamily: 'DM Mono', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)' }}>Cancel Anytime</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Modules Add-on Grid */}
+        <div className="modules" style={{ padding: 0, border: 'none' }}>
+          <div className="modules-header" style={{ marginBottom: '3rem' }}>
+            <div>
+              <div className="section-label" style={{ marginBottom: '0.5rem' }}>Ecosystem</div>
+              <h2 className="section-title" style={{ fontSize: '2.2rem', marginBottom: 0 }}>Add-on Modules</h2>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.6, textAlign: 'right' }}>
+              Unlock these instantly inside your<br/>dashboard whenever you're ready.
+            </p>
+          </div>
+
+          <div className="modules-grid">
+            {/* Row 1 */}
+            <div className="module-item">
+              <span className="module-name">3rd-Party Calendar Sync</span>
+              <span className="module-price">+$8/mo</span>
+            </div>
+            <div className="module-item">
+              <span className="module-name">Custom Email Templates</span>
+              <span className="module-price">+$28/mo</span>
+            </div>
+            <div className="module-item">
+              <span className="module-name">Broadcast Messaging</span>
+              <span className="module-price">+$49/mo</span>
+            </div>
+            <div className="module-item">
+              <span className="module-name">Automated Follow-ups</span>
+              <span className="module-price">+$28/mo</span>
+            </div>
+
+            {/* Row 2 */}
+            <div className="module-item">
+              <span className="module-name">Reputation Management</span>
+              <span className="module-price">+$39/mo</span>
+            </div>
+            <div className="module-item">
+              <span className="module-name">Meta Ads Reporting</span>
+              <span className="module-price">+$49/mo</span>
+            </div>
+            <div className="module-item">
+              <span className="module-name">Google Ads Reporting</span>
+              <span className="module-price">+$49/mo</span>
+            </div>
+            <div className="module-item">
+              <span className="module-name">Telegram Ads Reporting</span>
+              <span className="module-price">+$49/mo</span>
+            </div>
+            
+            {/* Row 3 */}
+            <div className="module-item">
+              <span className="module-name">Extra AI Agents</span>
+              <span className="module-price">+$15/mo</span>
+            </div>
+            <div className="module-item">
+              <span className="module-name">Messaging Channels</span>
+              <span className="module-price">+$25/mo</span>
+            </div>
+            <div className="module-item">
+              <span className="module-name">Unlimited Chats</span>
+              <span className="module-price">+$49/mo</span>
+            </div>
+            <div className="module-item">
+              <span className="module-name">Remove Branding</span>
+              <span className="module-price">+$49/mo</span>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="pricing-grid">
-        <div className="plan-card">
-          <div className="plan-name">Starter</div>
-          <div className="plan-price">
-            <sup>$</sup>
-            <span style={{ display: 'inline-block', minWidth: '70px', transition: 'all 0.3s ease' }}>{isYearly ? '427' : '44'}</span>
-            <sub>{isYearly ? '/year' : '/mo'}</sub>
-          </div>
-          <p className="plan-tagline">For new businesses getting started</p>
-          <hr className="plan-divider" />
-          <ul className="plan-features">
-            <li className="plan-feature">1 AI chat agent</li>
-            <li className="plan-feature">1 WhatsApp or Telegram integration</li>
-            <li className="plan-feature">Customer Support (FAQ)</li>
-            <li className="plan-feature">Up to 1,000 chats / month</li>
-            <li className="plan-feature">Basic dashboard</li>
-            <li className="plan-feature">Weekly email report</li>
-            <li className="plan-feature">Appointment Booking (In-App)</li>
-            <li className="plan-feature dimmed">3rd-Party Calendar Sync</li>
-            <li className="plan-feature dimmed">Automated Follow-ups</li>
-            <li className="plan-feature dimmed">Reputation Management</li>
-          </ul>
-          <a href={getPlanLink('starter')} className="plan-btn" onClick={() => tenantId && localStorage.setItem('checkoutTenantId', tenantId)}>Get started</a>
-        </div>
-
-        <div className="plan-card featured">
-          <div className="featured-badge">Most popular</div>
-          <div className="plan-name">Growth</div>
-          <div className="plan-price">
-            <sup>$</sup>
-            <span style={{ display: 'inline-block', minWidth: '95px', transition: 'all 0.3s ease' }}>{isYearly ? '1064' : '112'}</span>
-            <sub>{isYearly ? '/year' : '/mo'}</sub>
-          </div>
-          <p className="plan-tagline">For businesses ready to scale</p>
-          <hr className="plan-divider" />
-          <ul className="plan-features">
-            <li className="plan-feature">1 AI chat agent</li>
-            <li className="plan-feature">2 Messaging integrations</li>
-            <li className="plan-feature">Customer Support (FAQ)</li>
-            <li className="plan-feature">Appointment Booking (Inc. External Sync)</li>
-            <li className="plan-feature">Automated Follow-ups</li>
-            <li className="plan-feature">Reputation Management</li>
-            <li className="plan-feature">Up to 5,000 chats / month</li>
-            <li className="plan-feature">Full dashboard + reports</li>
-            <li className="plan-feature">AI executive summaries</li>
-          </ul>
-          <a href={getPlanLink('growth')} className="plan-btn" onClick={() => tenantId && localStorage.setItem('checkoutTenantId', tenantId)}>Get started</a>
-        </div>
-
-        <div className="plan-card">
-          <div className="plan-name">Enterprise</div>
-          <div className="plan-price">
-            <sup>$</sup>
-            <span style={{ display: 'inline-block', minWidth: '95px', transition: 'all 0.3s ease' }}>{isYearly ? '2144' : '224'}</span>
-            <sub>{isYearly ? '/year' : '/mo'}</sub>
-          </div>
-          <p className="plan-tagline">For high-volume operations</p>
-          <hr className="plan-divider" />
-          <ul className="plan-features">
-            <li className="plan-feature">Multiple AI chat agents</li>
-            <li className="plan-feature">Unlimited Messaging integrations</li>
-            <li className="plan-feature">All core modules</li>
-            <li className="plan-feature">Custom Email Templates</li>
-            <li className="plan-feature">Meta, Google, LinkedIn Ads</li>
-            <li className="plan-feature">Unlimited chats</li>
-            <li className="plan-feature">Priority support</li>
-            <li className="plan-feature">Custom integrations</li>
-            <li className="plan-feature">Dedicated engineer hours</li>
-          </ul>
-          <a href={getPlanLink('enterprise')} className="plan-btn" onClick={() => tenantId && localStorage.setItem('checkoutTenantId', tenantId)}>{tenantId ? 'Subscribe' : 'Contact sales'}</a>
-        </div>
       </div>
     </section>
   );
 }
+

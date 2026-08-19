@@ -55,10 +55,20 @@ export async function POST(req: Request) {
       }
     }
 
+    // Extract purchased modules from metadata if they exist
+    let purchasedModules = {};
+    if (session.metadata?.modules) {
+      try {
+        purchasedModules = JSON.parse(session.metadata.modules);
+      } catch (e) {
+        console.error('Failed to parse modules from session metadata', e);
+      }
+    }
+
     // Check if subscription exists
     const { data: existingSub } = await supabaseAdmin
       .from('subscriptions')
-      .select('id')
+      .select('id, modules')
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
@@ -66,12 +76,13 @@ export async function POST(req: Request) {
       const { error } = await supabaseAdmin
         .from('subscriptions')
         .update({
-          plan_id: planId,
+          plan_id: planId, // can be 'modular'
           status: 'active',
           billing_interval: billingInterval,
           current_period_end: currentPeriodEnd,
           stripe_customer_id: customerId,
           stripe_subscription_id: subscriptionId,
+          modules: Object.keys(purchasedModules).length > 0 ? purchasedModules : existingSub.modules
         })
         .eq('id', existingSub.id);
         
@@ -90,6 +101,7 @@ export async function POST(req: Request) {
           current_period_end: currentPeriodEnd,
           stripe_customer_id: customerId,
           stripe_subscription_id: subscriptionId,
+          modules: Object.keys(purchasedModules).length > 0 ? purchasedModules : {}
         });
         
       if (error) {
@@ -104,7 +116,7 @@ export async function POST(req: Request) {
       .update({ plan_id: planId })
       .eq('id', tenantId);
 
-    console.log(`Successfully activated ${planId} plan for tenant ${tenantId}`);
+    console.log(`Successfully activated ${planId} plan (and modules) for tenant ${tenantId}`);
   }
 
   return NextResponse.json({ received: true });

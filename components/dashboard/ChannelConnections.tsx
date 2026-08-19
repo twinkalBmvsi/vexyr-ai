@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { MessageCircle, Smartphone, CheckCircle2, AlertCircle, X, ExternalLink, Loader2, ShieldCheck, RefreshCw } from 'lucide-react'
+import { MessageCircle, Smartphone, CheckCircle2, AlertCircle, X, ExternalLink, Loader2, ShieldCheck, RefreshCw, Zap } from 'lucide-react'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { saveChannelConfig } from '@/app/actions/channels'
 import { registerTelegramWebhook, getTelegramWebhookInfo } from '@/app/actions/telegram'
@@ -13,7 +14,8 @@ export default function ChannelConnections({
   initialHasTelegram,
   initialWaNumber,
   initialTgConfig = { token: '' },
-  initialWaConfig = { token: '', phoneId: '', wabaId: '' }
+  initialWaConfig = { token: '', phoneId: '', wabaId: '' },
+  allowedChannels = 0
 }: {
   tenantSlug: string;
   initialHasWhatsapp: boolean;
@@ -21,6 +23,7 @@ export default function ChannelConnections({
   initialWaNumber: string;
   initialTgConfig?: { token: string };
   initialWaConfig?: { token: string; phoneId: string; wabaId: string };
+  allowedChannels?: number;
 }) {
   const [activeModal, setActiveModal] = useState<'whatsapp' | 'telegram' | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -36,6 +39,9 @@ export default function ChannelConnections({
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  const activeCount = (hasWhatsapp ? 1 : 0) + (hasTelegram ? 1 : 0)
+  const canAddChannel = activeCount < (allowedChannels || 0)
 
   const [waConfig, setWaConfig] = useState(initialWaConfig)
   const [tgConfig, setTgConfig] = useState(initialTgConfig)
@@ -101,15 +107,31 @@ export default function ChannelConnections({
           )}
 
           <div style={{ marginTop: 'auto' }}>
-            <button
-              className={hasWhatsapp ? "btn-secondary" : "btn-primary"}
-              style={{ width: '100%' }}
-              onClick={() => {
-                setActiveModal('whatsapp')
-              }}
-            >
-              {hasWhatsapp ? 'Manage Connection' : 'Connect WhatsApp'}
-            </button>
+            {hasWhatsapp ? (
+              <button
+                className="btn-secondary"
+                style={{ width: '100%' }}
+                onClick={() => setActiveModal('whatsapp')}
+              >
+                Manage Connection
+              </button>
+            ) : canAddChannel ? (
+              <button
+                className="btn-primary"
+                style={{ width: '100%' }}
+                onClick={() => setActiveModal('whatsapp')}
+              >
+                Connect WhatsApp
+              </button>
+            ) : (
+              <Link 
+                href={`/${tenantSlug}/store`} 
+                className="btn-primary" 
+                style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', background: 'var(--gold)', color: '#000', width: '100%', textDecoration: 'none' }}
+              >
+                <Zap size={16} /> Buy Channel Module
+              </Link>
+            )}
           </div>
         </div>
 
@@ -148,13 +170,31 @@ export default function ChannelConnections({
           )}
 
           <div style={{ marginTop: 'auto' }}>
-            <button
-              className={hasTelegram ? "btn-secondary" : "btn-primary"}
-              style={{ width: '100%' }}
-              onClick={() => setActiveModal('telegram')}
-            >
-              {hasTelegram ? 'Manage Connection' : 'Connect Telegram'}
-            </button>
+            {hasTelegram ? (
+              <button
+                className="btn-secondary"
+                style={{ width: '100%' }}
+                onClick={() => setActiveModal('telegram')}
+              >
+                Manage Connection
+              </button>
+            ) : canAddChannel ? (
+              <button
+                className="btn-primary"
+                style={{ width: '100%' }}
+                onClick={() => setActiveModal('telegram')}
+              >
+                Connect Telegram
+              </button>
+            ) : (
+              <Link 
+                href={`/${tenantSlug}/store`} 
+                className="btn-primary" 
+                style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', background: 'var(--gold)', color: '#000', width: '100%', textDecoration: 'none' }}
+              >
+                <Zap size={16} /> Buy Channel Module
+              </Link>
+            )}
           </div>
         </div>
       </div>

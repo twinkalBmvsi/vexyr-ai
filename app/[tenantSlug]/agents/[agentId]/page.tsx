@@ -37,7 +37,7 @@ export default async function AgentConfigPage({
         agentId={resolvedParams.agentId} 
         tenantSlug={resolvedParams.tenantSlug} 
         initialData={initialData}
-        initialWhatsapp={configData?.whatsappActive ?? true}
+        initialWhatsapp={configData?.whatsappActive ?? false}
         initialTelegram={configData?.telegramActive ?? false}
       />
     </div>

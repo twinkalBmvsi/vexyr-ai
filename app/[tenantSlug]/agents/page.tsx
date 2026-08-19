@@ -2,20 +2,8 @@ import Link from 'next/link'
 import { Plus, Settings2, Bot, Lock, Zap } from 'lucide-react'
 import { createClient } from '@/utils/supabase/server'
 
-// Plan limits
-const AGENT_LIMITS: Record<string, number> = {
-  free: 0,
-  starter: 1,
-  growth: 1,
-  enterprise: Infinity
-}
-
-const PLAN_DISPLAY: Record<string, string> = {
-  free: 'Free',
-  starter: 'Starter',
-  growth: 'Growth',
-  enterprise: 'Enterprise'
-}
+// The Base Tier allows 1 free agent. Add extraBots from modules.
+const BASE_AGENT_LIMIT = 1;
 
 export default async function AgentsPage({
   params,
@@ -42,20 +30,18 @@ export default async function AgentsPage({
     agents = data || []
   }
 
-  // Resolve plan from subscriptions table first (same as billing page)
-  let planId = tenant?.plan_id || 'free'
+  let extraBots = 0
   if (tenant) {
     const { data: subscription } = await supabase
       .from('subscriptions')
-      .select('plan_id')
+      .select('modules')
       .eq('tenant_id', tenant.id)
       .maybeSingle()
-    if (subscription?.plan_id) planId = subscription.plan_id
+    if (subscription?.modules?.extraBots) extraBots = subscription.modules.extraBots
   }
 
-  const agentLimit = AGENT_LIMITS[planId] ?? 0
+  const agentLimit = BASE_AGENT_LIMIT + extraBots
   const canCreateAgent = agents.length < agentLimit
-  const planName = PLAN_DISPLAY[planId] ?? planId
 
   return (
     <div>
@@ -72,13 +58,11 @@ export default async function AgentsPage({
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             {/* Show limit reached badge */}
-            {planId !== 'free' && (
-              <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontFamily: 'DM Mono', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {agents.length}/{agentLimit === Infinity ? '∞' : agentLimit} agents used
-              </span>
-            )}
+            <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontFamily: 'DM Mono', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {agents.length}/{agentLimit} agents used
+            </span>
             <Link
-              href={`/${resolvedParams.tenantSlug}/billing`}
+              href={`/${resolvedParams.tenantSlug}/store`}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -95,14 +79,14 @@ export default async function AgentsPage({
               }}
             >
               <Zap size={15} />
-              Upgrade Plan
+              Buy Extra Agent
             </Link>
           </div>
         )}
       </div>
 
       {/* Plan limit banner when at limit */}
-      {!canCreateAgent && agents.length > 0 && planId !== 'enterprise' && (
+      {!canCreateAgent && agents.length > 0 && (
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -117,35 +101,11 @@ export default async function AgentsPage({
         }}>
           <Lock size={16} color="var(--gold)" style={{ flexShrink: 0 }} />
           <span>
-            Your <strong>{planName}</strong> plan includes <strong>1 AI agent</strong>.{' '}
-            <Link href={`/${resolvedParams.tenantSlug}/billing`} style={{ color: 'var(--gold)', textDecoration: 'underline' }}>
-              Upgrade to Enterprise
+            You have reached your limit of <strong>{agentLimit} AI {agentLimit === 1 ? 'agent' : 'agents'}</strong>.{' '}
+            <Link href={`/${resolvedParams.tenantSlug}/store`} style={{ color: 'var(--gold)', textDecoration: 'underline' }}>
+              Visit the Store
             </Link>
-            {' '}to create multiple agents.
-          </span>
-        </div>
-      )}
-
-      {planId === 'free' && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          background: 'rgba(220, 38, 38, 0.05)',
-          border: '1px solid rgba(220, 38, 38, 0.2)',
-          borderRadius: '10px',
-          padding: '0.9rem 1.25rem',
-          marginBottom: '1.5rem',
-          fontSize: '0.85rem',
-          color: 'var(--ink)'
-        }}>
-          <Lock size={16} color="#dc2626" style={{ flexShrink: 0 }} />
-          <span>
-            You are on the <strong>Free tier</strong> and cannot create AI agents.{' '}
-            <Link href={`/${resolvedParams.tenantSlug}/billing`} style={{ color: '#dc2626', textDecoration: 'underline' }}>
-              Subscribe to a plan
-            </Link>
-            {' '}to get started.
+            {' '}to buy an additional agent module.
           </span>
         </div>
       )}
@@ -165,8 +125,8 @@ export default async function AgentsPage({
                 <Plus size={16} /> Create Your First Agent
               </Link>
             ) : (
-              <Link href={`/${resolvedParams.tenantSlug}/billing`} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--gold)' }}>
-                <Zap size={16} /> Upgrade to Create an Agent
+              <Link href={`/${resolvedParams.tenantSlug}/store`} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--gold)' }}>
+                <Zap size={16} /> Buy Agent Module
               </Link>
             )}
           </div>

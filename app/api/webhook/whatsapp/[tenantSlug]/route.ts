@@ -6,6 +6,7 @@ import {
   executeAppointmentReschedule,
   executeAppointmentCancel
 } from '@/utils/booking'
+import { checkChatLimit } from '@/utils/chatLimits'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -151,6 +152,30 @@ export async function POST(
 
     if (channel.is_active === false) {
       return NextResponse.json({ status: 'ignored', reason: 'WhatsApp channel deactivated' }, { status: 200 })
+    }
+
+    // 2.5 Check Chat Limit
+    const limitCheck = await checkChatLimit(tenant.id)
+    if (!limitCheck.allowed) {
+      const waToken = channel.provider_config?.token
+      const phoneId = channel.provider_config?.phoneId
+
+      if (waToken && phoneId) {
+        await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${waToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: fromNumber,
+            type: 'text',
+            text: { body: 'Our AI assistant is currently unavailable due to high volume. Please contact the business directly.' }
+          })
+        })
+      }
+      return NextResponse.json({ status: 'ignored', reason: 'Rate limit reached' }, { status: 200 })
     }
 
     // 3. Find Agent

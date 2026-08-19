@@ -411,9 +411,8 @@ export default async function OrgSelectorPage({
 
             {memberships.map(({ role, tenant }) => {
               const hasActiveSubscription = activeTenantIds.has(tenant.id)
-              const href = hasActiveSubscription
-                ? `${protocol}://${tenant.slug}.${rootDomain}${port}/auth/handoff?access_token=${session.access_token}&refresh_token=${session.refresh_token}`
-                : `/select-plan?tenantId=${tenant.id}`
+              // Always route to dashboard (handoff) since Base Engine is free.
+              const href = `${protocol}://${tenant.slug}.${rootDomain}${port}/auth/handoff?access_token=${session.access_token}&refresh_token=${session.refresh_token}`
               
               return (
                 <a key={tenant.id} href={href} className="workspace-item">
@@ -426,8 +425,8 @@ export default async function OrgSelectorPage({
                     <div className="workspace-meta">
                       <span className="workspace-role">{role}</span>
                       <span style={{ color: 'rgba(255,255,255,0.15)' }}>•</span>
-                      <span className={`workspace-status ${hasActiveSubscription ? 'active' : ''}`}>
-                        {hasActiveSubscription ? 'Active' : 'Payment required'}
+                      <span className="workspace-status active">
+                        {hasActiveSubscription ? 'Premium' : 'Free Base Engine'}
                       </span>
                     </div>
                   </div>
