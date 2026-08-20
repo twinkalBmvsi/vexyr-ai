@@ -23,6 +23,7 @@ export default async function EmailsSettingsPage({ params }: { params: Promise<{
     .maybeSingle()
 
   const hasCustomEmails = subscription?.status === 'active' && (subscription.modules as Record<string, any>)?.customEmails === true
+  const hasAutoFollowups = subscription?.status === 'active' && (subscription.modules as Record<string, any>)?.autoFollowups === true
 
   if (!hasCustomEmails) {
     return (
@@ -56,7 +57,7 @@ export default async function EmailsSettingsPage({ params }: { params: Promise<{
         </p>
       </div>
 
-      <EmailTemplateEditor tenantId={tenant.id} initialTemplates={templates || []} />
+      <EmailTemplateEditor tenantId={tenant.id} initialTemplates={templates || []} hasAutoFollowups={hasAutoFollowups} />
     </>
   )
 }

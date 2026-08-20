@@ -21,6 +21,7 @@ export default function TeamManagerClient({
 }) {
   const [members, setMembers] = useState(initialMembers)
   const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteName, setInviteName] = useState('')
   const [loading, setLoading] = useState(false)
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -40,7 +41,7 @@ export default function TeamManagerClient({
       const res = await fetch('/api/team/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail, tenantId })
+        body: JSON.stringify({ email: inviteEmail, name: inviteName, tenantId })
       })
 
       const data = await res.json()
@@ -54,6 +55,7 @@ export default function TeamManagerClient({
         setMembers(currentMembers => [...currentMembers, data.member])
       }
       setInviteEmail('')
+      setInviteName('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to invite user')
     } finally {
@@ -119,6 +121,17 @@ export default function TeamManagerClient({
         <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '1.5rem', marginBottom: '3rem' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '1rem', color: 'var(--ink)' }}>Invite New Member</h3>
           <form onSubmit={handleInvite} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: '0.5rem' }}>Name</label>
+              <input 
+                type="text" 
+                value={inviteName}
+                onChange={e => setInviteName(e.target.value)}
+                placeholder="Colleague Name"
+                required
+                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '0.9rem' }}
+              />
+            </div>
             <div style={{ flex: 1 }}>
               <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: '0.5rem' }}>Email Address</label>
               <div style={{ position: 'relative' }}>

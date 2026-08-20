@@ -11,7 +11,7 @@ import crypto from 'crypto'
 
 export async function POST(request: Request) {
   try {
-    const { email: rawEmail, tenantId } = await request.json()
+    const { email: rawEmail, name, tenantId } = await request.json()
     const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
 
     if (!email || !tenantId) {
@@ -51,6 +51,7 @@ export async function POST(request: Request) {
       .insert({
         tenant_id: tenantId,
         email,
+        name: name || null,
         role: 'manager',
         token,
         status: 'pending'

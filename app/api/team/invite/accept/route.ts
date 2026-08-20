@@ -60,7 +60,7 @@ export async function POST(request: Request) {
         user_id: user.id,
         tenant_id: invite.tenant_id,
         role: invite.role,
-        full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
+        full_name: invite.name || user.user_metadata?.full_name || user.email?.split('@')[0],
       })
 
     if (insertError) {

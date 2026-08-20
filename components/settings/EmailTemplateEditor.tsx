@@ -22,10 +22,12 @@ const TEMPLATE_TYPES = [
 
 export default function EmailTemplateEditor({
   tenantId,
-  initialTemplates
+  initialTemplates,
+  hasAutoFollowups = false
 }: {
   tenantId: string
   initialTemplates: Template[]
+  hasAutoFollowups?: boolean
 }) {
   const [selectedType, setSelectedType] = useState('appointment_confirmation')
   const [subject, setSubject] = useState('')
@@ -74,7 +76,13 @@ export default function EmailTemplateEditor({
           style={{ maxWidth: '400px' }}
         >
           {TEMPLATE_TYPES.map(t => (
-            <option key={t.value} value={t.value}>{t.label}</option>
+            <option 
+              key={t.value} 
+              value={t.value}
+              disabled={t.value === 'auto_followup' && !hasAutoFollowups}
+            >
+              {t.label} {t.value === 'auto_followup' && !hasAutoFollowups ? '(Locked - Requires Subscription)' : ''}
+            </option>
           ))}
         </select>
       </div>
@@ -91,7 +99,8 @@ export default function EmailTemplateEditor({
             <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{appointment_title}}"}</code>,
             <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{appointment_date}}"}</code>,
             <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{appointment_time}}"}</code>,
-            <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{invite_link}}"}</code>
+            <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{invite_link}}"}</code>,
+            <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{team_member_name}}"}</code>
           </p>
         </div>
 
@@ -177,7 +186,8 @@ export default function EmailTemplateEditor({
                       .replace(/\{\{appointment_date\}\}/g, 'Wednesday, August 19, 2026')
                       .replace(/\{\{appointment_time\}\}/g, '04:00 PM')
                       .replace(/\{\{appointment_title\}\}/g, 'Hair Coloring - Jane Doe')
-                      .replace(/\{\{invite_link\}\}/g, 'https://example.com/invite/12345')}
+                      .replace(/\{\{invite_link\}\}/g, 'https://example.com/invite/12345')
+                      .replace(/\{\{team_member_name\}\}/g, 'Alex Smith')}
                     style={{ width: '100%', height: '100%', minHeight: '600px', border: 'none' }}
                   />
                 ) : (

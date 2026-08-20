@@ -28,7 +28,7 @@ export default async function AcceptInvitePage({ searchParams }: { searchParams:
   const adminClient = createAdminClient()
   const { data: invite, error } = await adminClient
     .from('team_invites')
-    .select('*, tenants(name)')
+    .select('*, tenants(name, slug)')
     .eq('token', token)
     .single()
 
@@ -67,6 +67,10 @@ export default async function AcceptInvitePage({ searchParams }: { searchParams:
   }
 
   const tenantName = invite.tenants?.name || 'the workspace'
+  const tenantSlug = invite.tenants?.slug || ''
+  
+  // Consider them a "new user" if their account was created less than 5 minutes ago
+  const isNewUser = new Date().getTime() - new Date(user.created_at).getTime() < 5 * 60 * 1000
 
-  return <AcceptInviteClient token={token} tenantName={tenantName} />
+  return <AcceptInviteClient token={token} tenantName={tenantName} tenantSlug={tenantSlug} isNewUser={isNewUser} />
 }

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 
-export default function AcceptInviteClient({ token, tenantName }: { token: string, tenantName: string }) {
+export default function AcceptInviteClient({ token, tenantName, tenantSlug, isNewUser }: { token: string, tenantName: string, tenantSlug: string, isNewUser: boolean }) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
@@ -24,7 +24,11 @@ export default function AcceptInviteClient({ token, tenantName }: { token: strin
       }
 
       toast.success('Successfully joined the team!')
-      router.push('/')
+      if (isNewUser) {
+        router.push(`/${tenantSlug}/set-password`)
+      } else {
+        router.push(`/${tenantSlug}`)
+      }
       router.refresh()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to accept invitation')
