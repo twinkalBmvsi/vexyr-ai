@@ -91,7 +91,7 @@ export default async function NewAgentPage({
       services,
       working_hours,
       appointment_duration,
-      active_channels: ['whatsapp', 'telegram']
+      active_channels: [] // Start with all channels off
     })
 
     const { data: newAgent, error } = await supabase

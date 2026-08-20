@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import AgentForm from '@/components/dashboard/AgentForm'
 import { getAgentConfig } from '@/app/actions/agents'
+import { createClient } from '@/utils/supabase/server'
 
 export default async function AgentConfigPage({
   params,
@@ -10,6 +11,30 @@ export default async function AgentConfigPage({
 }) {
   const resolvedParams = await params
   const isNew = resolvedParams.agentId === 'new'
+  const supabase = await createClient()
+
+  // Fetch subscription to see which channels are purchased
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('id')
+    .eq('slug', resolvedParams.tenantSlug)
+    .single()
+
+  let hasWhatsapp = false
+  let hasTelegram = false
+
+  if (tenant) {
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('modules')
+      .eq('tenant_id', tenant.id)
+      .maybeSingle()
+    
+    if (subscription?.modules) {
+      hasWhatsapp = Boolean(subscription.modules.whatsappChannel)
+      hasTelegram = Boolean(subscription.modules.telegramChannel)
+    }
+  }
 
   const configData = await getAgentConfig(resolvedParams.tenantSlug, resolvedParams.agentId)
 
@@ -39,6 +64,8 @@ export default async function AgentConfigPage({
         initialData={initialData}
         initialWhatsapp={configData?.whatsappActive ?? false}
         initialTelegram={configData?.telegramActive ?? false}
+        hasWhatsapp={hasWhatsapp}
+        hasTelegram={hasTelegram}
       />
     </div>
   )

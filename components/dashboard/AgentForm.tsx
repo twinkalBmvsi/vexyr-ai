@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Save, Loader2, Trash2, AlertTriangle } from 'lucide-react'
+import { Save, Loader2, Trash2, AlertTriangle, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { saveAgentConfig, deleteAgent } from '@/app/actions/agents'
@@ -17,6 +17,8 @@ interface AgentFormProps {
   } | null
   initialWhatsapp?: boolean
   initialTelegram?: boolean
+  hasWhatsapp?: boolean
+  hasTelegram?: boolean
 }
 
 export default function AgentForm({
@@ -24,7 +26,9 @@ export default function AgentForm({
   tenantSlug,
   initialData,
   initialWhatsapp = false,
-  initialTelegram = false
+  initialTelegram = false,
+  hasWhatsapp = false,
+  hasTelegram = false
 }: AgentFormProps) {
   const router = useRouter()
   const isNew = agentId === 'new'
@@ -55,6 +59,10 @@ export default function AgentForm({
   }, [initialData, initialWhatsapp, initialTelegram])
 
   const handleToggleChannel = async (channel: 'whatsapp' | 'telegram') => {
+    // Prevent toggling if the channel is not purchased
+    if (channel === 'whatsapp' && !hasWhatsapp) return
+    if (channel === 'telegram' && !hasTelegram) return
+
     const updatedValue = !formData[channel]
     const updatedFormData = {
       ...formData,
@@ -273,21 +281,25 @@ export default function AgentForm({
             <div className="dash-card">
               <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.8rem', marginBottom: '1.5rem' }}>Active Channels</h2>
               
-              <div className="toggle-switch">
-                <span className="toggle-label">WhatsApp</span>
+              <div className="toggle-switch" style={{ opacity: hasWhatsapp ? 1 : 0.6 }}>
+                <span className="toggle-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  WhatsApp {!hasWhatsapp && <Lock size={12} color="var(--muted)" />}
+                </span>
                 <div 
                   className={`toggle-btn ${formData.whatsapp ? 'active' : ''}`}
                   onClick={() => handleToggleChannel('whatsapp')}
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: hasWhatsapp ? 'pointer' : 'not-allowed' }}
                 />
               </div>
 
-              <div className="toggle-switch">
-                <span className="toggle-label">Telegram</span>
+              <div className="toggle-switch" style={{ opacity: hasTelegram ? 1 : 0.6 }}>
+                <span className="toggle-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  Telegram {!hasTelegram && <Lock size={12} color="var(--muted)" />}
+                </span>
                 <div 
                   className={`toggle-btn ${formData.telegram ? 'active' : ''}`}
                   onClick={() => handleToggleChannel('telegram')}
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: hasTelegram ? 'pointer' : 'not-allowed' }}
                 />
               </div>
 
