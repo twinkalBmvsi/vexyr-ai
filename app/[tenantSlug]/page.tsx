@@ -79,14 +79,13 @@ export default async function TenantDashboard({
     const isActive = subscription?.status === 'active'
 
     if (isActive) {
-      if (subscription.current_period_end) {
-        const date = new Date(subscription.current_period_end)
-        const diffTime = date.getTime() - new Date().getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-        renewsOn = diffDays > 0 ? `Renews in ${diffDays} days` : 'Renewed today'
-      } else {
-        renewsOn = 'Active'
-      }
+      const renewalDate = subscription.current_period_end 
+        ? new Date(subscription.current_period_end)
+        : new Date(new Date(subscription.created_at).getTime() + 30 * 24 * 60 * 60 * 1000);
+        
+      const diffTime = renewalDate.getTime() - new Date().getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+      renewsOn = diffDays > 0 ? `Renews in ${diffDays} days` : 'Renewed today'
     } else {
       renewsOn = 'No active subscription'
     }

@@ -97,8 +97,12 @@ export default async function BillingSettingsPage({ params }: { params: Promise<
     if (features.length === 0) features = ['No add-on modules active yet']
   }
 
-  const renewsOn = subscription?.current_period_end
-    ? new Date(subscription.current_period_end).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const rawRenewalDate = subscription?.current_period_end 
+    ? new Date(subscription.current_period_end)
+    : subscription ? new Date(new Date(subscription.created_at).getTime() + 30 * 24 * 60 * 60 * 1000) : null;
+
+  const renewsOn = rawRenewalDate
+    ? rawRenewalDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : null
 
   const isActive = subscription?.status === 'active'

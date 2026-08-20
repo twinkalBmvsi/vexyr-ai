@@ -126,7 +126,7 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules }: { 
     <div style={{ paddingBottom: '100px', position: 'relative' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
 
-        {/* Extra AI Agents */}
+        {/* Extra AI Agents (Unique card due to quantity stepper) */}
         <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cart.extraBots > 0 ? '1px solid var(--gold)' : '' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
@@ -169,245 +169,40 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules }: { 
           </div>
         </div>
 
-        {/* WhatsApp Channel */}
-        <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder('whatsappChannel') }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
-              <MessageSquare size={24} color="var(--gold)" />
+        {/* Standard Modules mapped from array */}
+        {[
+          { key: 'whatsappChannel' as keyof ModuleConfig, title: 'WhatsApp Channel', icon: MessageSquare, desc: 'Connect your WhatsApp Business account and let your AI agent handle customer conversations on WhatsApp.' },
+          { key: 'telegramChannel' as keyof ModuleConfig, title: 'Telegram Channel', icon: MessageSquare, desc: 'Connect your Telegram Bot and let your AI agent reply to customer messages directly on Telegram.' },
+          { key: 'customEmails' as keyof ModuleConfig, title: 'Custom Emails', icon: Mail, desc: 'Send automated confirmations and follow-ups from your own custom domain.' },
+          { key: 'autoFollowups' as keyof ModuleConfig, title: 'Auto Follow-ups', icon: CalendarSync, desc: 'Automatically chase up leads and request reviews after appointments.' },
+          { key: 'unlimitedChats' as keyof ModuleConfig, title: 'Unlimited Chats', icon: Zap, desc: 'Remove the 50 free chat limit. Perfect for high-volume businesses.' },
+          { key: 'removeBranding' as keyof ModuleConfig, title: 'Remove Branding', icon: EyeOff, desc: 'Remove "Powered by Vexyr" from your chat widgets and emails for a fully white-labeled experience.' },
+          { key: 'calendarSync' as keyof ModuleConfig, title: '3rd-Party Calendar Sync', icon: CalendarSync, desc: 'Sync your Vexyr appointments with external calendars (Google Calendar, Outlook).' },
+          { key: 'broadcastMessaging' as keyof ModuleConfig, title: 'Broadcast Messaging', icon: Megaphone, desc: 'Send mass updates and promotional blasts to your entire customer base.' },
+          { key: 'reputationManagement' as keyof ModuleConfig, title: 'Reputation Management', icon: Star, desc: 'Monitor and respond to customer reviews automatically across platforms.' },
+          { key: 'metaAds' as keyof ModuleConfig, title: 'Meta Ads Reporting', icon: BarChart, desc: 'Advanced ROI tracking and conversion reports for your Meta Ads.' },
+          { key: 'googleAds' as keyof ModuleConfig, title: 'Google Ads Reporting', icon: LineChart, desc: 'Advanced ROI tracking and conversion reports for your Google Ads.' },
+          { key: 'telegramAds' as keyof ModuleConfig, title: 'Telegram Ads Reporting', icon: PieChart, desc: 'Advanced ROI tracking and conversion reports for Telegram Ads.' },
+        ].map((module) => (
+          <div key={module.key} className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder(module.key) }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
+                <module.icon size={24} color="var(--gold)" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>{module.title}</h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES[module.key as keyof typeof PRICES]}/mo</p>
+              </div>
             </div>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>WhatsApp Channel</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES.whatsappChannel}/mo</p>
-            </div>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
-            Connect your WhatsApp Business account and let your AI agent handle customer conversations on WhatsApp.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
-            <ModuleButton moduleKey="whatsappChannel" onToggle={() => setCart({ ...cart, whatsappChannel: !cart.whatsappChannel })} />
-          </div>
-        </div>
-
-        {/* Telegram Channel */}
-        <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder('telegramChannel') }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
-              <MessageSquare size={24} color="var(--gold)" />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>Telegram Channel</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES.telegramChannel}/mo</p>
-            </div>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
-            Connect your Telegram Bot and let your AI agent reply to customer messages directly on Telegram.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
-            <ModuleButton moduleKey="telegramChannel" onToggle={() => setCart({ ...cart, telegramChannel: !cart.telegramChannel })} />
-          </div>
-        </div>
-
-        {/* Custom Emails */}
-        <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder('customEmails') }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
-              <Mail size={24} color="var(--gold)" />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>Custom Emails</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES.customEmails}/mo</p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
+              {module.desc}
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
+              <ModuleButton moduleKey={module.key} onToggle={() => setCart({ ...cart, [module.key]: !cart[module.key] })} />
             </div>
           </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
-            Send automated confirmations and follow-ups from your own custom domain.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
-            <ModuleButton moduleKey="customEmails" onToggle={() => setCart({ ...cart, customEmails: !cart.customEmails })} />
-          </div>
-        </div>
-
-        {/* Auto Follow-ups */}
-        <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder('autoFollowups') }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
-              <CalendarSync size={24} color="var(--gold)" />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>Auto Follow-ups</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES.autoFollowups}/mo</p>
-            </div>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
-            Automatically chase up leads and request reviews after appointments.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
-            <ModuleButton moduleKey="autoFollowups" onToggle={() => setCart({ ...cart, autoFollowups: !cart.autoFollowups })} />
-          </div>
-        </div>
-
-        {/* Unlimited Chats */}
-        <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder('unlimitedChats') }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
-              <Zap size={24} color="var(--gold)" />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>Unlimited Chats</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES.unlimitedChats}/mo</p>
-            </div>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
-            Remove the 50 free chat limit. Perfect for high-volume businesses.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
-            <ModuleButton moduleKey="unlimitedChats" onToggle={() => setCart({ ...cart, unlimitedChats: !cart.unlimitedChats })} />
-          </div>
-        </div>
-
-        {/* Remove Branding */}
-        <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder('removeBranding') }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
-              <EyeOff size={24} color="var(--gold)" />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>Remove Branding</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES.removeBranding}/mo</p>
-            </div>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
-            Remove "Powered by Vexyr" from your chat widgets and emails for a fully white-labeled experience.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
-            <ModuleButton moduleKey="removeBranding" onToggle={() => setCart({ ...cart, removeBranding: !cart.removeBranding })} />
-          </div>
-        </div>
-
-        {/* 3rd-Party Calendar Sync */}
-        <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder('calendarSync') }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
-              <CalendarSync size={24} color="var(--gold)" />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>3rd-Party Calendar Sync</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES.calendarSync}/mo</p>
-            </div>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
-            Sync your Vexyr appointments with external calendars (Google Calendar, Outlook).
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
-            <ModuleButton moduleKey="calendarSync" onToggle={() => setCart({ ...cart, calendarSync: !cart.calendarSync })} />
-          </div>
-        </div>
-
-        {/* Broadcast Messaging */}
-        <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder('broadcastMessaging') }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
-              <Megaphone size={24} color="var(--gold)" />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>Broadcast Messaging</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES.broadcastMessaging}/mo</p>
-            </div>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
-            Send mass updates and promotional blasts to your entire customer base.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
-            <ModuleButton moduleKey="broadcastMessaging" onToggle={() => setCart({ ...cart, broadcastMessaging: !cart.broadcastMessaging })} />
-          </div>
-        </div>
-
-        {/* Reputation Management */}
-        <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder('reputationManagement') }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
-              <Star size={24} color="var(--gold)" />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>Reputation Management</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES.reputationManagement}/mo</p>
-            </div>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
-            Monitor and respond to customer reviews automatically across platforms.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
-            <ModuleButton moduleKey="reputationManagement" onToggle={() => setCart({ ...cart, reputationManagement: !cart.reputationManagement })} />
-          </div>
-        </div>
-
-        {/* Meta Ads Reporting */}
-        <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder('metaAds') }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
-              <BarChart size={24} color="var(--gold)" />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>Meta Ads Reporting</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES.metaAds}/mo</p>
-            </div>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
-            Advanced ROI tracking and conversion reports for your Meta Ads.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
-            <ModuleButton moduleKey="metaAds" onToggle={() => setCart({ ...cart, metaAds: !cart.metaAds })} />
-          </div>
-        </div>
-
-        {/* Google Ads Reporting */}
-        <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder('googleAds') }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
-              <LineChart size={24} color="var(--gold)" />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>Google Ads Reporting</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES.googleAds}/mo</p>
-            </div>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
-            Advanced ROI tracking and conversion reports for your Google Ads.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
-            <ModuleButton moduleKey="googleAds" onToggle={() => setCart({ ...cart, googleAds: !cart.googleAds })} />
-          </div>
-        </div>
-
-        {/* Telegram Ads Reporting */}
-        <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder('telegramAds') }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
-              <PieChart size={24} color="var(--gold)" />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>Telegram Ads Reporting</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES.telegramAds}/mo</p>
-            </div>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
-            Advanced ROI tracking and conversion reports for Telegram Ads.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
-            <ModuleButton moduleKey="telegramAds" onToggle={() => setCart({ ...cart, telegramAds: !cart.telegramAds })} />
-          </div>
-        </div>
+        ))}
 
       </div>
 

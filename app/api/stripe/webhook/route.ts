@@ -150,6 +150,33 @@ export async function POST(req: Request) {
       .eq('id', tenantId);
 
     console.log(`Successfully activated ${planId} plan (and modules) for tenant ${tenantId}`);
+  } else if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+    const subscription = event.data.object as Stripe.Subscription;
+    const subscriptionId = subscription.id;
+    const status = subscription.status; // 'active', 'past_due', 'canceled', 'unpaid', etc.
+    
+    let currentPeriodEnd: string | null = null;
+    if (typeof subscription.current_period_end === 'number' && subscription.current_period_end > 0) {
+      currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString();
+    }
+
+    // Update the local database to reflect the revoked/updated status
+    const { error } = await supabaseAdmin
+      .from('subscriptions')
+      .update({
+        status: status,
+        current_period_end: currentPeriodEnd,
+        // If the subscription is deleted, we could clear modules, but syncing the status to 'canceled' 
+        // is enough to lock the UI since the app checks for status === 'active'
+      })
+      .eq('stripe_subscription_id', subscriptionId);
+
+    if (error) {
+      console.error(`Error updating subscription ${subscriptionId} status to ${status}:`, error);
+      return NextResponse.json({ error: `Update failed: ${error.message}` }, { status: 500 });
+    }
+
+    console.log(`Successfully updated subscription ${subscriptionId} to status: ${status}`);
   }
 
   return NextResponse.json({ received: true });
