@@ -168,21 +168,23 @@ export default function EmailTemplateEditor({
                 minHeight: '100%',
                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' 
               }}>
-                <div 
-                  className="email-preview-body"
-                  style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
-                  dangerouslySetInnerHTML={{ 
-                    __html: body 
-                      ? DOMPurify.sanitize(body)
-                          .replace(/\{\{customer_name\}\}/g, 'Jane Doe')
-                          .replace(/\{\{business_name\}\}/g, 'Acme Corp')
-                          .replace(/\{\{appointment_date\}\}/g, 'Wednesday, August 19, 2026')
-                          .replace(/\{\{appointment_time\}\}/g, '04:00 PM')
-                          .replace(/\{\{appointment_title\}\}/g, 'Hair Coloring - Jane Doe')
-                          .replace(/\{\{invite_link\}\}/g, '<a href="#">Accept Invitation</a>')
-                      : '<div style="padding: 2rem; color: #9ca3af; font-style: italic;">Start typing HTML to preview...</div>'
-                  }} 
-                />
+                {body ? (
+                  <iframe
+                    title="Email Preview"
+                    srcDoc={DOMPurify.sanitize(body, { WHOLE_DOCUMENT: true, ADD_TAGS: ['style', 'meta', 'title'] })
+                      .replace(/\{\{customer_name\}\}/g, 'Jane Doe')
+                      .replace(/\{\{business_name\}\}/g, 'Acme Corp')
+                      .replace(/\{\{appointment_date\}\}/g, 'Wednesday, August 19, 2026')
+                      .replace(/\{\{appointment_time\}\}/g, '04:00 PM')
+                      .replace(/\{\{appointment_title\}\}/g, 'Hair Coloring - Jane Doe')
+                      .replace(/\{\{invite_link\}\}/g, 'https://example.com/invite/12345')}
+                    style={{ width: '100%', height: '100%', minHeight: '600px', border: 'none' }}
+                  />
+                ) : (
+                  <div style={{ padding: '2rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                    Start typing HTML to preview...
+                  </div>
+                )}
               </div>
             </div>
           </div>

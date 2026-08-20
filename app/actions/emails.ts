@@ -65,7 +65,7 @@ export async function saveEmailTemplate(tenantId: string, templateType: string, 
         tenant_id: tenantId,
         template_type: templateType,
         subject,
-        body: DOMPurify.sanitize(body), // Sanitize HTML before saving to prevent Stored XSS
+        body: DOMPurify.sanitize(body, { WHOLE_DOCUMENT: true, ADD_TAGS: ['style', 'meta', 'title'] }), // Sanitize HTML before saving to prevent Stored XSS
         updated_at: new Date().toISOString()
       },
       { onConflict: 'tenant_id,template_type' } // This uses the UNIQUE constraint we added in the migration
