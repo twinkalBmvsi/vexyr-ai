@@ -1,16 +1,17 @@
 'use client'
 
-import { Settings as SettingsIcon, Bell, Lock, User, CreditCard } from 'lucide-react'
+import { Settings as SettingsIcon, Bell, Lock, User, CreditCard, Mail } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-export default function SettingsSidebar({ userRole }: { userRole?: string }) {
+export default function SettingsSidebar({ userRole, tenantSlug }: { userRole?: string, tenantSlug: string }) {
   const pathname = usePathname()
 
   let tabs = [
     { name: 'General', href: '', icon: SettingsIcon, matchExact: true },
     { name: 'Billing', href: '/billing', icon: CreditCard, matchExact: false },
     { name: 'Team', href: '/team', icon: User, matchExact: false },
+    { name: 'Custom Emails', href: '/emails', icon: Mail, matchExact: false },
     { name: 'Notifications', href: '/notifications', icon: Bell, matchExact: false },
     { name: 'Security', href: '/security', icon: Lock, matchExact: false },
   ]
@@ -19,7 +20,7 @@ export default function SettingsSidebar({ userRole }: { userRole?: string }) {
     tabs = tabs.filter(t => t.name !== 'Billing')
   }
 
-  const basePath = '/settings'
+  const basePath = `/${tenantSlug}/settings`
 
   return (
     <div className="dash-card" style={{ padding: '1.5rem' }}>

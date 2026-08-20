@@ -144,11 +144,55 @@ export async function scheduleAppointment(
   const formattedTime = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 
   if (customerData.email && isSmtpConfigured()) {
+    // 1. Check if they have the customEmails module
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('status, modules, tenants(name)')
+      .eq('tenant_id', tenantId)
+      .single()
+
+    const businessName = sub?.tenants?.name || 'Our Business'
+    const hasCustomEmails = sub?.status === 'active' && (sub.modules as any)?.customEmails === true
+
+    let customSubject = null
+    let customBodyHtml = null
+    let customBodyText = null
+
+    // 2. Fetch custom template if active
+    if (hasCustomEmails) {
+      const { data: template } = await supabase
+        .from('email_templates')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('template_type', 'appointment_confirmation')
+        .maybeSingle()
+
+      if (template) {
+        // 3. Interpolate variables
+        const interpolate = (str: string) => {
+          return str
+            .replace(/\{\{customer_name\}\}/g, customerData.name || 'Customer')
+            .replace(/\{\{business_name\}\}/g, businessName)
+            .replace(/\{\{appointment_date\}\}/g, formattedDate)
+            .replace(/\{\{appointment_time\}\}/g, formattedTime)
+            .replace(/\{\{appointment_title\}\}/g, finalTitle)
+        }
+
+        customSubject = interpolate(template.subject)
+        const interpolatedBody = interpolate(template.body)
+        
+        // Pass the raw HTML exactly as the user typed it
+        customBodyHtml = interpolatedBody
+        // Strip HTML for plain text fallback
+        customBodyText = interpolatedBody.replace(/<[^>]+>/g, '')
+      }
+    }
+
     sendSmtpEmail({
       to: customerData.email,
-      subject: `Appointment Confirmed: ${finalTitle}`,
-      text: `Hi ${customerData.name},\n\nYour appointment for ${finalTitle} is confirmed for ${formattedDate} at ${formattedTime}.\n\nThank you!`,
-      html: `
+      subject: customSubject || `Appointment Confirmed: ${finalTitle}`,
+      text: customBodyText || `Hi ${customerData.name},\n\nYour appointment for ${finalTitle} is confirmed for ${formattedDate} at ${formattedTime}.\n\nThank you!`,
+      html: customBodyHtml || `
         <div style="font-family: Arial, sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e5e5; border-radius: 8px;">
           <h2 style="color: #2a7a4a; margin-top: 0;">Appointment Confirmed!</h2>
           <p>Hello <strong>${customerData.name}</strong>,</p>
@@ -200,11 +244,49 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'co
     const aptDate = new Date(existingApt.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     
     if (status === 'cancelled') {
+      // 1. Check if they have the customEmails module
+      const { data: sub } = await supabase
+        .from('subscriptions')
+        .select('status, modules, tenants(name)')
+        .eq('tenant_id', existingApt.tenant_id)
+        .single()
+
+      const businessName = sub?.tenants?.name || 'Our Business'
+      const hasCustomEmails = sub?.status === 'active' && (sub.modules as any)?.customEmails === true
+
+      let customSubject = null
+      let customBodyHtml = null
+      let customBodyText = null
+
+      if (hasCustomEmails) {
+        const { data: template } = await supabase
+          .from('email_templates')
+          .select('*')
+          .eq('tenant_id', existingApt.tenant_id)
+          .eq('template_type', 'appointment_cancellation')
+          .maybeSingle()
+
+        if (template) {
+          const interpolate = (str: string) => {
+            return str
+              .replace(/\{\{customer_name\}\}/g, customer.name || 'Customer')
+              .replace(/\{\{business_name\}\}/g, businessName)
+              .replace(/\{\{appointment_date\}\}/g, aptDate)
+              .replace(/\{\{appointment_time\}\}/g, new Date(existingApt.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }))
+              .replace(/\{\{appointment_title\}\}/g, existingApt.title)
+          }
+
+          customSubject = interpolate(template.subject)
+          customBodyHtml = interpolate(template.body)
+          customBodyText = customBodyHtml.replace(/<[^>]+>/g, '')
+        }
+      }
+
       sendSmtpEmail({
         to: customer.email,
-        subject: `Appointment Cancelled: ${existingApt.title}`,
-        text: `Hi ${customer.name},\n\nYour appointment "${existingApt.title}" on ${aptDate} has been cancelled.\n\nThank you!`,
-        html: `
+        subject: customSubject || `Appointment Cancelled: ${existingApt.title}`,
+        text: customBodyText || `Hi ${customer.name},\n\nYour appointment "${existingApt.title}" on ${aptDate} has been cancelled.\n\nThank you!`,
+        html: customBodyHtml || `
           <div style="font-family: Arial, sans-serif; padding: 24px; color: #1a1a1a;">
             <h2 style="color: #c93b2b;">Appointment Cancelled</h2>
             <p>Hello <strong>${customer.name}</strong>,</p>
@@ -290,11 +372,49 @@ export async function rescheduleAppointment(appointmentId: string, newStartTime:
     const formattedDate = start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     const formattedTime = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 
+    // 1. Check if they have the customEmails module
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('status, modules, tenants(name)')
+      .eq('tenant_id', existingApt.tenant_id)
+      .single()
+
+    const businessName = sub?.tenants?.name || 'Our Business'
+    const hasCustomEmails = sub?.status === 'active' && (sub.modules as any)?.customEmails === true
+
+    let customSubject = null
+    let customBodyHtml = null
+    let customBodyText = null
+
+    if (hasCustomEmails) {
+      const { data: template } = await supabase
+        .from('email_templates')
+        .select('*')
+        .eq('tenant_id', existingApt.tenant_id)
+        .eq('template_type', 'appointment_reschedule')
+        .maybeSingle()
+
+      if (template) {
+        const interpolate = (str: string) => {
+          return str
+            .replace(/\{\{customer_name\}\}/g, customer.name || 'Customer')
+            .replace(/\{\{business_name\}\}/g, businessName)
+            .replace(/\{\{appointment_date\}\}/g, formattedDate)
+            .replace(/\{\{appointment_time\}\}/g, formattedTime)
+            .replace(/\{\{appointment_title\}\}/g, existingApt.title)
+        }
+
+        customSubject = interpolate(template.subject)
+        customBodyHtml = interpolate(template.body)
+        customBodyText = customBodyHtml.replace(/<[^>]+>/g, '')
+      }
+    }
+
     sendSmtpEmail({
       to: customer.email,
-      subject: `Appointment Rescheduled: ${existingApt.title}`,
-      text: `Hi ${customer.name},\n\nYour appointment "${existingApt.title}" has been rescheduled to ${formattedDate} at ${formattedTime}.\n\nThank you!`,
-      html: `
+      subject: customSubject || `Appointment Rescheduled: ${existingApt.title}`,
+      text: customBodyText || `Hi ${customer.name},\n\nYour appointment "${existingApt.title}" has been rescheduled to ${formattedDate} at ${formattedTime}.\n\nThank you!`,
+      html: customBodyHtml || `
         <div style="font-family: Arial, sans-serif; padding: 24px; color: #1a1a1a;">
           <h2 style="color: #2a7a4a;">Appointment Rescheduled</h2>
           <p>Hello <strong>${customer.name}</strong>,</p>

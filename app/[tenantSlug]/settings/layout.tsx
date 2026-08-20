@@ -36,7 +36,7 @@ export default async function SettingsLayout({ children, params }: { children: R
       </div>
 
       <div className="settings-layout-grid">
-        <SettingsSidebar userRole={userRole} />
+        <SettingsSidebar userRole={userRole} tenantSlug={resolvedParams.tenantSlug} />
 
         <div className="dash-card" style={{ padding: '3rem', width: '100%', boxSizing: 'border-box' }}>
           {children}
