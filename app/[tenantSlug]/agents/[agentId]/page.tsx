@@ -15,8 +15,9 @@ export default async function AgentConfigPage({
 
   const initialData = configData?.agent ? {
     name: configData.agent.name,
-    identity: configData.agent.personality || '',
-    initialPrompt: configData.agent.prompt || ''
+    businessName: configData.businessName,
+    description: configData.description,
+    services: configData.services
   } : null
 
   return (
@@ -29,7 +30,7 @@ export default async function AgentConfigPage({
 
       <div className="dash-header">
         <h1 className="dash-title">{isNew ? 'Create New Agent' : 'Configure Agent'}</h1>
-        <p className="dash-subtitle">Set up the identity, tone, and system prompt for this AI agent.</p>
+        <p className="dash-subtitle">Configure your AI agent's details and active channels.</p>
       </div>
 
       <AgentForm 

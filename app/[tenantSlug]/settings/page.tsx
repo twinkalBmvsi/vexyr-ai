@@ -117,31 +117,7 @@ export default async function GeneralSettingsPage({
         </div>
       </section>
 
-      <section className="settings-refined-section">
-        <div className="settings-refined-heading">
-          <Bot size={18} />
-          <div>
-            <h3>AI Business Context</h3>
-            <p>A short operating note helps agents answer with the right tone and boundaries.</p>
-          </div>
-        </div>
 
-        <div className="settings-field-stack">
-          <label>
-            <span>Business description</span>
-            <textarea rows={4} placeholder="Describe what your business offers, who you serve, and what customers usually ask for." />
-          </label>
-          <label>
-            <span>Preferred tone</span>
-            <select defaultValue="warm-professional">
-              <option value="warm-professional">Warm and professional</option>
-              <option value="friendly-concise">Friendly and concise</option>
-              <option value="premium-calm">Premium and calm</option>
-              <option value="direct-efficient">Direct and efficient</option>
-            </select>
-          </label>
-        </div>
-      </section>
 
       <BusinessHoursSettings tenantId={tenant?.id} initialConfig={businessHours} />
 

@@ -29,7 +29,7 @@ export default async function NewAgentPage({
     const name = formData.get('name') as string
     const business_name = formData.get('business_name') as string
     const description = formData.get('description') as string
-    const prompt = formData.get('prompt') as string
+    const services = formData.get('services') as string
     const language = formData.get('language') as string || 'en'
     const timezone = formData.get('timezone') as string || 'UTC'
     const working_hours = formData.get('working_hours') as string
@@ -39,6 +39,7 @@ export default async function NewAgentPage({
     const businessRules = JSON.stringify({
       business_name,
       description,
+      services,
       working_hours,
       appointment_duration,
       active_channels: ['whatsapp', 'telegram']
@@ -49,7 +50,7 @@ export default async function NewAgentPage({
       .insert({
         tenant_id: tenant.id,
         name,
-        prompt,
+        prompt: '',
         language,
         timezone,
         business_rules: businessRules
@@ -89,19 +90,18 @@ export default async function NewAgentPage({
             </div>
             <div className="dash-form-group" style={{ marginBottom: 0 }}>
               <label htmlFor="description" className="dash-label">Description</label>
-              <input type="text" id="description" name="description" className="dash-input" placeholder="Short description of this agent" />
+              <input type="text" id="description" name="description" className="dash-input" placeholder="Short description of the organization" />
             </div>
           </div>
 
           <div className="dash-form-group" style={{ marginBottom: 0 }}>
-            <label htmlFor="prompt" className="dash-label">System Prompt</label>
+            <label htmlFor="services" className="dash-label">Services Provided</label>
             <textarea 
-              id="prompt" 
-              name="prompt" 
-              required 
+              id="services" 
+              name="services" 
               className="dash-textarea" 
-              placeholder="You are a scheduling assistant for ABC Dental Clinic... Your goal: Schedule appointments..."
-              style={{ minHeight: '150px' }}
+              placeholder="e.g. Teeth cleaning, whitening, root canals..."
+              required
             />
           </div>
 

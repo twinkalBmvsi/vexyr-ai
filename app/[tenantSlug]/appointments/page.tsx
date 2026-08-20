@@ -50,11 +50,18 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
 
   const businessHours = await getBusinessHours(tenant.id)
 
-  // Helper matching CalendarView's exact YYYY-MM-DD calculation
+  const timeZone = businessHours.timeZone || 'UTC'
+
+  // Helper matching CalendarView's exact YYYY-MM-DD calculation but strictly enforcing the tenant timezone
   const toYMD = (d: Date) => {
-    const offset = d.getTimezoneOffset()
-    const local = new Date(d.getTime() - (offset * 60 * 1000))
-    return local.toISOString().split('T')[0]
+    // Format to YYYY-MM-DD using Intl formatter
+    const f = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+    return f.format(d)
   }
 
   // Fetch live appointments from Supabase backend
@@ -68,10 +75,24 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
     const start = new Date(apt.start_time)
     const end = new Date(apt.end_time)
     const durationHours = Math.max(0.5, (end.getTime() - start.getTime()) / (1000 * 60 * 60))
-    const startHour = start.getHours() + (start.getMinutes() / 60)
+    const timeZone = businessHours.timeZone || 'UTC'
+    
+    // Get the hour in the tenant's timezone
+    const startFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false
+    })
+    
+    // Parse the output which will be in "HH:MM" 24h format
+    const startParts = startFormatter.format(start).split(':')
+    const startHourInt = parseInt(startParts[0], 10)
+    const startMinInt = parseInt(startParts[1], 10)
+    const startHour = startHourInt + (startMinInt / 60)
 
-    const dateStr = start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-    const timeStr = `${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - ${end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+    const dateStr = start.toLocaleDateString('en-US', { timeZone, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+    const timeStr = `${start.toLocaleTimeString('en-US', { timeZone, hour: 'numeric', minute: '2-digit' })} - ${end.toLocaleTimeString('en-US', { timeZone, hour: 'numeric', minute: '2-digit' })}`
 
     const customerName = apt.customers?.name || 'Customer'
     const customerPhone = apt.customers?.phone || ''
