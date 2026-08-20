@@ -71,6 +71,10 @@ export default async function TenantDashboard({
     if (planId === 'starter') planName = 'Starter'
     else if (planId === 'growth') planName = 'Growth'
     else if (planId === 'enterprise') planName = 'Enterprise'
+    else if (planId === 'modular') {
+      const activeModules = Object.values(subscription?.modules || {}).filter(Boolean).length
+      planName = `Modular (${activeModules} module${activeModules !== 1 ? 's' : ''})`
+    }
 
     if (subscription?.current_period_end) {
       const date = new Date(subscription.current_period_end)

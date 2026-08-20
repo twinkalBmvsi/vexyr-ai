@@ -9,6 +9,38 @@ export default async function NewAgentPage({
   params: Promise<{ tenantSlug: string }>
 }) {
   const resolvedParams = await params
+  const supabase = await createClient()
+
+  // ── Gate: check agent limit before rendering the form ──────────────────────
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('id')
+    .eq('slug', resolvedParams.tenantSlug)
+    .single()
+
+  if (!tenant) redirect(`/${resolvedParams.tenantSlug}/agents`)
+
+  const [{ count: agentCount }, { data: subscription }] = await Promise.all([
+    supabase
+      .from('agents')
+      .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenant.id),
+    supabase
+      .from('subscriptions')
+      .select('modules')
+      .eq('tenant_id', tenant.id)
+      .maybeSingle(),
+  ])
+
+  const extraBots: number = subscription?.modules?.extraBots || 0
+  const agentLimit = 1 + extraBots          // 1 base + purchased slots
+  const currentCount = agentCount ?? 0
+
+  // Hard redirect if already at or over limit — blocks direct URL access
+  if (currentCount >= agentLimit) {
+    redirect(`/${resolvedParams.tenantSlug}/agents?limit=true`)
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 
   async function createAgent(formData: FormData) {
     'use server'
@@ -24,6 +56,23 @@ export default async function NewAgentPage({
 
     if (!tenant) {
       throw new Error("Tenant not found")
+    }
+
+    // Re-check limit in server action to prevent API bypass
+    const [{ count: currentAgentCount }, { data: sub }] = await Promise.all([
+      supabase
+        .from('agents')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenant.id),
+      supabase
+        .from('subscriptions')
+        .select('modules')
+        .eq('tenant_id', tenant.id)
+        .maybeSingle(),
+    ])
+    const limit = 1 + (sub?.modules?.extraBots || 0)
+    if ((currentAgentCount ?? 0) >= limit) {
+      throw new Error(`Agent limit reached (${limit}). Purchase more agent slots from the Store.`)
     }
 
     const name = formData.get('name') as string

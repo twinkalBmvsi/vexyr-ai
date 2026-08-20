@@ -2,7 +2,9 @@ import Link from 'next/link'
 import { Plus, Settings2, Bot, Lock, Zap } from 'lucide-react'
 import { createClient } from '@/utils/supabase/server'
 
-// The Base Tier allows 1 free agent. Add extraBots from modules.
+// Base tier always includes 1 free agent.
+// 'extraBots' purchased from Store = additional agent slots on top of that.
+// Total limit = 1 (base) + extraBots (purchased)
 const BASE_AGENT_LIMIT = 1;
 
 export default async function AgentsPage({
@@ -101,11 +103,15 @@ export default async function AgentsPage({
         }}>
           <Lock size={16} color="var(--gold)" style={{ flexShrink: 0 }} />
           <span>
-            You have reached your limit of <strong>{agentLimit} AI {agentLimit === 1 ? 'agent' : 'agents'}</strong>.{' '}
+            You have reached your limit of <strong>{agentLimit} AI {agentLimit === 1 ? 'agent' : 'agents'}</strong>
+            {extraBots > 0
+              ? ` (1 included + ${extraBots} purchased)`
+              : ' (1 included on all plans)'
+            }.{' '}
             <Link href={`/${resolvedParams.tenantSlug}/store`} style={{ color: 'var(--gold)', textDecoration: 'underline' }}>
               Visit the Store
             </Link>
-            {' '}to buy an additional agent module.
+            {' '}to buy an additional agent slot.
           </span>
         </div>
       )}

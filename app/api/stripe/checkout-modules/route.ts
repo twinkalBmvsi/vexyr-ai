@@ -1,26 +1,43 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2026-06-24.dahlia' as any,
 });
 
-// DUMMY PRICE IDs - Replace these with real Stripe Price IDs later
-const MOCK_PRICES = {
-  extraBots: 'price_mock_extra_bots',
-  whatsappChannel: 'price_mock_whatsapp_channel',
-  telegramChannel: 'price_mock_telegram_channel',
-  customEmails: 'price_mock_custom_emails',
-  autoFollowups: 'price_mock_auto_followups',
-  unlimitedChats: 'price_mock_unlimited_chats',
-  calendarSync: 'price_mock_calendar_sync',
-  broadcastMessaging: 'price_mock_broadcast_messaging',
-  reputationManagement: 'price_mock_reputation_management',
-  metaAds: 'price_mock_meta_ads',
-  googleAds: 'price_mock_google_ads',
-  telegramAds: 'price_mock_telegram_ads',
-  removeBranding: 'price_mock_remove_branding',
+// Admin client so we can read stripe_prices without RLS auth issues
+const supabaseAdmin = createAdminClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE!
+);
+
+type PriceMap = Record<string, string>; // moduleKey -> Stripe Price ID
+
+/**
+ * Fetches real Stripe Price IDs from the `stripe_prices` Supabase table.
+ * Run `node scripts/sync-stripe-prices.js` first to populate this table.
+ */
+async function fetchPriceMap(): Promise<PriceMap> {
+  const { data, error } = await supabaseAdmin
+    .from('stripe_prices')
+    .select('module_key, id')
+    .eq('active', true)
+    .not('module_key', 'is', null);
+
+  if (error) {
+    console.error('Failed to fetch stripe_prices from Supabase:', error.message);
+    return {};
+  }
+
+  const map: PriceMap = {};
+  for (const row of data ?? []) {
+    if (row.module_key) {
+      map[row.module_key] = row.id;
+    }
+  }
+  return map;
 }
 
 export async function POST(req: Request) {
@@ -50,107 +67,89 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized for this tenant' }, { status: 403 });
     }
 
-    // Build Line Items based on module selection
+    // Fetch real Stripe Price IDs from Supabase
+    const PRICES = await fetchPriceMap();
+
+    // -------------------------------------------------------
+    // SAFETY: Fetch the tenant's existing active modules so
+    // we never re-charge for something they already have.
+    // -------------------------------------------------------
+    const { data: existingSub } = await supabaseAdmin
+      .from('subscriptions')
+      .select('modules')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    const existingModules: Record<string, any> = existingSub?.modules || {};
+
+    // Build only the NET NEW modules — skip anything already subscribed to.
+    const newModules: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(modules as Record<string, any>)) {
+      if (key === 'extraBots') {
+        // Quantity module: only include if > 0 (we only ever send the additional delta)
+        if (typeof value === 'number' && value > 0) {
+          newModules[key] = value;
+        }
+      } else {
+        // Boolean module: only include if newly selected AND not already active
+        if (value && !existingModules[key]) {
+          newModules[key] = value;
+        }
+      }
+    }
+
+    // Build Line Items based on net-new module selection
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
 
-    if (modules.extraBots > 0) {
-      lineItems.push({
-        price: MOCK_PRICES.extraBots,
-        quantity: modules.extraBots,
-      });
-    }
-    if (modules.whatsappChannel) {
-      lineItems.push({
-        price: MOCK_PRICES.whatsappChannel,
-        quantity: 1,
-      });
-    }
-    if (modules.telegramChannel) {
-      lineItems.push({
-        price: MOCK_PRICES.telegramChannel,
-        quantity: 1,
-      });
-    }
-    if (modules.customEmails) {
-      lineItems.push({
-        price: MOCK_PRICES.customEmails,
-        quantity: 1,
-      });
-    }
-    if (modules.autoFollowups) {
-      lineItems.push({
-        price: MOCK_PRICES.autoFollowups,
-        quantity: 1,
-      });
-    }
-    if (modules.unlimitedChats) {
-      lineItems.push({
-        price: MOCK_PRICES.unlimitedChats,
-        quantity: 1,
-      });
-    }
-    if (modules.calendarSync) {
-      lineItems.push({
-        price: MOCK_PRICES.calendarSync,
-        quantity: 1,
-      });
-    }
-    if (modules.broadcastMessaging) {
-      lineItems.push({
-        price: MOCK_PRICES.broadcastMessaging,
-        quantity: 1,
-      });
-    }
-    if (modules.reputationManagement) {
-      lineItems.push({
-        price: MOCK_PRICES.reputationManagement,
-        quantity: 1,
-      });
-    }
-    if (modules.metaAds) {
-      lineItems.push({
-        price: MOCK_PRICES.metaAds,
-        quantity: 1,
-      });
-    }
-    if (modules.googleAds) {
-      lineItems.push({
-        price: MOCK_PRICES.googleAds,
-        quantity: 1,
-      });
-    }
-    if (modules.telegramAds) {
-      lineItems.push({
-        price: MOCK_PRICES.telegramAds,
-        quantity: 1,
-      });
-    }
-    if (modules.removeBranding) {
-      lineItems.push({
-        price: MOCK_PRICES.removeBranding,
-        quantity: 1,
-      });
-    }
+    const addItem = (key: string, quantity = 1) => {
+      const priceId = PRICES[key];
+      if (!priceId) {
+        console.warn(`⚠️  No Stripe Price ID found for module key: "${key}". Run sync-stripe-prices.js.`);
+        return false;
+      }
+      lineItems.push({ price: priceId, quantity });
+      return true;
+    };
+
+    if (newModules.extraBots > 0)           addItem('extraBots', newModules.extraBots);
+    if (newModules.whatsappChannel)          addItem('whatsappChannel');
+    if (newModules.telegramChannel)          addItem('telegramChannel');
+    if (newModules.customEmails)             addItem('customEmails');
+    if (newModules.autoFollowups)            addItem('autoFollowups');
+    if (newModules.unlimitedChats)           addItem('unlimitedChats');
+    if (newModules.calendarSync)             addItem('calendarSync');
+    if (newModules.broadcastMessaging)       addItem('broadcastMessaging');
+    if (newModules.reputationManagement)     addItem('reputationManagement');
+    if (newModules.metaAds)                  addItem('metaAds');
+    if (newModules.googleAds)                addItem('googleAds');
+    if (newModules.telegramAds)              addItem('telegramAds');
+    if (newModules.removeBranding)           addItem('removeBranding');
+    if (newModules.messagingChannels)        addItem('messagingChannels');
 
     if (lineItems.length === 0) {
-      return NextResponse.json({ error: 'No modules selected' }, { status: 400 });
+      return NextResponse.json({ error: 'No new modules selected — all chosen modules are already active in your subscription.' }, { status: 400 });
     }
 
-    // Construct origin URL for success/cancel redirects
-    const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
+    // Always use the root site URL (not the subdomain origin) so /payment-success resolves correctly.
+    // e.g. tenant.localhost:3000 would 404 since the route lives on root domain.
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'subscription',
       line_items: lineItems,
-      success_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/store`,
-      client_reference_id: `${tenantId}_modular_month`, // Indicates this is a modular plan checkout
+      success_url: `${siteUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}&tenantId=${tenantId}`,
+      cancel_url: `${siteUrl}/store`,
+      client_reference_id: `${tenantId}_modular_month`,
       metadata: {
         tenantId,
-        // We stringify the requested modules so the webhook can apply them upon success
-        modules: JSON.stringify(modules)
+        // Only store the NET NEW modules in metadata — the webhook should only record
+        // what was actually purchased in this session, not the full cart state.
+        modules: JSON.stringify(newModules)
       },
     });
 

@@ -49,7 +49,13 @@ export async function POST(req: Request) {
     if (subscriptionId) {
       try {
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        currentPeriodEnd = new Date((subscription as any).current_period_end * 1000).toISOString();
+        // current_period_end is a Unix timestamp (seconds). Guard against null/0/NaN.
+        const rawTs = (subscription as any).current_period_end;
+        if (typeof rawTs === 'number' && rawTs > 0) {
+          currentPeriodEnd = new Date(rawTs * 1000).toISOString();
+        } else {
+          console.warn('current_period_end was missing or invalid:', rawTs);
+        }
       } catch (err) {
         console.error('Error fetching subscription details from Stripe:', err);
       }
@@ -65,6 +71,18 @@ export async function POST(req: Request) {
       }
     }
 
+    // Ensure the plan row exists — 'modular' is a virtual plan for module-only purchases.
+    // Without this the FK constraint on subscriptions.plan_id will reject the insert.
+    await supabaseAdmin
+      .from('plans')
+      .upsert({
+        id: planId,
+        name: planId.charAt(0).toUpperCase() + planId.slice(1), // e.g. 'Modular'
+        monthly_price: 0,
+        yearly_price: 0,
+        limits: {},
+      }, { onConflict: 'id', ignoreDuplicates: true });
+
     // Check if subscription exists
     const { data: existingSub } = await supabaseAdmin
       .from('subscriptions')
@@ -73,6 +91,21 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (existingSub) {
+      // Merge purchased modules with existing ones.
+      // - Boolean modules: new purchase sets them to true
+      // - Quantity modules (extraBots): ADD the new quantity to existing count
+      const existingModules: Record<string, any> = existingSub.modules || {};
+      const mergedModules: Record<string, any> = { ...existingModules };
+
+      for (const [key, value] of Object.entries(purchasedModules as Record<string, any>)) {
+        if (typeof value === 'number' && typeof existingModules[key] === 'number') {
+          // Accumulate quantities (e.g. had 1 agent, bought 2 more = 3 total)
+          mergedModules[key] = (existingModules[key] || 0) + value;
+        } else {
+          mergedModules[key] = value;
+        }
+      }
+
       const { error } = await supabaseAdmin
         .from('subscriptions')
         .update({
@@ -82,7 +115,7 @@ export async function POST(req: Request) {
           current_period_end: currentPeriodEnd,
           stripe_customer_id: customerId,
           stripe_subscription_id: subscriptionId,
-          modules: Object.keys(purchasedModules).length > 0 ? purchasedModules : existingSub.modules
+          modules: Object.keys(purchasedModules).length > 0 ? mergedModules : existingModules
         })
         .eq('id', existingSub.id);
         

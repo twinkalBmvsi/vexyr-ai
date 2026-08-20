@@ -25,10 +25,29 @@ export default async function BillingPage({ params }: { params: Promise<{ tenant
 
   const planId = subscription?.plan_id || tenant?.plan_id || 'free'
   const isYearly = subscription?.billing_interval === 'year'
+  const activeModules: Record<string, any> = subscription?.modules || {}
+
+  // Module display labels
+  const MODULE_LABELS: Record<string, string> = {
+    extraBots: 'Extra AI Agents',
+    whatsappChannel: 'WhatsApp Channel',
+    telegramChannel: 'Telegram Channel',
+    customEmails: 'Custom Emails',
+    autoFollowups: 'Auto Follow-ups',
+    unlimitedChats: 'Unlimited Chats',
+    calendarSync: '3rd-Party Calendar Sync',
+    broadcastMessaging: 'Broadcast Messaging',
+    reputationManagement: 'Reputation Management',
+    metaAds: 'Meta Ads Reporting',
+    googleAds: 'Google Ads Reporting',
+    telegramAds: 'Telegram Ads Reporting',
+    removeBranding: 'Remove Branding',
+    messagingChannels: 'Messaging Channels',
+  }
 
   let planName = 'Free Tier'
   let planPrice = '0'
-  let features = ['Basic features']
+  let features: string[] = ['Basic features']
 
   if (planId === 'starter') {
     planName = 'Starter'
@@ -42,6 +61,16 @@ export default async function BillingPage({ params }: { params: Promise<{ tenant
     planName = 'Enterprise'
     planPrice = isYearly ? '2144' : '224'
     features = ['Multiple AI chat agents', 'Unlimited Messaging integrations', 'All core modules', 'Custom Email Templates', 'Meta, Google, LinkedIn Ads', 'Unlimited chats', 'Priority support', 'Custom integrations', 'Dedicated engineer hours']
+  } else if (planId === 'modular') {
+    planName = 'Modular Plan'
+    planPrice = '—' // dynamic, billed per module
+    features = Object.entries(activeModules)
+      .filter(([, val]) => Boolean(val))
+      .map(([key, val]) => {
+        const label = MODULE_LABELS[key] || key
+        return typeof val === 'number' && val > 1 ? `${label} ×${val}` : label
+      })
+    if (features.length === 0) features = ['No modules active yet']
   }
 
   const renewsOn = subscription?.current_period_end
