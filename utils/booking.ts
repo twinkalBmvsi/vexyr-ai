@@ -1,10 +1,28 @@
 import { createClient } from '@supabase/supabase-js'
 import { sendSmtpEmail, isSmtpConfigured } from '@/utils/email/smtp'
-import { getBusinessHours } from '@/app/actions/settings'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+
+// Business hours fetched using service-role client (no auth session needed in webhooks)
+export async function getBusinessHoursAdmin(tenantId: string) {
+  const { data } = await supabaseAdmin
+    .from('integrations')
+    .select('config')
+    .eq('tenant_id', tenantId)
+    .eq('provider', 'business_hours')
+    .maybeSingle()
+
+  if (data?.config) {
+    return data.config as { startHour: number; endHour: number; offDays: number[] }
+  }
+
+  // Defaults: 9 AM – 9 PM, no days off
+  return { startHour: 9, endHour: 21, offDays: [] as number[] }
+}
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 export interface BookingParams {
   customer_name: string
@@ -21,10 +39,28 @@ export function parseDateTimeString(dateTimeStr: string): { start: Date; end: Da
   let targetDate = new Date(now)
   const lower = (dateTimeStr || '').toLowerCase().trim()
 
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  const matchedDayIndex = dayNames.findIndex(day => lower.includes(day))
+
   if (lower.includes('tomorrow')) {
     targetDate.setDate(targetDate.getDate() + 1)
   } else if (lower.includes('yesterday')) {
     targetDate.setDate(targetDate.getDate() - 1)
+  } else if (matchedDayIndex !== -1) {
+    // A specific day of week was provided (e.g. "Wednesday")
+    const currentDayIndex = targetDate.getDay()
+    let daysToAdd = matchedDayIndex - currentDayIndex
+    // If the day is today or in the past, assume next week (unless "today" was explicitly meant, but usually users mean the upcoming one)
+    if (daysToAdd <= 0) {
+      daysToAdd += 7
+    }
+    // If the string says "this" (e.g., "this wednesday") and it hasn't passed yet, don't add 7
+    if (daysToAdd >= 7 && lower.includes('this') && matchedDayIndex >= currentDayIndex) {
+       daysToAdd -= 7
+    }
+    // If daysToAdd is exactly 7 and the current time hasn't passed the requested time, we might want to schedule for today.
+    // We'll handle time adjustment at the end, so for now let's just use the calculated day.
+    targetDate.setDate(targetDate.getDate() + daysToAdd)
   } else {
     const dateMatch = lower.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/)
     if (dateMatch) {
@@ -61,8 +97,17 @@ export function parseDateTimeString(dateTimeStr: string): { start: Date; end: Da
 
   targetDate.setHours(hours, minutes, 0, 0)
 
+  // If we didn't specify a day name or date, and the time has passed, move to tomorrow
+  // BUT if we specified a weekday, don't just add 1 day if it passed (that would change the day of week).
+  // Instead, if the requested weekday is today but the time has passed, move to next week.
   if (targetDate.getTime() < now.getTime() && !lower.includes('yesterday')) {
-    targetDate.setDate(targetDate.getDate() + 1)
+    if (matchedDayIndex !== -1 && targetDate.getDay() === matchedDayIndex) {
+      // It's the requested weekday, but time has passed -> move to next week
+      targetDate.setDate(targetDate.getDate() + 7)
+    } else if (matchedDayIndex === -1 && !lower.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/)) {
+      // No specific date/day provided, just move to tomorrow
+      targetDate.setDate(targetDate.getDate() + 1)
+    }
   }
 
   const startDate = new Date(targetDate)
@@ -123,8 +168,13 @@ export async function executeAppointmentBooking({
     // 1. Update customer profile details with name, phone, email if provided
     const customerUpdates: any = {}
     if (params.customer_name) customerUpdates.name = params.customer_name
-    if (params.customer_phone) customerUpdates.phone = params.customer_phone
     if (params.customer_email) customerUpdates.email = params.customer_email
+    
+    // Only update phone if it was provided and we aren't potentially breaking a WhatsApp link
+    // WhatsApp depends heavily on the strict country-coded phone number.
+    if (params.customer_phone) {
+       customerUpdates.phone = params.customer_phone
+    }
 
     if (Object.keys(customerUpdates).length > 0) {
       await supabaseAdmin
@@ -163,20 +213,28 @@ export async function executeAppointmentBooking({
     // 3. Parse start & end times
     const { start, end } = parseDateTimeString(params.preferred_datetime)
 
-    // Validate business hours
-    const businessHours = await getBusinessHours(tenantId)
-    if (businessHours.offDays.includes(start.getDay())) {
+    // Validate business hours using admin client (webhooks have no auth session)
+    const businessHours = await getBusinessHoursAdmin(tenantId)
+    const dayIndex = start.getDay() // 0 = Sunday
+    if (businessHours.offDays.includes(dayIndex)) {
+      const dayName = DAY_NAMES[dayIndex]
+      const offDayNames = businessHours.offDays.map(d => DAY_NAMES[d]).join(', ')
       return {
         success: false,
-        error: `The requested day is a scheduled off-day. Please choose a different day.`
+        error: `Sorry, Glamour Studio is closed on ${dayName}s (weekly off day: ${offDayNames}). Please choose a different day.`
       }
     }
     const startHour = start.getHours()
     const endHour = end.getHours()
-    if (startHour < businessHours.startHour || endHour > businessHours.endHour || (endHour === businessHours.endHour && end.getMinutes() > 0)) {
+    const endMinutes = end.getMinutes()
+    const isOutsideHours = startHour < businessHours.startHour || 
+      endHour > businessHours.endHour || 
+      (endHour === businessHours.endHour && endMinutes > 0)
+    if (isOutsideHours) {
+      const formatHour = (h: number) => h <= 12 ? `${h === 0 ? 12 : h}:00 AM` : `${h - 12}:00 PM`
       return {
         success: false,
-        error: `The requested time is outside business hours (${businessHours.startHour}:00 - ${businessHours.endHour}:00).`
+        error: `Sorry, that time is outside our business hours (${formatHour(businessHours.startHour)} – ${formatHour(businessHours.endHour)}). Please choose a time within our working hours.`
       }
     }
 
@@ -326,20 +384,28 @@ export async function executeAppointmentReschedule({
 
     const { start, end } = parseDateTimeString(newDateTime)
 
-    // Validate business hours
-    const businessHours = await getBusinessHours(tenantId)
-    if (businessHours.offDays.includes(start.getDay())) {
+    // Validate business hours using admin client
+    const businessHours = await getBusinessHoursAdmin(tenantId)
+    const dayIndex = start.getDay()
+    if (businessHours.offDays.includes(dayIndex)) {
+      const dayName = DAY_NAMES[dayIndex]
+      const offDayNames = businessHours.offDays.map(d => DAY_NAMES[d]).join(', ')
       return {
         success: false,
-        error: `The requested day is a scheduled off-day. Please choose a different day.`
+        error: `Sorry, Glamour Studio is closed on ${dayName}s (weekly off day: ${offDayNames}). Please choose a different day for rescheduling.`
       }
     }
     const startHour = start.getHours()
     const endHour = end.getHours()
-    if (startHour < businessHours.startHour || endHour > businessHours.endHour || (endHour === businessHours.endHour && end.getMinutes() > 0)) {
+    const endMinutes = end.getMinutes()
+    const isOutsideHours = startHour < businessHours.startHour || 
+      endHour > businessHours.endHour || 
+      (endHour === businessHours.endHour && endMinutes > 0)
+    if (isOutsideHours) {
+      const formatHour = (h: number) => h <= 12 ? `${h === 0 ? 12 : h}:00 AM` : `${h - 12}:00 PM`
       return {
         success: false,
-        error: `The requested time is outside business hours (${businessHours.startHour}:00 - ${businessHours.endHour}:00).`
+        error: `Sorry, that time is outside our business hours (${formatHour(businessHours.startHour)} – ${formatHour(businessHours.endHour)}). Please choose a time within our working hours.`
       }
     }
 
