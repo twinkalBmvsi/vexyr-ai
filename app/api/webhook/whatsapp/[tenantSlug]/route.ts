@@ -4,7 +4,8 @@ import OpenAI from 'openai'
 import { 
   executeAppointmentBooking, 
   executeAppointmentReschedule, 
-  executeAppointmentCancel 
+  executeAppointmentCancel,
+  getBusinessHoursAdmin
 } from '@/utils/booking'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -181,13 +182,16 @@ export async function POST(
     const senderName = value?.contacts?.[0]?.profile?.name || `WhatsApp User (${fromNumber})`
 
     let customer: any = null
-    const { data: exactMatch } = await supabaseAdmin
+    const { data: matches } = await supabaseAdmin
       .from('customers')
       .select('*')
       .eq('tenant_id', tenant.id)
       .eq('channel', 'whatsapp')
-      .eq('phone', fromNumber)
-      .maybeSingle()
+      .or(`phone.eq.${fromNumber},metadata->>whatsapp_id.eq.${fromNumber}`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    const exactMatch = matches && matches.length > 0 ? matches[0] : null
 
     if (exactMatch) {
       customer = exactMatch
@@ -198,7 +202,8 @@ export async function POST(
           tenant_id: tenant.id,
           name: senderName,
           phone: fromNumber,
-          channel: 'whatsapp'
+          channel: 'whatsapp',
+          metadata: { whatsapp_id: fromNumber }
         })
         .select('*')
         .single()
@@ -234,6 +239,9 @@ export async function POST(
     const isNamedCustomer = customer?.name && !customer.name.startsWith('Telegram User') && !customer.name.startsWith('WhatsApp User')
     const customerDisplayName = isNamedCustomer ? customer.name : null
 
+    const cleanText = text.toLowerCase().trim().replace(/[^a-z]/g, '')
+    const isGreeting = ['hello', 'hi', 'hey'].includes(cleanText)
+
     // 6. Find or Create Active Conversation
     let conversation: any = null
     if (customer) {
@@ -247,8 +255,18 @@ export async function POST(
         .limit(1)
 
       if (existingConvs && existingConvs.length > 0) {
-        conversation = existingConvs[0]
-      } else {
+        if (isGreeting) {
+          // Close the existing conversation to start fresh
+          await supabaseAdmin
+            .from('conversations')
+            .update({ status: 'closed' })
+            .eq('id', existingConvs[0].id)
+        } else {
+          conversation = existingConvs[0]
+        }
+      }
+
+      if (!conversation) {
         const { data: newConv } = await supabaseAdmin
           .from('conversations')
           .insert({
@@ -277,7 +295,7 @@ export async function POST(
         })
     }
 
-    // 8. Load recent conversation history (last 8 messages)
+    // 8. Load full conversation history (20 messages so booking context is never lost)
     const conversationHistory: any[] = []
     if (conversation) {
       const { data: pastMsgs } = await supabaseAdmin
@@ -285,7 +303,7 @@ export async function POST(
         .select('sender_type, content, created_at')
         .eq('conversation_id', conversation.id)
         .order('created_at', { ascending: false })
-        .limit(8)
+        .limit(50)
 
       if (pastMsgs) {
         const reversed = [...pastMsgs].reverse()
@@ -300,9 +318,20 @@ export async function POST(
       }
     }
 
+
+
     const currentDateFormatted = new Date().toLocaleDateString('en-US', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     })
+
+    // Fetch business hours using admin client (works without auth session)
+    const businessHours = await getBusinessHoursAdmin(tenant.id)
+    const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const offDayNames = businessHours.offDays.map((d: number) => DAY_NAMES[d])
+    const formatHour = (h: number) => h < 12 ? `${h === 0 ? 12 : h}:00 AM` : `${h === 12 ? 12 : h - 12}:00 PM`
+    const businessHoursText = offDayNames.length > 0
+      ? `Studio Hours: ${businessHours.startHour}:00 to ${businessHours.endHour}:00 (24h format) [${formatHour(businessHours.startHour)} – ${formatHour(businessHours.endHour)}]. Weekly off days: ${offDayNames.join(', ')}.`
+      : `Studio Hours: ${businessHours.startHour}:00 to ${businessHours.endHour}:00 (24h format) [${formatHour(businessHours.startHour)} – ${formatHour(businessHours.endHour)}]. Open all days.`
 
     let systemInstruction: string
     let selectedTools: any[]
@@ -312,6 +341,10 @@ export async function POST(
       systemInstruction = `TODAY'S DATE IS: ${currentDateFormatted} (Year ${new Date().getFullYear()}).
 
 You are **Chhaya**, the friendly scheduling assistant for **Glamour Studio**.
+
+### STUDIO BUSINESS HOURS
+${businessHoursText}
+IMPORTANT: When customer wants to reschedule, ALWAYS verify the requested day is NOT a weekly off day and the time is within studio hours. If they pick an off day, tell them politely and suggest another day.
 
 ### CUSTOMER CONTEXT
 - Customer Name: ${customerDisplayName ? `"${customerDisplayName}"` : 'Customer'}
@@ -331,14 +364,20 @@ You are **Chhaya**, the friendly scheduling assistant for **Glamour Studio**.
 
 ### RESCHEDULING FLOW
 1. When customer asks to reschedule: Reply "I can see your appointment for **${activeAppointment.title}** is scheduled on **${formattedActiveDate} at ${formattedActiveTime}**. What new date and time would you prefer?"
-2. When customer provides new date/time: Call the 'reschedule_appointment' tool.
-3. After tool succeeds: Confirm the new date and time to the customer.`
+2. When the customer provides a new day and time, IMMEDIATELY call 'reschedule_appointment'. Do NOT validate the business hours yourself.
+3. If the tool returns an error about business hours, relay it to the user and ask for another time.
+4. After tool succeeds: Confirm the new date and time to the customer.`
 
     } else {
       selectedTools = bookingOnlyTools
+
       systemInstruction = `TODAY'S DATE IS: ${currentDateFormatted} (Year ${new Date().getFullYear()}).
 
 You are **Chhaya**, the friendly scheduling assistant for **Glamour Studio**, a women's grooming and beauty studio.
+
+### STUDIO BUSINESS HOURS
+${businessHoursText}
+(Do NOT validate the hours yourself. Just call the tool. The tool will return an error if the time is invalid, which you can relay to the user.)
 
 ### CUSTOMER CONTEXT
 - Customer Name: ${customerDisplayName ? `"${customerDisplayName}"` : 'New Customer'}
@@ -348,9 +387,11 @@ You are **Chhaya**, the friendly scheduling assistant for **Glamour Studio**, a 
 - If customer says "hello", "hi", "hey": Reply "Greetings! How can I help you? I can help you book an appointment at Glamour Studio."
 
 ### BOOKING FLOW
-1. Collect details one at a time: Name, Phone, Email, Service, Date, and Time.
-2. Once you have all details, call 'book_appointment'.
-3. After tool succeeds: Confirm appointment details to the customer.`
+1. You need 5 details to book: Name, Phone, Email, Service, Date & Time.
+2. Read the conversation history to see what the customer has already provided. DO NOT ask for any detail the customer has already given you.
+3. If any detail is missing, politely ask for it ONE at a time.
+4. When you have all 5 details AND a valid date/time — immediately call 'book_appointment'. Do NOT ask "shall I confirm?" or "shall I go ahead?" — just call the tool.
+5. After tool succeeds: Tell the customer their appointment is confirmed with the details.`
     }
 
     const aiMessages = [
@@ -370,6 +411,7 @@ You are **Chhaya**, the friendly scheduling assistant for **Glamour Studio**, a 
       })
 
       const responseMessage = completion.choices[0]?.message
+      console.log('AI first response:', JSON.stringify(responseMessage, null, 2))
 
       if (responseMessage?.tool_calls && responseMessage.tool_calls.length > 0) {
         aiMessages.push(responseMessage as any)
@@ -380,6 +422,7 @@ You are **Chhaya**, the friendly scheduling assistant for **Glamour Studio**, a 
           let toolOutput: any = {}
 
           if (fnName === 'book_appointment') {
+            console.log('AI calling book_appointment with args:', fnArgs)
             toolOutput = await executeAppointmentBooking({
               tenantId: tenant.id,
               agentId: agent.id,
@@ -387,7 +430,9 @@ You are **Chhaya**, the friendly scheduling assistant for **Glamour Studio**, a 
               channelId: channel?.id,
               params: fnArgs
             })
+            console.log('book_appointment output:', toolOutput)
           } else if (fnName === 'reschedule_appointment') {
+            console.log('AI calling reschedule_appointment with args:', fnArgs)
             toolOutput = await executeAppointmentReschedule({
               tenantId: tenant.id,
               customerId: customer.id,
@@ -395,6 +440,7 @@ You are **Chhaya**, the friendly scheduling assistant for **Glamour Studio**, a 
               customerName: fnArgs.customer_name || customer.name,
               customerEmail: customer.email
             })
+            console.log('reschedule_appointment output:', toolOutput)
           } else if (fnName === 'cancel_appointment') {
             toolOutput = await executeAppointmentCancel({
               tenantId: tenant.id,
@@ -403,6 +449,15 @@ You are **Chhaya**, the friendly scheduling assistant for **Glamour Studio**, a 
               customerName: fnArgs.customer_name || customer.name,
               customerEmail: customer.email
             })
+          }
+
+          // If the tool executed successfully (no 'error' key in output), close the conversation
+          // so the next interaction starts with a clean context window.
+          if (!toolOutput.error && conversation) {
+            await supabaseAdmin
+              .from('conversations')
+              .update({ status: 'closed' })
+              .eq('id', conversation.id)
           }
 
           aiMessages.push({
