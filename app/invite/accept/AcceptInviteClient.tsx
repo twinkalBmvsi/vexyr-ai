@@ -3,8 +3,23 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-
-export default function AcceptInviteClient({ token, tenantName, tenantSlug, isNewUser }: { token: string, tenantName: string, tenantSlug: string, isNewUser: boolean }) {
+export default function AcceptInviteClient({ 
+  token, 
+  tenantName, 
+  tenantSlug, 
+  isNewUser,
+  currentUserEmail,
+  inviteEmail,
+  isWrongUser
+}: { 
+  token: string, 
+  tenantName: string, 
+  tenantSlug: string, 
+  isNewUser: boolean,
+  currentUserEmail?: string,
+  inviteEmail?: string,
+  isWrongUser?: boolean
+}) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
@@ -46,20 +61,40 @@ export default function AcceptInviteClient({ token, tenantName, tenantSlug, isNe
         </p>
 
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-          <button 
-            className="btn-secondary" 
-            onClick={() => router.push('/')}
-            disabled={loading}
-          >
-            Decline
-          </button>
-          <button 
-            className="btn-primary" 
-            onClick={handleAccept}
-            disabled={loading}
-          >
-            {loading ? 'Accepting...' : 'Accept Invite'}
-          </button>
+          {isWrongUser ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ padding: '1rem', backgroundColor: 'rgba(255, 68, 68, 0.1)', color: '#ff4444', borderRadius: '0.5rem', fontSize: '0.875rem' }}>
+                You are logged in as <strong>{currentUserEmail}</strong>, but this invite was sent to <strong>{inviteEmail}</strong>.
+              </div>
+              <button 
+                className="btn-secondary" 
+                onClick={async () => {
+                  const supabase = (await import('@/utils/supabase/client')).createClient()
+                  await supabase.auth.signOut()
+                  router.push('/login?next=' + encodeURIComponent(`/invite/accept?token=${token}`))
+                }}
+              >
+                Switch Account
+              </button>
+            </div>
+          ) : (
+            <>
+              <button 
+                className="btn-secondary" 
+                onClick={() => router.push('/')}
+                disabled={loading}
+              >
+                Decline
+              </button>
+              <button 
+                className="btn-primary" 
+                onClick={handleAccept}
+                disabled={loading}
+              >
+                {loading ? 'Accepting...' : 'Accept Invite'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

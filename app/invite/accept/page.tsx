@@ -72,5 +72,17 @@ export default async function AcceptInvitePage({ searchParams }: { searchParams:
   // Consider them a "new user" if their account was created less than 5 minutes ago
   const isNewUser = new Date().getTime() - new Date(user.created_at).getTime() < 5 * 60 * 1000
 
-  return <AcceptInviteClient token={token} tenantName={tenantName} tenantSlug={tenantSlug} isNewUser={isNewUser} />
+  const isWrongUser = user.email?.toLowerCase() !== invite.email.toLowerCase()
+
+  return (
+    <AcceptInviteClient 
+      token={token} 
+      tenantName={tenantName} 
+      tenantSlug={tenantSlug} 
+      isNewUser={isNewUser} 
+      currentUserEmail={user.email}
+      inviteEmail={invite.email}
+      isWrongUser={isWrongUser}
+    />
+  )
 }
