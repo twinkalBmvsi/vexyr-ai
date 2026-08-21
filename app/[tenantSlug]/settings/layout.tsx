@@ -7,6 +7,7 @@ export default async function SettingsLayout({ children, params }: { children: R
   const supabase = await createClient()
   let userRole = 'manager'
   let accessPages: string[] = []
+  let activeModules: string[] = []
 
   const { data: tenant } = await supabase
     .from('tenants')
@@ -28,6 +29,19 @@ export default async function SettingsLayout({ children, params }: { children: R
         accessPages = roleData.access_pages || []
       }
     }
+
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('status, modules, plan_id')
+      .eq('tenant_id', tenant.id)
+      .maybeSingle()
+    
+    // Enterprise plan might include all modules by default, but let's rely on modules JSON or explicit logic
+    const mods = (subscription?.status === 'active' ? subscription?.modules : {}) as Record<string, boolean>
+    if (mods) {
+      if (mods.customEmails) activeModules.push('customEmails')
+      if (mods.autoFollowups) activeModules.push('autoFollowups')
+    }
   }
 
   return (
@@ -38,7 +52,7 @@ export default async function SettingsLayout({ children, params }: { children: R
       </div>
 
       <div className="settings-layout-grid">
-        <SettingsSidebar userRole={userRole} tenantSlug={resolvedParams.tenantSlug} accessPages={accessPages} />
+        <SettingsSidebar userRole={userRole} tenantSlug={resolvedParams.tenantSlug} accessPages={accessPages} activeModules={activeModules} />
 
         <div style={{ 
           background: 'var(--paper)', 

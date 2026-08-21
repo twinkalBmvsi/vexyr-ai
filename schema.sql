@@ -192,6 +192,7 @@ CREATE TABLE public.appointments (
   start_time timestamptz NOT NULL,
   end_time timestamptz NOT NULL,
   status appointment_status DEFAULT 'pending' NOT NULL,
+  follow_up_sent boolean DEFAULT false,
   created_at timestamptz DEFAULT now() NOT NULL
 );
 
