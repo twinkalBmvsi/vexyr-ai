@@ -3,7 +3,8 @@ import CalendarSyncButtons from '@/components/dashboard/CalendarSyncButtons'
 import ScheduleAppointmentButton from '@/components/dashboard/ScheduleAppointmentButton'
 import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
-import { Calendar as CalendarIcon, Clock, User, Mail, Phone, CheckCircle2, XCircle, CalendarX } from 'lucide-react'
+import Link from 'next/link'
+import { List } from 'lucide-react'
 import { getBusinessHours } from '@/app/actions/settings'
 
 export default async function AppointmentsPage({ params }: { params: Promise<{ tenantSlug: string }> }) {
@@ -131,6 +132,9 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
           <p className="dash-subtitle">Manage your live AI-booked meetings, reschedules, and cancellations.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <Link href="/appointments/list" className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}>
+            <List size={16} /> View All
+          </Link>
           <ScheduleAppointmentButton tenantId={tenant.id} />
           <CalendarSyncButtons isSyncAllowed={isSyncAllowed} />
         </div>
@@ -138,74 +142,6 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
 
       {/* Calendar Grid View displaying active real appointments */}
       <CalendarView appointments={calendarAppointments} tenantId={tenant.id} businessHours={businessHours} />
-
-      {/* Live Booked Appointments Table */}
-      <div style={{ marginTop: '3rem' }}>
-        <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.8rem', color: 'var(--ink)', marginBottom: '1rem' }}>
-          All Booked Appointments ({liveAppointments.length})
-        </h2>
-
-        {liveAppointments.length === 0 ? (
-          <div className="dash-card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--muted)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <CalendarX size={40} color="var(--gold)" style={{ marginBottom: '1rem' }} />
-            <h3 style={{ fontSize: '1.2rem', color: 'var(--ink)', marginBottom: '0.5rem' }}>No Real Appointments Booked Yet</h3>
-            <p style={{ maxWidth: '450px', fontSize: '0.85rem', lineHeight: 1.6 }}>
-              Send a message to your Telegram or WhatsApp bot (e.g., <em>"I want to book an appointment for tomorrow 4PM"</em>) to schedule a real appointment live!
-            </p>
-          </div>
-        ) : (
-          <div className="dash-grid" style={{ gap: '1.25rem', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
-            {liveAppointments.map(apt => {
-              const isCancelled = apt.status === 'cancelled'
-              const statusBg = isCancelled ? 'rgba(239, 68, 68, 0.1)' : 'rgba(42, 122, 74, 0.1)'
-              const statusColor = isCancelled ? '#dc2626' : '#2a7a4a'
-              const borderColor = isCancelled ? '#dc2626' : '#2a7a4a'
-
-              return (
-                <div key={apt.id} className="dash-card" style={{ borderLeft: `4px solid ${borderColor}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--ink)', textDecoration: isCancelled ? 'line-through' : 'none' }}>
-                      {apt.name}
-                    </h3>
-                    <span style={{ fontSize: '0.75rem', background: statusBg, color: statusColor, padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
-                      {isCancelled ? <XCircle size={12} /> : <CheckCircle2 size={12} />} {apt.status.toUpperCase()}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <CalendarIcon size={14} color="var(--gold)" />
-                      <span>{apt.dateStr}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <Clock size={14} color="var(--gold)" />
-                      <span>{apt.timeStr}</span>
-                    </div>
-                    {apt.customerName && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <User size={14} color="var(--gold)" />
-                        <span>{apt.customerName}</span>
-                      </div>
-                    )}
-                    {apt.phone && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Phone size={14} color="var(--gold)" />
-                        <span>{apt.phone}</span>
-                      </div>
-                    )}
-                    {apt.email && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Mail size={14} color="var(--gold)" />
-                        <span>{apt.email}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
     </div>
   )
 }
