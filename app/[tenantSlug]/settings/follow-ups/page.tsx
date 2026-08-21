@@ -23,6 +23,18 @@ export default async function FollowUpsSettingsPage({ params }: { params: Promis
     return notFound()
   }
 
+  // Check user privileges
+  const { data: roleData } = await supabase
+    .from('users')
+    .select('role, access_pages')
+    .eq('user_id', user.id)
+    .eq('tenant_id', tenant.id)
+    .single()
+
+  if (!roleData || (roleData.role !== 'owner' && !roleData.access_pages?.includes('settings/follow-ups'))) {
+    return notFound()
+  }
+
   // Check subscription access
   const { data: subscription } = await supabase
     .from('subscriptions')

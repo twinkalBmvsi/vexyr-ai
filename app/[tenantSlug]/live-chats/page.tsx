@@ -22,6 +22,18 @@ export default async function LiveChatsPage({ params }: { params: Promise<{ tena
     return notFound()
   }
 
+  // Check user privileges
+  const { data: roleData } = await supabase
+    .from('users')
+    .select('role, access_pages')
+    .eq('user_id', user.id)
+    .eq('tenant_id', tenant.id)
+    .single()
+
+  if (!roleData || (roleData.role !== 'owner' && !roleData.access_pages?.includes('live-chats'))) {
+    return notFound()
+  }
+
   // Pass necessary auth and tenant info to the client component
   // to allow it to initialize Supabase real-time correctly.
   

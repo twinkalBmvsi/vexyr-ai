@@ -36,11 +36,26 @@ export default async function TeamSettingsPage({ params }: { params: Promise<{ t
     .eq('tenant_id', tenant.id)
     .order('created_at', { ascending: true })
 
+  // 4. Fetch emails for these members using Admin client
+  // @ts-ignore
+  const { createAdminClient } = await import('@/utils/supabase/service-role')
+  const adminAuthClient = createAdminClient()
+  
+  const membersWithEmail = await Promise.all(
+    (members || []).map(async (member) => {
+      const { data: { user: authUser } } = await adminAuthClient.auth.admin.getUserById(member.user_id)
+      return {
+        ...member,
+        email: authUser?.email || ''
+      }
+    })
+  )
+
   return (
     <TeamManagerClient 
       tenantId={tenant.id} 
       userRole={userRole} 
-      initialMembers={members || []} 
+      initialMembers={membersWithEmail} 
     />
   )
 }

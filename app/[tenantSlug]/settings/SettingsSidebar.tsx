@@ -24,7 +24,7 @@ export default function SettingsSidebar({ userRole, tenantSlug, accessPages = []
     tabs = tabs.filter(t => accessPages.includes(t.routeId))
   }
 
-  const basePath = `/${tenantSlug}/settings`
+  const basePath = `/settings`
 
   return (
     <div className="dash-card" style={{ padding: '1.5rem' }}>

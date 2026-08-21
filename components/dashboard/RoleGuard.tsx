@@ -30,8 +30,14 @@ export default function RoleGuard({
     const decodedPathname = decodeURIComponent(pathname)
     const normalizedPath = decodedPathname.replace(/\/$/, '') || '/'
 
+    // Remove tenantSlug from path if it exists (for local dev without subdomains)
+    let cleanPath = normalizedPath
+    if (cleanPath.startsWith(`/${tenantSlug}`)) {
+      cleanPath = cleanPath.substring(`/${tenantSlug}`.length) || '/'
+    }
+
     // Always allow root dashboard for everyone
-    if (normalizedPath === '/') {
+    if (cleanPath === '/') {
       setAuthorized(true)
       return
     }
@@ -44,9 +50,9 @@ export default function RoleGuard({
     const isAllowed = pages.some((page) => {
       const allowedPath = `/${page}`
       if (page === 'settings') {
-        return normalizedPath === allowedPath
+        return cleanPath === allowedPath
       }
-      return normalizedPath.startsWith(allowedPath)
+      return cleanPath.startsWith(allowedPath)
     })
 
     if (!isAllowed) {

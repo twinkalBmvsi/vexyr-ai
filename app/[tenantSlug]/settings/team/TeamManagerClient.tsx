@@ -7,6 +7,7 @@ type TeamMember = {
   id: string
   user_id: string
   full_name: string | null
+  email?: string
   role: string
   access_pages?: string[]
 }
@@ -18,6 +19,7 @@ const AVAILABLE_PAGES = [
   { id: 'connections', label: 'Channels' },
   { id: 'customers', label: 'Customers' },
   { id: 'store', label: 'Store' },
+  { id: 'live-chats', label: 'Live Chats' },
 ]
 
 const SETTINGS_PAGES = [
@@ -25,6 +27,7 @@ const SETTINGS_PAGES = [
   { id: 'settings/billing', label: 'Billing' },
   { id: 'settings/team', label: 'Team' },
   { id: 'settings/emails', label: 'Custom Emails' },
+  { id: 'settings/follow-ups', label: 'Auto Follow-ups' },
   { id: 'settings/notifications', label: 'Notifications' },
   { id: 'settings/security', label: 'Security' },
 ]
@@ -248,6 +251,9 @@ export default function TeamManagerClient({
                     </div>
                     <div>
                       <div style={{ fontWeight: 500, fontSize: '0.9rem', color: 'var(--ink)' }}>{member.full_name || 'Pending User'}</div>
+                      {member.email && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.1rem' }}>{member.email}</div>
+                      )}
                     </div>
                   </div>
                 </td>
