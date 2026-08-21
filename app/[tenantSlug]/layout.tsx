@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import Sidebar from '@/components/dashboard/Sidebar'
+import RoleGuard from '@/components/dashboard/RoleGuard'
 
 export default async function TenantLayout({
   children,
@@ -36,7 +37,7 @@ export default async function TenantLayout({
 
   const { data: userRecord } = await supabase
     .from('users')
-    .select('tenant_id')
+    .select('tenant_id, role, access_pages')
     .eq('user_id', user.id)
     .eq('tenant_id', tenant.id)
     .single()
@@ -50,9 +51,20 @@ export default async function TenantLayout({
 
   return (
     <div className="dashboard-layout">
-      <Sidebar tenantSlug={resolvedParams.tenantSlug} companyName={companyName} />
+      <Sidebar 
+        tenantSlug={resolvedParams.tenantSlug} 
+        companyName={companyName} 
+        userRole={userRecord.role}
+        accessPages={userRecord.access_pages || []}
+      />
       <main className="dashboard-main">
-        {children}
+        <RoleGuard 
+          userRole={userRecord.role}
+          accessPages={userRecord.access_pages || []}
+          tenantSlug={resolvedParams.tenantSlug}
+        >
+          {children}
+        </RoleGuard>
       </main>
     </div>
   )

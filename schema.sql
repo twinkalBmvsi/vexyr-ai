@@ -88,6 +88,7 @@ CREATE TABLE public.users (
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
   role user_role DEFAULT 'staff' NOT NULL,
+  access_pages text[] DEFAULT ARRAY['appointments']::text[],
   full_name text,
   created_at timestamptz DEFAULT now() NOT NULL,
   UNIQUE(user_id, tenant_id)

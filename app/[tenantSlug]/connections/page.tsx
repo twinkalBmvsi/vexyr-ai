@@ -11,7 +11,8 @@ export default async function ConnectionsPage({ params }: { params: Promise<{ te
 
   let initialTgConfig = { token: '' }
   let initialWaConfig = { token: '', phoneId: '', wabaId: '' }
-  let allowedChannels = 0
+  let isWhatsappAllowed = false
+  let isTelegramAllowed = false
 
   const { data: tenant } = await supabase
     .from('tenants')
@@ -26,8 +27,9 @@ export default async function ConnectionsPage({ params }: { params: Promise<{ te
       .eq('tenant_id', tenant.id)
       .maybeSingle()
     
-    if (subscription?.modules?.messagingChannels) {
-      allowedChannels = subscription.modules.messagingChannels
+    if (subscription?.modules) {
+      isWhatsappAllowed = Boolean(subscription.modules.whatsappChannel) || Boolean(subscription.modules.messagingChannels)
+      isTelegramAllowed = Boolean(subscription.modules.telegramChannel) || Boolean(subscription.modules.messagingChannels)
     }
     // Delete any empty dummy channel rows that have no provider configuration
     await supabase
@@ -79,7 +81,8 @@ export default async function ConnectionsPage({ params }: { params: Promise<{ te
         initialWaNumber={waNumber}
         initialTgConfig={initialTgConfig}
         initialWaConfig={initialWaConfig}
-        allowedChannels={allowedChannels}
+        isWhatsappAllowed={isWhatsappAllowed}
+        isTelegramAllowed={isTelegramAllowed}
       />
     </div>
   )

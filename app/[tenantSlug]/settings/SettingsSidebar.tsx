@@ -4,23 +4,23 @@ import { Settings as SettingsIcon, Bell, Lock, User, CreditCard, Mail } from 'lu
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-export default function SettingsSidebar({ userRole, tenantSlug }: { userRole?: string, tenantSlug: string }) {
+export default function SettingsSidebar({ userRole, tenantSlug, accessPages = [] }: { userRole?: string, tenantSlug: string, accessPages?: string[] }) {
   const pathname = usePathname()
 
   let tabs = [
-    { name: 'General', href: '', icon: SettingsIcon, matchExact: true },
-    { name: 'Billing', href: '/billing', icon: CreditCard, matchExact: false },
-    { name: 'Team', href: '/team', icon: User, matchExact: false },
-    { name: 'Custom Emails', href: '/emails', icon: Mail, matchExact: false },
-    { name: 'Notifications', href: '/notifications', icon: Bell, matchExact: false },
-    { name: 'Security', href: '/security', icon: Lock, matchExact: false },
+    { name: 'General', href: '', icon: SettingsIcon, matchExact: true, routeId: 'settings' },
+    { name: 'Billing', href: '/billing', icon: CreditCard, matchExact: false, routeId: 'settings/billing' },
+    { name: 'Team', href: '/team', icon: User, matchExact: false, routeId: 'settings/team' },
+    { name: 'Custom Emails', href: '/emails', icon: Mail, matchExact: false, routeId: 'settings/emails' },
+    { name: 'Notifications', href: '/notifications', icon: Bell, matchExact: false, routeId: 'settings/notifications' },
+    { name: 'Security', href: '/security', icon: Lock, matchExact: false, routeId: 'settings/security' },
   ]
 
-  if (userRole && userRole !== 'owner') {
-    tabs = tabs.filter(t => t.name !== 'Billing')
+  if (userRole !== 'owner') {
+    tabs = tabs.filter(t => accessPages.includes(t.routeId))
   }
 
-  const basePath = `/${tenantSlug}/settings`
+  const basePath = '/settings'
 
   return (
     <div className="dash-card" style={{ padding: '1.5rem' }}>

@@ -1,13 +1,18 @@
 import Link from 'next/link'
-import { Bot, MessageCircle, Zap } from 'lucide-react'
+import { Bot, MessageCircle, Zap, Calendar, Users } from 'lucide-react'
+import DashboardAnalytics from '@/components/dashboard/DashboardAnalytics'
 import { createClient } from '@/utils/supabase/server'
 
 export default async function TenantDashboard({
   params,
+  searchParams,
 }: {
   params: Promise<{ tenantSlug: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const resolvedParams = await params
+  const resolvedSearchParams = await searchParams
+  const currentRange = (resolvedSearchParams.range as string) || 'all-time'
   const supabase = await createClient()
 
   // 1. Fetch tenant
@@ -44,21 +49,127 @@ export default async function TenantDashboard({
       }
     }
 
-    // 2. Fetch Agents Count
-    const { count: aCount } = await supabase
-      .from('agents')
-      .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenant.id)
+    // DATE FILTERING LOGIC
+    let startDate: Date | null = null
+    const now = new Date()
+
+    if (currentRange === 'today') {
+      startDate = new Date(now.setHours(0, 0, 0, 0))
+    } else if (currentRange === 'this-week') {
+      const day = now.getDay()
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1) // Adjust when day is Sunday
+      startDate = new Date(now.setDate(diff))
+      startDate.setHours(0, 0, 0, 0)
+    } else if (currentRange === 'last-week') {
+      const day = now.getDay()
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1) - 7
+      startDate = new Date(now.setDate(diff))
+      startDate.setHours(0, 0, 0, 0)
+    } else if (currentRange === '30-days') {
+      startDate = new Date(now.setDate(now.getDate() - 30))
+    }
+
+    // 2. Fetch Active Agents Count
+    let agentsQuery = supabase.from('agents').select('*', { count: 'exact', head: true }).eq('tenant_id', tenant.id)
+    if (startDate) agentsQuery = agentsQuery.gte('created_at', startDate.toISOString())
+    const { count: aCount } = await agentsQuery
     agentsCount = aCount || 0
 
     // 3. Fetch Conversations Count
-    // Assuming conversations table has tenant_id
-    const { count: cCount, error: cError } = await supabase
-      .from('conversations')
-      .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenant.id)
+    let convQuery = supabase.from('conversations').select('id, agent_id, created_at').eq('tenant_id', tenant.id)
+    if (startDate) convQuery = convQuery.gte('created_at', startDate.toISOString())
+    const { data: convData } = await convQuery
+    conversationsCount = convData ? convData.length : 0
+
+    // Fetch Total Customers
+    let custQuery = supabase.from('customers').select('*', { count: 'exact', head: true }).eq('tenant_id', tenant.id)
+    if (startDate) custQuery = custQuery.gte('created_at', startDate.toISOString())
+    const { count: custCount } = await custQuery
+    const totalCustomers = custCount || 0
+
+    // Fetch Appointments for Analytics
+    let apptQuery = supabase.from('appointments').select('id, status, agent_id, created_at').eq('tenant_id', tenant.id)
+    if (startDate) apptQuery = apptQuery.gte('created_at', startDate.toISOString())
+    const { data: rawAppointments } = await apptQuery
+
+    const appointments = rawAppointments || []
+    const totalAppointments = appointments.length
+
+    // Aggregate appointments by status
+    let scheduled = 0, completed = 0, canceled = 0, rescheduled = 0
+    let bookedByAgent = 0
+    let bookedManually = 0
+    
+    // Aggregate appointments by date
+    const dateMap = new Map<string, number>()
+
+    appointments.forEach(a => {
+      // Status
+      if (a.status === 'pending' || a.status === 'confirmed') scheduled++
+      else if (a.status === 'completed') completed++
+      else if (a.status === 'cancelled') canceled++
+      else if (a.status === 'rescheduled') rescheduled++
       
-    conversationsCount = cError ? 0 : (cCount || 0)
+      // Source
+      if (a.agent_id) bookedByAgent++
+      else bookedManually++
+
+      // Date
+      const d = new Date(a.created_at)
+      const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      dateMap.set(key, (dateMap.get(key) || 0) + 1)
+    })
+
+    const appointmentsByStatus = [
+      { name: 'Pending', value: scheduled, fill: '#3b82f6' },
+      { name: 'Completed', value: completed, fill: '#10b981' },
+      { name: 'Rescheduled', value: rescheduled, fill: '#f59e0b' },
+      { name: 'Cancelled', value: canceled, fill: '#ef4444' }
+    ].filter(item => item.value > 0)
+
+    const appointmentsBySource = [
+      { name: 'AI Agent (WhatsApp/Telegram)', value: bookedByAgent, fill: 'var(--gold)' },
+      { name: 'Website / Manual', value: bookedManually, fill: 'var(--border-strong)' }
+    ]
+    
+    // Sort dates chronologically or just leave as is if we sort map keys
+    // For simplicity, we just convert map to array. A real impl might fill in missing dates.
+    const appointmentsByDate = Array.from(dateMap.entries())
+      .map(([date, value]) => ({ date, value }))
+      .reverse() // assuming descending order in query, we want ascending for area chart
+
+    // Group conversations by agent
+    const agentMap = new Map<string, number>()
+    if (convData) {
+      convData.forEach(c => {
+        if (c.agent_id) {
+          agentMap.set(c.agent_id, (agentMap.get(c.agent_id) || 0) + 1)
+        }
+      })
+    }
+
+    // Fetch Agent Names
+    const { data: allAgents } = await supabase.from('agents').select('id, name').eq('tenant_id', tenant.id)
+    const agentNames = new Map(allAgents?.map(a => [a.id, a.name]) || [])
+
+    const topAgents = Array.from(agentMap.entries())
+      .map(([agentId, value]) => ({
+        name: agentNames.get(agentId) || 'Unknown Agent',
+        value,
+        fill: 'var(--gold)'
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5) // Top 5 agents
+
+    // 5. Fetch Recent Activity
+    let activityQuery = supabase.from('appointments')
+      .select('id, title, status, created_at, customer_id')
+      .eq('tenant_id', tenant.id)
+      .order('created_at', { ascending: false })
+      .limit(5)
+    
+    const { data: recentActivityData } = await activityQuery
+    const recentActivity = recentActivityData || []
 
     // 4. Fetch Subscription
     const { data: subscription } = await supabase
@@ -89,51 +200,28 @@ export default async function TenantDashboard({
     } else {
       renewsOn = 'No active subscription'
     }
+
+    return (
+      <div>
+        <div className="dash-header">
+          <h1 className="dash-title">Welcome back, <em>{currentUserName}</em></h1>
+          <p className="dash-subtitle">Here is what is happening at <strong>{companyName}</strong>.</p>
+        </div>
+
+        <DashboardAnalytics 
+          totalAppointments={totalAppointments}
+          totalCustomers={totalCustomers}
+          totalConversations={conversationsCount}
+          appointmentsByStatus={appointmentsByStatus}
+          appointmentsBySource={appointmentsBySource}
+          appointmentsByDate={appointmentsByDate}
+          topAgents={topAgents}
+          recentActivity={recentActivity}
+          currentRange={currentRange}
+        />
+      </div>
+    )
   }
   
-  return (
-    <div>
-      <div className="dash-header">
-        <h1 className="dash-title">Welcome back, <em>{currentUserName}</em></h1>
-        <p className="dash-subtitle">Here is what is happening at <strong>{companyName}</strong> today.</p>
-      </div>
-
-      <div className="dash-grid" style={{ marginBottom: '3rem' }}>
-        <div className="dash-card">
-          <div className="dash-card-header">
-            <span className="dash-card-title">Active Agents</span>
-            <Bot size={20} color="var(--gold)" />
-          </div>
-          <span className="dash-card-value">{agentsCount}</span>
-          <span className="dash-card-desc">Configured AI Agents</span>
-        </div>
-
-        <div className="dash-card">
-          <div className="dash-card-header">
-            <span className="dash-card-title">Conversations</span>
-            <MessageCircle size={20} color="var(--gold)" />
-          </div>
-          <span className="dash-card-value">{conversationsCount.toLocaleString()}</span>
-          <span className="dash-card-desc">Total messages handled</span>
-        </div>
-
-        <div className="dash-card">
-          <div className="dash-card-header">
-            <span className="dash-card-title">Current Plan</span>
-            <Zap size={20} color="var(--gold)" />
-          </div>
-          <span className="dash-card-value">{planName}</span>
-          <span className="dash-card-desc">{renewsOn}</span>
-        </div>
-      </div>
-      
-      <div className="dash-card" style={{ padding: '3rem' }}>
-        <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.8rem', marginBottom: '1rem' }}>Quick Actions</h2>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <Link href={`/${resolvedParams.tenantSlug}/agents`} className="btn-primary">Manage Agents</Link>
-          <Link href={`/${resolvedParams.tenantSlug}/connections`} className="btn-secondary">Connect Channels</Link>
-        </div>
-      </div>
-    </div>
-  )
+  return null
 }

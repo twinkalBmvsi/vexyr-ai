@@ -5,20 +5,47 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LayoutDashboard, Bot, LogOut, Calendar, Users, Settings, Smartphone, Menu, X, ShoppingBag, MessageCircle } from 'lucide-react'
 
-export default function Sidebar({ companyName }: { tenantSlug: string, companyName: string }) {
+export default function Sidebar({ 
+  tenantSlug, 
+  companyName, 
+  userRole, 
+  accessPages 
+}: { 
+  tenantSlug: string
+  companyName: string
+  userRole: string
+  accessPages: string[]
+}) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
 
   const links = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Appointments', href: '/appointments', icon: Calendar },
-    { name: 'Agents', href: '/agents', icon: Bot },
-    { name: 'Test Chat', href: '/test-chat', icon: MessageCircle },
-    { name: 'Channels', href: '/connections', icon: Smartphone },
-    { name: 'Customers', href: '/customers', icon: Users },
-    { name: 'Store', href: '/store', icon: ShoppingBag },
-    { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard, routeId: 'dashboard' },
+    { name: 'Appointments', href: '/appointments', icon: Calendar, routeId: 'appointments' },
+    { name: 'Agents', href: '/agents', icon: Bot, routeId: 'agents' },
+    { name: 'Test Chat', href: '/test-chat', icon: MessageCircle, routeId: 'test-chat' },
+    { name: 'Channels', href: '/connections', icon: Smartphone, routeId: 'connections' },
+    { name: 'Customers', href: '/customers', icon: Users, routeId: 'customers' },
+    { name: 'Store', href: '/store', icon: ShoppingBag, routeId: 'store' },
+    { name: 'Settings', href: '/settings', icon: Settings, routeId: 'settings' },
   ]
+
+  const visibleLinks = links.filter(link => {
+    if (userRole === 'owner') return true
+    if (link.routeId === 'dashboard') return true
+    if (link.routeId === 'settings') {
+      return accessPages.some(p => p.startsWith('settings'))
+    }
+    return accessPages.includes(link.routeId)
+  }).map(link => {
+    if (link.routeId === 'settings' && userRole !== 'owner') {
+      const firstSettingsPage = accessPages.find(p => p.startsWith('settings'))
+      if (firstSettingsPage && firstSettingsPage !== 'settings') {
+        return { ...link, href: `/${firstSettingsPage}` }
+      }
+    }
+    return link
+  })
 
   const isActive = (href: string) => {
     if (href === '/') {
@@ -65,7 +92,7 @@ export default function Sidebar({ companyName }: { tenantSlug: string, companyNa
         </div>
 
         <div className="sidebar-nav" style={{ marginTop: '2rem' }}>
-          {links.map((link) => {
+          {visibleLinks.map((link) => {
             const Icon = link.icon
             const active = isActive(link.href)
             return (

@@ -1,14 +1,33 @@
 'use client'
 
-import { useState } from 'react'
-import { UserPlus, Trash2, Mail, ShieldAlert } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { UserPlus, Trash2, Mail, ShieldAlert, Settings2, X } from 'lucide-react'
 
 type TeamMember = {
   id: string
   user_id: string
   full_name: string | null
   role: string
+  access_pages?: string[]
 }
+
+const AVAILABLE_PAGES = [
+  { id: 'appointments', label: 'Appointments' },
+  { id: 'agents', label: 'Agents' },
+  { id: 'test-chat', label: 'Test Chat' },
+  { id: 'connections', label: 'Channels' },
+  { id: 'customers', label: 'Customers' },
+  { id: 'store', label: 'Store' },
+]
+
+const SETTINGS_PAGES = [
+  { id: 'settings', label: 'General Settings' },
+  { id: 'settings/billing', label: 'Billing' },
+  { id: 'settings/team', label: 'Team' },
+  { id: 'settings/emails', label: 'Custom Emails' },
+  { id: 'settings/notifications', label: 'Notifications' },
+  { id: 'settings/security', label: 'Security' },
+]
 
 export default function TeamManagerClient({ 
   tenantId, 
@@ -24,10 +43,63 @@ export default function TeamManagerClient({
   const [inviteName, setInviteName] = useState('')
   const [loading, setLoading] = useState(false)
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
+  const [updatingPermissionsId, setUpdatingPermissionsId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   
+  const [accessModalOpen, setAccessModalOpen] = useState(false)
+  const [selectedMemberForAccess, setSelectedMemberForAccess] = useState<TeamMember | null>(null)
+  const [tempAccessPages, setTempAccessPages] = useState<string[]>([])
+  
   const isOwner = userRole === 'owner'
+
+  useEffect(() => {
+    if (accessModalOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [accessModalOpen])
+
+  const handleUpdatePermissions = async (memberId: string, newAccessPages: string[]) => {
+    if (!isOwner) return
+    setError(null)
+    setSuccess(null)
+    setUpdatingPermissionsId(memberId)
+
+    try {
+      const res = await fetch('/api/team/permissions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId, tenantId, accessPages: newAccessPages })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update permissions')
+      }
+
+      setMembers(currentMembers => 
+        currentMembers.map(m => m.id === memberId ? { ...m, access_pages: newAccessPages } : m)
+      )
+      setSuccess('Permissions updated successfully')
+      setAccessModalOpen(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update permissions')
+    } finally {
+      setUpdatingPermissionsId(null)
+    }
+  }
+
+  const openAccessModal = (member: TeamMember) => {
+    setSelectedMemberForAccess(member)
+    setTempAccessPages(member.access_pages || [])
+    setAccessModalOpen(true)
+  }
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -162,6 +234,7 @@ export default function TeamManagerClient({
             <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--border)' }}>
               <th style={{ padding: '1rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', fontWeight: 500 }}>Name</th>
               <th style={{ padding: '1rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', fontWeight: 500 }}>Role</th>
+              <th style={{ padding: '1rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', fontWeight: 500 }}>Page Access</th>
               <th style={{ padding: '1rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', fontWeight: 500, textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
@@ -191,7 +264,35 @@ export default function TeamManagerClient({
                     {member.role}
                   </span>
                 </td>
-                <td style={{ padding: '1rem', textAlign: 'right' }}>
+                <td style={{ padding: '1rem', verticalAlign: 'top' }}>
+                  {member.role === 'owner' ? (
+                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>All Access</span>
+                  ) : (
+                    <button
+                      onClick={() => isOwner && openAccessModal(member)}
+                      disabled={!isOwner}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid var(--border)',
+                        color: 'var(--ink)',
+                        padding: '0.4rem 0.75rem',
+                        borderRadius: '4px',
+                        fontSize: '0.8rem',
+                        cursor: isOwner ? 'pointer' : 'default',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseOver={e => isOwner && (e.currentTarget.style.background = 'rgba(0,0,0,0.02)')}
+                      onMouseOut={e => isOwner && (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <Settings2 size={14} />
+                      Manage Access
+                    </button>
+                  )}
+                </td>
+                <td style={{ padding: '1rem', textAlign: 'right', verticalAlign: 'top' }}>
                   {isOwner && member.role !== 'owner' && (
                     <form
                       action="/api/team/remove"
@@ -222,7 +323,7 @@ export default function TeamManagerClient({
             ))}
             {members.length === 0 && (
               <tr>
-                <td colSpan={3} style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)', fontSize: '0.9rem' }}>
+                <td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)', fontSize: '0.9rem' }}>
                   No team members found.
                 </td>
               </tr>
@@ -230,6 +331,101 @@ export default function TeamManagerClient({
           </tbody>
         </table>
       </div>
+
+      {accessModalOpen && selectedMemberForAccess && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)', zIndex: 9999,
+          display: 'grid', placeItems: 'center',
+          backdropFilter: 'blur(2px)'
+        }}>
+          <div style={{
+            background: 'var(--paper)', width: '100%', maxWidth: '400px',
+            borderRadius: '8px', padding: '1.5rem', boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+            position: 'relative',
+            border: '1px solid var(--border)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--ink)' }}>
+                Page Access: {selectedMemberForAccess.full_name}
+              </h3>
+              <button onClick={() => setAccessModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+              Select the pages this member is allowed to access.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              {AVAILABLE_PAGES.map(page => {
+                const hasAccess = tempAccessPages.includes(page.id)
+                return (
+                  <label key={page.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', cursor: 'pointer' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={hasAccess} 
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setTempAccessPages(prev => [...prev, page.id])
+                        } else {
+                          setTempAccessPages(prev => prev.filter(p => p !== page.id))
+                        }
+                      }}
+                      style={{ width: '16px', height: '16px' }}
+                    />
+                    <span style={{ color: 'var(--ink)' }}>{page.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+
+            <div style={{ marginBottom: '2rem', background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+              <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Settings Access</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                {SETTINGS_PAGES.map(page => {
+                  const hasAccess = tempAccessPages.includes(page.id)
+                  return (
+                    <label key={page.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={hasAccess} 
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setTempAccessPages(prev => [...prev, page.id])
+                          } else {
+                            setTempAccessPages(prev => prev.filter(p => p !== page.id))
+                          }
+                        }}
+                        style={{ width: '16px', height: '16px' }}
+                      />
+                      <span style={{ color: 'var(--ink)' }}>{page.label}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+              <button 
+                className="btn-secondary" 
+                onClick={() => setAccessModalOpen(false)}
+                disabled={updatingPermissionsId === selectedMemberForAccess.id}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn-primary" 
+                onClick={() => handleUpdatePermissions(selectedMemberForAccess.id, tempAccessPages)}
+                disabled={updatingPermissionsId === selectedMemberForAccess.id}
+              >
+                {updatingPermissionsId === selectedMemberForAccess.id ? 'Saving...' : 'Save Access'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

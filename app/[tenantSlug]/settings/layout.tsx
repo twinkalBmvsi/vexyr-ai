@@ -6,6 +6,7 @@ export default async function SettingsLayout({ children, params }: { children: R
   const resolvedParams = await params
   const supabase = await createClient()
   let userRole = 'manager'
+  let accessPages: string[] = []
 
   const { data: tenant } = await supabase
     .from('tenants')
@@ -18,12 +19,13 @@ export default async function SettingsLayout({ children, params }: { children: R
     if (user) {
       const { data: roleData } = await supabase
         .from('users')
-        .select('role')
+        .select('role, access_pages')
         .eq('user_id', user.id)
         .eq('tenant_id', tenant.id)
         .single()
       if (roleData) {
         userRole = roleData.role
+        accessPages = roleData.access_pages || []
       }
     }
   }
@@ -36,9 +38,16 @@ export default async function SettingsLayout({ children, params }: { children: R
       </div>
 
       <div className="settings-layout-grid">
-        <SettingsSidebar userRole={userRole} tenantSlug={resolvedParams.tenantSlug} />
+        <SettingsSidebar userRole={userRole} tenantSlug={resolvedParams.tenantSlug} accessPages={accessPages} />
 
-        <div className="dash-card" style={{ padding: '3rem', width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ 
+          background: 'var(--paper)', 
+          border: '1px solid var(--border)', 
+          borderRadius: '8px', 
+          padding: '3rem', 
+          width: '100%', 
+          boxSizing: 'border-box' 
+        }}>
           {children}
         </div>
       </div>

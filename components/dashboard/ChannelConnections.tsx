@@ -15,7 +15,8 @@ export default function ChannelConnections({
   initialWaNumber,
   initialTgConfig = { token: '' },
   initialWaConfig = { token: '', phoneId: '', wabaId: '' },
-  allowedChannels = 0
+  isWhatsappAllowed = false,
+  isTelegramAllowed = false
 }: {
   tenantSlug: string;
   initialHasWhatsapp: boolean;
@@ -23,7 +24,8 @@ export default function ChannelConnections({
   initialWaNumber: string;
   initialTgConfig?: { token: string };
   initialWaConfig?: { token: string; phoneId: string; wabaId: string };
-  allowedChannels?: number;
+  isWhatsappAllowed?: boolean;
+  isTelegramAllowed?: boolean;
 }) {
   const [activeModal, setActiveModal] = useState<'whatsapp' | 'telegram' | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -40,8 +42,7 @@ export default function ChannelConnections({
     setMounted(true)
   }, [])
 
-  const activeCount = (hasWhatsapp ? 1 : 0) + (hasTelegram ? 1 : 0)
-  const canAddChannel = activeCount < (allowedChannels || 0)
+
 
   const [waConfig, setWaConfig] = useState(initialWaConfig)
   const [tgConfig, setTgConfig] = useState(initialTgConfig)
@@ -115,7 +116,7 @@ export default function ChannelConnections({
               >
                 Manage Connection
               </button>
-            ) : canAddChannel ? (
+            ) : isWhatsappAllowed ? (
               <button
                 className="btn-primary"
                 style={{ width: '100%' }}
@@ -178,7 +179,7 @@ export default function ChannelConnections({
               >
                 Manage Connection
               </button>
-            ) : canAddChannel ? (
+            ) : isTelegramAllowed ? (
               <button
                 className="btn-primary"
                 style={{ width: '100%' }}
