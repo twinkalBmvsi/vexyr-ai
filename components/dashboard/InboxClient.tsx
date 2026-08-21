@@ -91,7 +91,7 @@ export default function InboxClient({ tenantId }: { tenantId: string }) {
       {/* Left Panel: Conversation List */}
       <div style={{ width: '350px', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', background: 'var(--dark)' }}>
         <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          <h3 style={{ margin: 0, color: 'var(--cream)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h3 style={{ margin: 0, color: 'var(--ink)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <MessageCircle size={18} color="var(--gold)" />
             Chats
           </h3>
@@ -120,7 +120,7 @@ export default function InboxClient({ tenantId }: { tenantId: string }) {
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--cream)', fontSize: '0.95rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--ink)', fontSize: '0.95rem' }}>
                     {conv.customer?.name || conv.customer?.phone || 'Unknown User'}
                   </span>
                   <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
@@ -151,7 +151,7 @@ export default function InboxClient({ tenantId }: { tenantId: string }) {
           <>
             <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', background: 'var(--dark)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3 style={{ margin: 0, color: 'var(--cream)', fontSize: '1.1rem' }}>
+                <h3 style={{ margin: 0, color: 'var(--ink)', fontSize: '1.1rem' }}>
                   {activeConv?.customer?.name || activeConv?.customer?.phone || 'Customer'}
                 </h3>
                 <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--muted)', display: 'flex', gap: '1rem' }}>
@@ -177,12 +177,12 @@ export default function InboxClient({ tenantId }: { tenantId: string }) {
                 <div style={{ textAlign: 'center', color: 'var(--muted)' }}>No messages yet.</div>
               ) : (
                 messages.map((msg, idx) => {
-                  const isAgent = msg.sender_type === 'agent'
+                  const isAgent = msg.sender_type === 'agent' || msg.sender_type === 'assistant'
                   return (
                     <div key={idx} style={{
                       display: 'flex',
                       flexDirection: 'column',
-                      alignItems: isAgent ? 'flex-start' : 'flex-end',
+                      alignItems: isAgent ? 'flex-end' : 'flex-start',
                       width: '100%'
                     }}>
                       <div style={{
@@ -191,8 +191,8 @@ export default function InboxClient({ tenantId }: { tenantId: string }) {
                         border: isAgent ? '1px solid var(--border)' : '1px solid rgba(212, 175, 55, 0.3)',
                         padding: '0.8rem 1rem',
                         borderRadius: '12px',
-                        borderBottomLeftRadius: isAgent ? '2px' : '12px',
-                        borderBottomRightRadius: !isAgent ? '2px' : '12px',
+                        borderBottomRightRadius: isAgent ? '2px' : '12px',
+                        borderBottomLeftRadius: !isAgent ? '2px' : '12px',
                         color: 'var(--ink)'
                       }}>
                         <p style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.95rem', lineHeight: 1.5 }}>

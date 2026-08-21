@@ -114,7 +114,7 @@ export default function CalendarView({ appointments, tenantId, businessHours }: 
 
   const goToday = () => setCurrentDate(new Date())
 
-  const timeZone = businessHours.timeZone || 'UTC'
+  const timeZone = (businessHours as any).timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone
 
   // Helper to format date as YYYY-MM-DD in the correct timezone
   const toYMD = (d: Date) => {

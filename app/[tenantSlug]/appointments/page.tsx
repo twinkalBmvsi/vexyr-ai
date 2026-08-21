@@ -51,7 +51,7 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
 
   const businessHours = await getBusinessHours(tenant.id)
 
-  const timeZone = businessHours.timeZone || 'UTC'
+  const timeZone = (businessHours as any).timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone
 
   // Helper matching CalendarView's exact YYYY-MM-DD calculation but strictly enforcing the tenant timezone
   const toYMD = (d: Date) => {
@@ -76,7 +76,7 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
     const start = new Date(apt.start_time)
     const end = new Date(apt.end_time)
     const durationHours = Math.max(0.5, (end.getTime() - start.getTime()) / (1000 * 60 * 60))
-    const timeZone = businessHours.timeZone || 'UTC'
+    const timeZone = (businessHours as any).timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone
     
     // Get the hour in the tenant's timezone
     const startFormatter = new Intl.DateTimeFormat('en-US', {

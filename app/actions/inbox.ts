@@ -13,7 +13,7 @@ export async function getConversations(tenantId: string) {
       summary,
       created_at,
       customers (id, name, phone, email, channel),
-      agents (id, name, role)
+      agents (id, name)
     `)
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
