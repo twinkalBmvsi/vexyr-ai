@@ -99,6 +99,7 @@ CREATE TABLE public.subscriptions (
   tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
   plan_id text REFERENCES public.plans(id) NOT NULL,
   status subscription_status NOT NULL,
+  modules jsonb NOT NULL DEFAULT '{}'::jsonb,
   billing_interval text DEFAULT 'month' NOT NULL,
   current_period_end timestamptz,
   stripe_customer_id text,
@@ -447,3 +448,47 @@ USING (true); -- Because token is a secret, we allow public select on it. We wil
 CREATE INDEX IF NOT EXISTS team_invites_tenant_id_idx ON public.team_invites(tenant_id);
 CREATE INDEX IF NOT EXISTS team_invites_token_idx ON public.team_invites(token);
 
+-- ==========================================
+-- STRIPE PRICES TABLE
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS public.stripe_prices (
+  id text PRIMARY KEY,                     -- Stripe Price ID (e.g., price_xxx)
+  product_id text NOT NULL,               -- Stripe Product ID
+  product_name text NOT NULL,             -- Human-readable product name (from Stripe)
+  module_key text UNIQUE,                 -- Our internal key (e.g., 'extraBots', 'calendarSync')
+  nickname text,                          -- Price nickname set in Stripe dashboard
+  unit_amount integer,                    -- Price in cents
+  currency text DEFAULT 'usd',
+  recurring_interval text,               -- 'month' or 'year'
+  active boolean DEFAULT true,
+  metadata jsonb DEFAULT '{}'::jsonb,    -- Any extra metadata from Stripe
+  synced_at timestamptz DEFAULT now()
+);
+
+COMMENT ON TABLE public.stripe_prices IS 'Stripe product prices synced from Stripe API. Updated via scripts/sync-stripe-prices.js';
+
+-- ==========================================
+-- EMAIL TEMPLATES
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS public.email_templates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
+  template_type text NOT NULL,
+  subject text NOT NULL,
+  body text NOT NULL,
+  created_at timestamptz DEFAULT now() NOT NULL,
+  updated_at timestamptz DEFAULT now() NOT NULL,
+  UNIQUE(tenant_id, template_type)
+);
+
+-- Enable RLS
+ALTER TABLE public.email_templates ENABLE ROW LEVEL SECURITY;
+
+-- Tenants Policy (Users can only view/update their own tenant's templates)
+CREATE POLICY "Tenant isolation" ON public.email_templates
+  FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+
+-- Add an index for quick lookup by tenant
+CREATE INDEX IF NOT EXISTS idx_email_templates_tenant ON public.email_templates(tenant_id);
