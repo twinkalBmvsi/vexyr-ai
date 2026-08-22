@@ -92,15 +92,27 @@ export default function EmailTemplateEditor({
           <Info size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
           <p>
             You can use dynamic variables in your subject and body to personalize the emails. 
-            Available variables depend on the context, but generally include: 
+            Available variables for this template: 
             <br/><br/>
-            <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px' }}>{"{{customer_name}}"}</code>, 
-            <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{business_name}}"}</code>,
-            <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{appointment_title}}"}</code>,
-            <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{appointment_date}}"}</code>,
-            <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{appointment_time}}"}</code>,
-            <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{invite_link}}"}</code>,
-            <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{team_member_name}}"}</code>
+            {['appointment_confirmation', 'appointment_cancellation', 'appointment_reschedule', 'auto_followup'].includes(selectedType) && (
+              <>
+                <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px' }}>{"{{customer_name}}"}</code>
+                <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{business_name}}"}</code>
+                <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{appointment_title}}"}</code>
+              </>
+            )}
+            {['appointment_confirmation', 'appointment_cancellation', 'appointment_reschedule'].includes(selectedType) && (
+              <>
+                <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{appointment_date}}"}</code>
+                <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{appointment_time}}"}</code>
+              </>
+            )}
+            {selectedType === 'team_invite' && (
+              <>
+                <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px' }}>{"{{team_member_name}}"}</code>
+                <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{invite_link}}"}</code>
+              </>
+            )}
           </p>
         </div>
 

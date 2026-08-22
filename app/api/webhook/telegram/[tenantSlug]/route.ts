@@ -298,6 +298,21 @@ export async function POST(
       }
     }
 
+    // 6.5 Deduplicate Telegram Webhook Retries
+    if (conversation && message.message_id) {
+      const { data: existingMsg } = await supabaseAdmin
+        .from('messages')
+        .select('id')
+        .eq('conversation_id', conversation.id)
+        .eq('metadata->>telegram_message_id', message.message_id.toString())
+        .maybeSingle()
+
+      if (existingMsg) {
+        console.log(`[Telegram Webhook] Ignoring duplicate message_id: ${message.message_id}`)
+        return NextResponse.json({ status: 'ignored', reason: 'Duplicate message (retry)' }, { status: 200 })
+      }
+    }
+
     // 7. Save incoming User message
     if (conversation) {
       await supabaseAdmin

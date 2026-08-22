@@ -34,7 +34,10 @@ export default function InboxClient({ tenantId }: { tenantId: string }) {
           // If the new message belongs to the active conversation, add it to the view
           setActiveConvId((currentActiveId) => {
             if (currentActiveId === newMsg.conversation_id) {
-              setMessages((prev) => [...prev, newMsg])
+              setMessages((prev) => {
+                if (prev.some(m => m.id === newMsg.id)) return prev
+                return [...prev, newMsg]
+              })
               scrollToBottom()
             }
             return currentActiveId
