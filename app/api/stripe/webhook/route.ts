@@ -27,6 +27,46 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
   }
 
+  // Log the raw webhook payload to webhook_logs
+  // We extract a tenantId if possible, but it might be null
+  let logTenantId: string | null = null;
+  
+  if (event.type.startsWith('checkout.session.')) {
+    const session = event.data.object as Stripe.Checkout.Session;
+    if (session.client_reference_id) {
+      logTenantId = session.client_reference_id.split('_')[0];
+    }
+  } else if (event.type.startsWith('customer.subscription.')) {
+    const sub = event.data.object as Stripe.Subscription;
+    if (sub.metadata && sub.metadata.tenantId) {
+      logTenantId = sub.metadata.tenantId;
+    }
+  } else if (event.type.startsWith('invoice.')) {
+    const inv = event.data.object as Stripe.Invoice;
+    const directTenantId = (inv as any).parent?.subscription_details?.metadata?.tenantId;
+    if (directTenantId) {
+      logTenantId = directTenantId;
+    } else {
+      const subId = typeof inv.subscription === 'string' ? inv.subscription : inv.subscription?.id || (inv as any).parent?.subscription_details?.subscription;
+      if (subId) {
+        try {
+          const stripeSub = await stripe.subscriptions.retrieve(subId);
+          if (stripeSub.metadata && stripeSub.metadata.tenantId) {
+            logTenantId = stripeSub.metadata.tenantId;
+          }
+        } catch (e) {}
+      }
+    }
+  }
+
+  // Insert into webhook_logs
+  await supabaseAdmin.from('webhook_logs').insert({
+    tenant_id: logTenantId || null,
+    event_type: event.type,
+    payload: event,
+    status: 'received'
+  });
+
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
 
@@ -177,6 +217,79 @@ export async function POST(req: Request) {
     }
 
     console.log(`Successfully updated subscription ${subscriptionId} to status: ${status}`);
+  } else if (event.type === 'invoice.payment_succeeded' || event.type === 'invoice.payment_failed') {
+    const invoice = event.data.object as Stripe.Invoice;
+    
+    // Find the tenant associated with this invoice's customer
+    const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+    
+    let tenantId = null;
+
+    // 1. Check if the invoice directly has the metadata in the newer Stripe API format
+    const directTenantId = (invoice as any).parent?.subscription_details?.metadata?.tenantId;
+    if (directTenantId) {
+      tenantId = directTenantId;
+    }
+
+    // 2. Try to find the tenant_id in our database using stripe_customer_id
+    if (!tenantId && customerId) {
+      const { data: sub } = await supabaseAdmin
+        .from('subscriptions')
+        .select('tenant_id')
+        .eq('stripe_customer_id', customerId)
+        .maybeSingle();
+      if (sub && sub.tenant_id) {
+        tenantId = sub.tenant_id;
+      }
+    }
+
+    // 3. Race condition fallback: fetch subscription from Stripe directly to check metadata
+    const subId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id || (invoice as any).parent?.subscription_details?.subscription;
+    
+    if (!tenantId && subId) {
+      try {
+        const stripeSub = await stripe.subscriptions.retrieve(subId);
+        if (stripeSub.metadata && stripeSub.metadata.tenantId) {
+          tenantId = stripeSub.metadata.tenantId;
+        }
+      } catch (e) {
+        console.error('Fallback subscription fetch failed:', e);
+      }
+    }
+
+    if (tenantId) {
+      // Manual check to avoid upsert error if UNIQUE constraint is missing in remote DB
+      const { data: existingInvoice } = await supabaseAdmin
+        .from('invoices')
+        .select('id')
+        .eq('stripe_invoice_id', invoice.id)
+        .maybeSingle();
+
+      const invoiceData = {
+        tenant_id: tenantId,
+        stripe_invoice_id: invoice.id,
+        amount: invoice.amount_due || invoice.amount_paid,
+        status: invoice.status || (event.type === 'invoice.payment_failed' ? 'failed' : 'paid'),
+        pdf_url: invoice.invoice_pdf || null,
+      };
+
+      if (existingInvoice) {
+        const { error } = await supabaseAdmin
+          .from('invoices')
+          .update(invoiceData)
+          .eq('id', existingInvoice.id);
+        if (error) console.error(`Error updating invoice ${invoice.id}:`, error);
+        else console.log(`Successfully updated invoice ${invoice.id}`);
+      } else {
+        const { error } = await supabaseAdmin
+          .from('invoices')
+          .insert(invoiceData);
+        if (error) console.error(`Error inserting invoice ${invoice.id}:`, error);
+        else console.log(`Successfully inserted invoice ${invoice.id}`);
+      }
+    } else {
+      console.warn(`Could not find tenant for invoice ${invoice.id} with customer ${customerId} even after fallback.`);
+    }
   }
 
   return NextResponse.json({ received: true });

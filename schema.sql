@@ -272,7 +272,7 @@ CREATE TABLE public.workflow_runs (
 
 CREATE TABLE public.webhook_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
+  tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE,
   integration_id uuid REFERENCES public.integrations(id) ON DELETE CASCADE,
   event_type text NOT NULL,
   payload jsonb,
@@ -327,10 +327,11 @@ CREATE TABLE public.notifications (
 CREATE TABLE public.invoices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
-  stripe_invoice_id text NOT NULL,
+  stripe_invoice_id text UNIQUE NOT NULL,
   amount numeric NOT NULL,
   status text NOT NULL,
   pdf_url text,
+  line_items jsonb DEFAULT '[]'::jsonb,
   created_at timestamptz DEFAULT now() NOT NULL
 );
 
