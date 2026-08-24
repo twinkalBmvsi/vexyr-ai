@@ -99,8 +99,15 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules }: { 
     }
   }
 
-  // Three-state button: Active (already subscribed) | Added (in cart) | Add Module
-  const ModuleButton = ({ moduleKey, onToggle }: { moduleKey: keyof ModuleConfig; onToggle: () => void }) => {
+  // Three-state button: Active (already subscribed) | Added (in cart) | Add Module | Coming Soon
+  const ModuleButton = ({ moduleKey, onToggle, comingSoon }: { moduleKey: keyof ModuleConfig; onToggle: () => void, comingSoon?: boolean }) => {
+    if (comingSoon) {
+      return (
+        <div style={{ padding: '0.5rem 1rem', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+          Coming Soon
+        </div>
+      )
+    }
     if (isActive(moduleKey)) {
       return (
         <div style={{ padding: '0.5rem 1rem', borderRadius: '8px', background: 'rgba(42,122,74,0.12)', color: '#2a7a4a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', border: '1px solid rgba(42,122,74,0.3)' }}>
@@ -177,12 +184,12 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules }: { 
           { key: 'autoFollowups' as keyof ModuleConfig, title: 'Auto Follow-ups', icon: CalendarSync, desc: 'Automatically chase up leads and request reviews after appointments.' },
           { key: 'unlimitedChats' as keyof ModuleConfig, title: 'Unlimited Chats', icon: Zap, desc: 'Remove the 50 free chat limit. Perfect for high-volume businesses.' },
           { key: 'removeBranding' as keyof ModuleConfig, title: 'Remove Branding', icon: EyeOff, desc: 'Remove "Powered by Vexyr" from your chat widgets and emails for a fully white-labeled experience.' },
-          { key: 'calendarSync' as keyof ModuleConfig, title: '3rd-Party Calendar Sync', icon: CalendarSync, desc: 'Sync your Vexyr appointments with external calendars (Google Calendar, Outlook).' },
-          { key: 'broadcastMessaging' as keyof ModuleConfig, title: 'Broadcast Messaging', icon: Megaphone, desc: 'Send mass updates and promotional blasts to your entire customer base.' },
-          { key: 'reputationManagement' as keyof ModuleConfig, title: 'Reputation Management', icon: Star, desc: 'Monitor and respond to customer reviews automatically across platforms.' },
-          { key: 'metaAds' as keyof ModuleConfig, title: 'Meta Ads Reporting', icon: BarChart, desc: 'Advanced ROI tracking and conversion reports for your Meta Ads.' },
-          { key: 'googleAds' as keyof ModuleConfig, title: 'Google Ads Reporting', icon: LineChart, desc: 'Advanced ROI tracking and conversion reports for your Google Ads.' },
-          { key: 'telegramAds' as keyof ModuleConfig, title: 'Telegram Ads Reporting', icon: PieChart, desc: 'Advanced ROI tracking and conversion reports for Telegram Ads.' },
+          { key: 'calendarSync' as keyof ModuleConfig, title: '3rd-Party Calendar Sync', icon: CalendarSync, desc: 'Sync your Vexyr appointments with external calendars (Google Calendar, Outlook).', comingSoon: true },
+          { key: 'broadcastMessaging' as keyof ModuleConfig, title: 'Broadcast Messaging', icon: Megaphone, desc: 'Send mass updates and promotional blasts to your entire customer base.', comingSoon: true },
+          { key: 'reputationManagement' as keyof ModuleConfig, title: 'Reputation Management', icon: Star, desc: 'Monitor and respond to customer reviews automatically across platforms.', comingSoon: true },
+          { key: 'metaAds' as keyof ModuleConfig, title: 'Meta Ads Reporting', icon: BarChart, desc: 'Advanced ROI tracking and conversion reports for your Meta Ads.', comingSoon: true },
+          { key: 'googleAds' as keyof ModuleConfig, title: 'Google Ads Reporting', icon: LineChart, desc: 'Advanced ROI tracking and conversion reports for your Google Ads.', comingSoon: true },
+          { key: 'telegramAds' as keyof ModuleConfig, title: 'Telegram Ads Reporting', icon: PieChart, desc: 'Advanced ROI tracking and conversion reports for Telegram Ads.', comingSoon: true },
         ].map((module) => (
           <div key={module.key} className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder(module.key) }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -199,7 +206,7 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules }: { 
             </p>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
               <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
-              <ModuleButton moduleKey={module.key} onToggle={() => setCart({ ...cart, [module.key]: !cart[module.key] })} />
+              <ModuleButton moduleKey={module.key} comingSoon={module.comingSoon} onToggle={() => setCart({ ...cart, [module.key]: !cart[module.key] })} />
             </div>
           </div>
         ))}
