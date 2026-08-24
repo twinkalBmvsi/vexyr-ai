@@ -80,6 +80,17 @@ export async function middleware(request: NextRequest) {
       })
     }
 
+    // If user IS logged in but tries to access auth pages on a subdomain, redirect to main domain
+    const authPages = ['/login', '/signup', '/forgot-password', '/reset-password']
+    if (authPages.includes(url.pathname)) {
+      const host = request.headers.get('host') || 'localhost:3000'
+      const port = host.includes(':') ? `:${host.split(':')[1]}` : ''
+      const protocol = host.includes('localhost') || host.includes('localtest.me') ? 'http' : 'https'
+      const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || (host.includes('localhost') || host.includes('localtest.me') ? 'localhost' : host.split(':')[0])
+      
+      return NextResponse.redirect(`${protocol}://${rootDomain}${port}${url.pathname}`)
+    }
+
     // Extract the slug
     const tenantSlug = hostname.split('.')[0]
 

@@ -201,11 +201,15 @@ export async function resetPassword(prevState: unknown, formData: FormData) {
       return { error: 'Failed to generate password reset link.' }
     }
 
-    const actionUrl = buildSupabaseAuthLink('recovery', linkData.properties.hashed_token, '/set-password')
+    const actionUrl = buildSupabaseAuthLink('recovery', linkData.properties.hashed_token, '/reset-password')
     await sendPasswordResetEmail(email, actionUrl)
   } else {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL 
+      ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '') 
+      : `http://${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost'}:3000`
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      // Optionally specify redirect URL here, otherwise it uses Site URL
+      redirectTo: `${siteUrl}/reset-password`
     })
 
     if (error) {
