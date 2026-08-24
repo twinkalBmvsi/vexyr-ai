@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 
 export default function SetPasswordPage() {
+  const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -29,16 +30,31 @@ export default function SetPasswordPage() {
       return
     }
 
+    if (!fullName.trim()) {
+      setError('Full name is required')
+      return
+    }
+
     setLoading(true)
 
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: password
+    // Update password and metadata in auth
+    const { data: authData, error: updateError } = await supabase.auth.updateUser({
+      password: password,
+      data: { full_name: fullName.trim() }
     })
 
     if (updateError) {
       setError(updateError.message)
       setLoading(false)
       return
+    }
+
+    // Also update the public.users table if they exist there
+    if (authData.user) {
+      await supabase
+        .from('users')
+        .update({ full_name: fullName.trim() })
+        .eq('user_id', authData.user.id)
     }
 
     // Redirect to dashboard
@@ -59,6 +75,19 @@ export default function SetPasswordPage() {
         )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: '0.5rem' }}>Full Name</label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="e.g. John Doe"
+              required
+              className="form-input"
+              style={{ width: '100%', borderRadius: '4px', fontSize: '1rem' }}
+            />
+          </div>
+
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: '0.5rem' }}>New Password</label>
             <div className="password-input-wrap">

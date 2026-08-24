@@ -27,6 +27,27 @@ async function removeTeamMember(targetMemberId: string, tenantId: string) {
     return { error: 'Only owners can remove team members', status: 403 }
   }
 
+  // First try to find in team_invites
+  const { data: invite } = await adminAuthClient
+    .from('team_invites')
+    .select('id, status')
+    .eq('id', targetMemberId)
+    .eq('tenant_id', tenantId)
+    .single()
+
+  if (invite) {
+    const { error: deleteInviteError } = await adminAuthClient
+      .from('team_invites')
+      .delete()
+      .eq('id', invite.id)
+      
+    if (deleteInviteError) {
+      return { error: deleteInviteError.message, status: 500 }
+    }
+    return { memberId: targetMemberId, message: 'Invitation removed successfully' }
+  }
+
+  // If not an invite, look for active user
   const { data: member, error: memberError } = await adminAuthClient
     .from('users')
     .select('id, user_id, role')
@@ -35,7 +56,7 @@ async function removeTeamMember(targetMemberId: string, tenantId: string) {
     .single()
 
   if (memberError || !member) {
-    return { error: 'Team member not found', status: 404 }
+    return { error: 'Team member or invitation not found', status: 404 }
   }
 
   if (member.user_id === user.id || member.id === userRole.id) {

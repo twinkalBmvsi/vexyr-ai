@@ -36,8 +36,8 @@ export default function RoleGuard({
       cleanPath = cleanPath.substring(`/${tenantSlug}`.length) || '/'
     }
 
-    // Always allow root dashboard for everyone
-    if (cleanPath === '/') {
+    // Always allow root dashboard and system pages for everyone
+    if (cleanPath === '/' || cleanPath.startsWith('/set-password')) {
       setAuthorized(true)
       return
     }
