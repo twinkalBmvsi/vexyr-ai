@@ -121,8 +121,8 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
     }
   })
 
-  // Filter out cancelled appointments for the active calendar grid
-  const calendarAppointments = liveAppointments.filter(apt => apt.status !== 'cancelled')
+  // Filter out cancelled and completed appointments for the active calendar grid
+  const calendarAppointments = liveAppointments.filter(apt => apt.status !== 'cancelled' && apt.status !== 'completed')
 
   return (
     <div>
