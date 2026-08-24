@@ -46,16 +46,37 @@ export default async function TeamSettingsPage({ params }: { params: Promise<{ t
       const { data: { user: authUser } } = await adminAuthClient.auth.admin.getUserById(member.user_id)
       return {
         ...member,
-        email: authUser?.email || ''
+        email: authUser?.email || '',
+        status: 'active'
       }
     })
   )
+
+  // 5. Get pending invites
+  const { data: pendingInvites } = await adminAuthClient
+    .from('team_invites')
+    .select('*')
+    .eq('tenant_id', tenant.id)
+    .eq('status', 'pending')
+
+  const pendingMembers = (pendingInvites || []).map(invite => ({
+    id: invite.id, // Using invite ID
+    user_id: `invite-${invite.id}`, // Mock user_id for key prop
+    full_name: invite.name || null,
+    email: invite.email,
+    role: invite.role,
+    access_pages: [],
+    status: 'pending',
+    isInvite: true
+  }))
+
+  const allMembers = [...membersWithEmail, ...pendingMembers]
 
   return (
     <TeamManagerClient 
       tenantId={tenant.id} 
       userRole={userRole} 
-      initialMembers={membersWithEmail} 
+      initialMembers={allMembers as any} 
     />
   )
 }

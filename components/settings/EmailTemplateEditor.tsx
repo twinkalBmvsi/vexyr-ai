@@ -16,6 +16,7 @@ const TEMPLATE_TYPES = [
   { value: 'appointment_confirmation', label: 'Appointment Confirmation' },
   { value: 'appointment_cancellation', label: 'Appointment Cancellation' },
   { value: 'appointment_reschedule', label: 'Appointment Reschedule' },
+  { value: 'appointment_complete', label: 'Appointment Complete' },
   { value: 'auto_followup', label: 'Auto Follow-up' },
   { value: 'team_invite', label: 'Team Member Invitation' },
 ]
@@ -94,14 +95,14 @@ export default function EmailTemplateEditor({
             You can use dynamic variables in your subject and body to personalize the emails. 
             Available variables for this template: 
             <br/><br/>
-            {['appointment_confirmation', 'appointment_cancellation', 'appointment_reschedule', 'auto_followup'].includes(selectedType) && (
+            {['appointment_confirmation', 'appointment_cancellation', 'appointment_reschedule', 'auto_followup', 'appointment_complete'].includes(selectedType) && (
               <>
                 <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px' }}>{"{{customer_name}}"}</code>
                 <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{business_name}}"}</code>
                 <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{appointment_title}}"}</code>
               </>
             )}
-            {['appointment_confirmation', 'appointment_cancellation', 'appointment_reschedule'].includes(selectedType) && (
+            {['appointment_confirmation', 'appointment_cancellation', 'appointment_reschedule', 'appointment_complete'].includes(selectedType) && (
               <>
                 <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{appointment_date}}"}</code>
                 <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{appointment_time}}"}</code>

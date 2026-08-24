@@ -45,6 +45,14 @@ export async function POST(request: Request) {
     // For now, let's create the invite.
 
     // 3. Create the invite token and record
+    // First, delete any existing pending invites for this email and tenant to prevent duplicates
+    await adminAuthClient
+      .from('team_invites')
+      .delete()
+      .eq('tenant_id', tenantId)
+      .eq('email', email)
+      .eq('status', 'pending')
+
     const token = crypto.randomUUID()
     const { error: inviteInsertError } = await adminAuthClient
       .from('team_invites')

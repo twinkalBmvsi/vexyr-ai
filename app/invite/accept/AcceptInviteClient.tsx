@@ -39,12 +39,37 @@ export default function AcceptInviteClient({
       }
 
       toast.success('Successfully joined the team!')
-      if (isNewUser) {
-        router.push(`/${tenantSlug}/set-password`)
-      } else {
-        router.push(`/${tenantSlug}`)
+      
+      const protocol = window.location.protocol
+      const host = window.location.host
+      
+      // Determine the root domain (strip any existing subdomains if they exist)
+      let rootDomain = host
+      if (host.includes('localhost') || host.includes('localtest.me')) {
+        // e.g., localhost:3000
+        rootDomain = host.split('.').slice(-1)[0] === 'me' ? host.split('.').slice(-2).join('.') : host.split('.').slice(-1)[0]
+        // But host is already localhost:3000. 
+        // A safer way is to strip the first part if it's a known subdomain, but since /invite/accept is on root, host IS rootDomain.
       }
-      router.refresh()
+      
+      // Actually, since NEXT_PUBLIC_ROOT_DOMAIN is safest if set:
+      const envRootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN
+      const port = host.includes(':') ? `:${host.split(':')[1]}` : ''
+      const finalRootDomain = envRootDomain ? `${envRootDomain}${port}` : host
+
+      const targetUrl = `${protocol}//${tenantSlug}.${finalRootDomain}`
+
+      // Fetch current session to pass tokens to the subdomain via SSO handoff
+      const supabase = (await import('@/utils/supabase/client')).createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+
+      const dest = isNewUser ? '/set-password' : '/'
+
+      if (session) {
+        window.location.href = `${targetUrl}/auth/handoff?access_token=${session.access_token}&refresh_token=${session.refresh_token}&next=${encodeURIComponent(dest)}`
+      } else {
+        window.location.href = `${targetUrl}${dest}`
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to accept invitation')
     } finally {

@@ -10,6 +10,8 @@ type TeamMember = {
   email?: string
   role: string
   access_pages?: string[]
+  status?: 'active' | 'pending'
+  isInvite?: boolean
 }
 
 const AVAILABLE_PAGES = [
@@ -43,7 +45,6 @@ export default function TeamManagerClient({
 }) {
   const [members, setMembers] = useState(initialMembers)
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteName, setInviteName] = useState('')
   const [loading, setLoading] = useState(false)
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
   const [updatingPermissionsId, setUpdatingPermissionsId] = useState<string | null>(null)
@@ -116,7 +117,7 @@ export default function TeamManagerClient({
       const res = await fetch('/api/team/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail, name: inviteName, tenantId })
+        body: JSON.stringify({ email: inviteEmail, tenantId })
       })
 
       const data = await res.json()
@@ -130,11 +131,38 @@ export default function TeamManagerClient({
         setMembers(currentMembers => [...currentMembers, data.member])
       }
       setInviteEmail('')
-      setInviteName('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to invite user')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleResend = async (email: string) => {
+    if (!isOwner || !email) return
+    
+    setError(null)
+    setSuccess(null)
+    setUpdatingPermissionsId(`resend-${email}`)
+
+    try {
+      const res = await fetch('/api/team/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, tenantId })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to resend invitation')
+      }
+
+      setSuccess(`Invitation resent successfully to ${email}!`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to resend invitation')
+    } finally {
+      setUpdatingPermissionsId(null)
     }
   }
 
@@ -197,17 +225,6 @@ export default function TeamManagerClient({
           <h3 style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '1rem', color: 'var(--ink)' }}>Invite New Member</h3>
           <form onSubmit={handleInvite} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
             <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: '0.5rem' }}>Name</label>
-              <input 
-                type="text" 
-                value={inviteName}
-                onChange={e => setInviteName(e.target.value)}
-                placeholder="Colleague Name"
-                required
-                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '0.9rem' }}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
               <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: '0.5rem' }}>Email Address</label>
               <div style={{ position: 'relative' }}>
                 <Mail size={16} color="var(--muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
@@ -250,7 +267,14 @@ export default function TeamManagerClient({
                       {member.full_name?.charAt(0).toUpperCase() || '?'}
                     </div>
                     <div>
-                      <div style={{ fontWeight: 500, fontSize: '0.9rem', color: 'var(--ink)' }}>{member.full_name || 'Pending User'}</div>
+                      <div style={{ fontWeight: 500, fontSize: '0.9rem', color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {member.full_name || 'Pending User'}
+                        {member.status === 'pending' && (
+                          <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: 'rgba(234, 179, 8, 0.1)', color: '#ca8a04', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Invite Pending
+                          </span>
+                        )}
+                      </div>
                       {member.email && (
                         <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.1rem' }}>{member.email}</div>
                       )}
@@ -273,6 +297,8 @@ export default function TeamManagerClient({
                 <td style={{ padding: '1rem', verticalAlign: 'top' }}>
                   {member.role === 'owner' ? (
                     <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>All Access</span>
+                  ) : member.status === 'pending' ? (
+                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Not Accepted Yet</span>
                   ) : (
                     <button
                       onClick={() => isOwner && openAccessModal(member)}
@@ -300,29 +326,43 @@ export default function TeamManagerClient({
                 </td>
                 <td style={{ padding: '1rem', textAlign: 'right', verticalAlign: 'top' }}>
                   {isOwner && member.role !== 'owner' && (
-                    <form
-                      action="/api/team/remove"
-                      method="post"
-                      onSubmit={(event) => {
-                        event.preventDefault()
-                        void handleRemove(member.id)
-                      }}
-                      style={{ display: 'inline-flex' }}
-                    >
-                      <input type="hidden" name="memberId" value={member.id} />
-                      <input type="hidden" name="tenantId" value={tenantId} />
-                      <button 
-                        type="submit"
-                        disabled={removingMemberId === member.id}
-                        style={{ background: 'transparent', border: 'none', color: '#dc2626', cursor: removingMemberId === member.id ? 'wait' : 'pointer', padding: '0.5rem', borderRadius: '4px', transition: 'background 0.2s', opacity: removingMemberId === member.id ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                        onMouseOver={e => e.currentTarget.style.background = 'rgba(220,38,38,0.1)'}
-                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                        title="Remove Member"
-                        aria-label={`Remove ${member.full_name || 'team member'}`}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                      {member.status === 'pending' && member.email && (
+                        <button
+                          onClick={() => handleResend(member.email!)}
+                          disabled={updatingPermissionsId === `resend-${member.email}`}
+                          style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--ink)', cursor: updatingPermissionsId === `resend-${member.email}` ? 'wait' : 'pointer', padding: '0.4rem 0.75rem', borderRadius: '4px', transition: 'background 0.2s', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center' }}
+                          onMouseOver={e => e.currentTarget.style.background = 'rgba(0,0,0,0.02)'}
+                          onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                          title="Resend Invite"
+                        >
+                          {updatingPermissionsId === `resend-${member.email}` ? 'Resending...' : 'Resend'}
+                        </button>
+                      )}
+                      <form
+                        action="/api/team/remove"
+                        method="post"
+                        onSubmit={(event) => {
+                          event.preventDefault()
+                          void handleRemove(member.id)
+                        }}
+                        style={{ display: 'inline-flex' }}
                       >
-                        <Trash2 size={18} pointerEvents="none" />
-                      </button>
-                    </form>
+                        <input type="hidden" name="memberId" value={member.id} />
+                        <input type="hidden" name="tenantId" value={tenantId} />
+                        <button 
+                          type="submit"
+                          disabled={removingMemberId === member.id}
+                          style={{ background: 'transparent', border: 'none', color: '#dc2626', cursor: removingMemberId === member.id ? 'wait' : 'pointer', padding: '0.5rem', borderRadius: '4px', transition: 'background 0.2s', opacity: removingMemberId === member.id ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          onMouseOver={e => e.currentTarget.style.background = 'rgba(220,38,38,0.1)'}
+                          onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                          title={member.status === 'pending' ? "Revoke Invite" : "Remove Member"}
+                          aria-label={`Remove ${member.full_name || 'team member'}`}
+                        >
+                          <Trash2 size={18} pointerEvents="none" />
+                        </button>
+                      </form>
+                    </div>
                   )}
                 </td>
               </tr>

@@ -20,6 +20,16 @@ export async function GET(request: Request) {
         return NextResponse.redirect(new URL('/login?verified=1', request.url))
       }
 
+      // If it's a password reset, they don't need to go to a tenant dashboard yet.
+      // Redirect them straight to the global reset password page.
+      if (type === 'recovery') {
+        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost'
+        const protocol = request.url.startsWith('https') || request.url.includes('localtest.me') ? 'https' : 'http'
+        const port = request.url.includes(':') ? `:${request.url.split(':')[2].split('/')[0]}` : ''
+        
+        return NextResponse.redirect(`${protocol}://${rootDomain}${port}/reset-password`)
+      }
+
       // User is successfully verified and logged in.
       // Fetch their tenant slug for redirection
       const { data: userRecord } = await supabase
@@ -40,7 +50,7 @@ export async function GET(request: Request) {
           const session = await supabase.auth.getSession()
           const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost'
           
-          const dest = type === 'invite' || type === 'recovery' ? '/set-password' : '/'
+          const dest = '/'
           
           if (session.data.session) {
             return NextResponse.redirect(`http://${tenant.slug}.${rootDomain}:3000/auth/handoff?access_token=${session.data.session.access_token}&refresh_token=${session.data.session.refresh_token}&next=${encodeURIComponent(dest)}`)

@@ -145,6 +145,11 @@ export async function POST(req: Request) {
       success_url: `${siteUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}&tenantId=${tenantId}`,
       cancel_url: `${siteUrl}/store`,
       client_reference_id: `${tenantId}_modular_month`,
+      subscription_data: {
+        metadata: {
+          tenantId
+        }
+      },
       metadata: {
         tenantId,
         // Only store the NET NEW modules in metadata — the webhook should only record

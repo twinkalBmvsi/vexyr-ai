@@ -12,7 +12,7 @@ export default async function BillingPage({ params }: { params: Promise<{ tenant
     .eq('slug', resolvedParams.tenantSlug)
     .single()
 
-  let subscription = null
+  let invoices: any[] = []
   if (tenant) {
     // Fetch the active subscription
     const { data } = await supabase
@@ -21,6 +21,14 @@ export default async function BillingPage({ params }: { params: Promise<{ tenant
       .eq('tenant_id', tenant.id)
       .single()
     subscription = data
+
+    // Fetch invoices
+    const { data: invoicesData } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .order('created_at', { ascending: false })
+    invoices = invoicesData || []
   }
 
   const planId = subscription?.plan_id || tenant?.plan_id || 'free'
@@ -112,10 +120,68 @@ export default async function BillingPage({ params }: { params: Promise<{ tenant
           </div>
 
           <div style={{ display: 'flex', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-            {subscription && <button className="btn-secondary">View Invoices</button>}
             <button className="btn-primary" style={{ marginLeft: 'auto' }}>Upgrade Plan</button>
           </div>
 
+        </div>
+
+        {/* Invoices Section */}
+        <div className="dash-card" style={{ padding: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 500 }}>Billing History</h3>
+          </div>
+          
+          {invoices.length === 0 ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)', fontSize: '0.9rem', border: '1px dashed var(--border)', borderRadius: '8px' }}>
+              No invoices found.
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+                    <th style={{ padding: '1rem 0.5rem', fontWeight: 500, color: 'var(--muted)' }}>Date</th>
+                    <th style={{ padding: '1rem 0.5rem', fontWeight: 500, color: 'var(--muted)' }}>Amount</th>
+                    <th style={{ padding: '1rem 0.5rem', fontWeight: 500, color: 'var(--muted)' }}>Status</th>
+                    <th style={{ padding: '1rem 0.5rem', fontWeight: 500, color: 'var(--muted)', textAlign: 'right' }}>Invoice</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoices.map((inv) => (
+                    <tr key={inv.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '1rem 0.5rem' }}>
+                        {new Date(inv.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                      </td>
+                      <td style={{ padding: '1rem 0.5rem' }}>
+                        ${(inv.amount / 100).toFixed(2)}
+                      </td>
+                      <td style={{ padding: '1rem 0.5rem' }}>
+                        <span style={{ 
+                          padding: '0.2rem 0.6rem', 
+                          borderRadius: '12px', 
+                          fontSize: '0.75rem',
+                          fontWeight: 500,
+                          backgroundColor: inv.status === 'paid' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                          color: inv.status === 'paid' ? '#10b981' : '#f59e0b'
+                        }}>
+                          {inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem 0.5rem', textAlign: 'right' }}>
+                        {inv.pdf_url ? (
+                          <a href={inv.pdf_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', fontWeight: 500, fontSize: '0.85rem' }}>
+                            Download PDF
+                          </a>
+                        ) : (
+                          <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Not available</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

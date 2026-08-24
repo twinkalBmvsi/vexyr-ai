@@ -69,8 +69,16 @@ export default async function AcceptInvitePage({ searchParams }: { searchParams:
   const tenantName = invite.tenants?.name || 'the workspace'
   const tenantSlug = invite.tenants?.slug || ''
   
-  // Consider them a "new user" if their account was created less than 5 minutes ago
-  const isNewUser = new Date().getTime() - new Date(user.created_at).getTime() < 5 * 60 * 1000
+  // Consider them a "new user" if they don't belong to any workspaces yet AND they haven't set their full name.
+  // - Brand new users have 0 workspaces and no full_name (isNewUser = true)
+  // - Existing active users have > 0 workspaces (isNewUser = false)
+  // - Removed existing users have 0 workspaces but DO have a full_name (isNewUser = false)
+  const { count } = await adminClient
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+
+  const isNewUser = count === 0 && !user.user_metadata?.full_name
 
   const isWrongUser = user.email?.toLowerCase() !== invite.email.toLowerCase()
 

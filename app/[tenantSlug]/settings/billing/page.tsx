@@ -1,6 +1,11 @@
-import { CheckCircle2, ExternalLink } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
+import Stripe from 'stripe'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: '2026-06-24.dahlia', // Latest API version
+})
 
 const MODULE_LABELS: Record<string, string> = {
   extraBots: 'Extra AI Agents',
@@ -53,8 +58,10 @@ export default async function BillingSettingsPage({ params }: { params: Promise<
     }
   }
 
-  // Fetch subscription
+  // Fetch subscription and invoices
   let subscription: any = null
+  let rawInvoices: any[] = []
+  
   if (tenant) {
     const { data } = await supabase
       .from('subscriptions')
@@ -62,7 +69,36 @@ export default async function BillingSettingsPage({ params }: { params: Promise<
       .eq('tenant_id', tenant.id)
       .maybeSingle()          // use maybeSingle to avoid 500 when no row exists
     subscription = data
+
+    const { data: invoicesData } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .order('created_at', { ascending: false })
+    rawInvoices = invoicesData || []
   }
+
+  // Fetch line items dynamically from Stripe
+  const invoices = await Promise.all(rawInvoices.map(async (inv) => {
+    let lineItems: { description: string, amount: number }[] = []
+    if (inv.stripe_invoice_id && !inv.stripe_invoice_id.includes('mock')) {
+      try {
+        const stripeInvoice = await stripe.invoices.retrieve(inv.stripe_invoice_id)
+        lineItems = stripeInvoice.lines.data.map(item => ({
+          description: item.description || 'Module',
+          amount: item.amount
+        }))
+      } catch (e) {
+        console.error('Failed to fetch invoice lines for', inv.stripe_invoice_id)
+      }
+    } else if (inv.stripe_invoice_id.includes('mock')) {
+      lineItems = [
+        { description: 'Extra AI Agents × 2', amount: 3000 },
+        { description: 'Custom Emails', amount: 1400 }
+      ]
+    }
+    return { ...inv, lineItems }
+  }))
 
   const planId = subscription?.plan_id || tenant?.plan_id || 'free'
   const isYearly = subscription?.billing_interval === 'year'
@@ -168,8 +204,7 @@ export default async function BillingSettingsPage({ params }: { params: Promise<
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-        {subscription && <button className="btn-secondary">View Invoices</button>}
+      <div style={{ display: 'flex', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '2rem', marginBottom: '3rem' }}>
         <Link
           href={`/${resolvedParams.tenantSlug}/store`}
           className="btn-primary"
@@ -177,6 +212,81 @@ export default async function BillingSettingsPage({ params }: { params: Promise<
         >
           {planId === 'modular' ? 'Manage Modules' : 'Add Modules'}
         </Link>
+      </div>
+
+      {/* Invoices Section */}
+      <div style={{ paddingTop: '2rem', borderTop: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 500 }}>Billing History</h3>
+        </div>
+        
+        {invoices.length === 0 ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)', fontSize: '0.9rem', border: '1px dashed var(--border)', borderRadius: '8px' }}>
+            No invoices found.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto', background: 'var(--paper)', border: '1px solid var(--border)', borderRadius: '8px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left', background: 'rgba(0,0,0,0.02)' }}>
+                  <th style={{ padding: '1rem', fontWeight: 500, color: 'var(--muted)' }}>Date</th>
+                  <th style={{ padding: '1rem', fontWeight: 500, color: 'var(--muted)' }}>Purchased Items</th>
+                  <th style={{ padding: '1rem', fontWeight: 500, color: 'var(--muted)' }}>Total Amount</th>
+                  <th style={{ padding: '1rem', fontWeight: 500, color: 'var(--muted)' }}>Status</th>
+                  <th style={{ padding: '1rem', fontWeight: 500, color: 'var(--muted)', textAlign: 'right' }}>Invoice</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((inv) => (
+                  <tr key={inv.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '1rem', verticalAlign: 'top' }}>
+                      {new Date(inv.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </td>
+                    <td style={{ padding: '1rem', verticalAlign: 'top' }}>
+                      {inv.lineItems && inv.lineItems.length > 0 ? (
+                        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                          {inv.lineItems.map((item: any, i: number) => (
+                            <li key={i} style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span>{item.description}</span>
+                              <span style={{ color: 'var(--muted)', fontSize: '0.85em' }}>—</span>
+                              <span style={{ color: 'var(--gold)', fontWeight: 500 }}>${(item.amount / 100).toFixed(2)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span style={{ color: 'var(--muted)' }}>Subscription charge</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '1rem', verticalAlign: 'top' }}>
+                      ${(inv.amount / 100).toFixed(2)}
+                    </td>
+                    <td style={{ padding: '1rem', verticalAlign: 'top' }}>
+                      <span style={{ 
+                        padding: '0.2rem 0.6rem', 
+                        borderRadius: '12px', 
+                        fontSize: '0.75rem',
+                        fontWeight: 500,
+                        backgroundColor: inv.status === 'paid' ? 'rgba(16, 185, 129, 0.1)' : (inv.status === 'failed' ? 'rgba(220, 38, 38, 0.1)' : 'rgba(245, 158, 11, 0.1)'),
+                        color: inv.status === 'paid' ? '#10b981' : (inv.status === 'failed' ? '#dc2626' : '#f59e0b')
+                      }}>
+                        {inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
+                      </span>
+                    </td>
+                    <td style={{ padding: '1rem', textAlign: 'right', verticalAlign: 'top' }}>
+                      {inv.pdf_url ? (
+                        <a href={inv.pdf_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', fontWeight: 500, fontSize: '0.85rem' }}>
+                          Download PDF
+                        </a>
+                      ) : (
+                        <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Not available</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </>
   )

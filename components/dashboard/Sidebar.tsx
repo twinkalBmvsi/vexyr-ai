@@ -55,18 +55,22 @@ export default function Sidebar({
     return pathname.startsWith(href)
   }
 
+  const isSetPasswordPage = pathname === '/set-password' || pathname.endsWith('/set-password')
+
   return (
     <>
       <div className="mobile-dash-header">
         <div className="mobile-brand-block">
-          <Link href="/" className="logo">
+          <Link href={isSetPasswordPage ? '#' : '/'} onClick={e => isSetPasswordPage && e.preventDefault()} className="logo">
             vex<span>yr</span>
           </Link>
           <span className="mobile-company-name">{companyName}</span>
         </div>
-        <button className="mobile-menu-btn" onClick={() => setIsOpen(true)}>
-          <Menu size={24} />
-        </button>
+        {!isSetPasswordPage && (
+          <button className="mobile-menu-btn" onClick={() => setIsOpen(true)}>
+            <Menu size={24} />
+          </button>
+        )}
       </div>
 
       <div 
@@ -78,7 +82,7 @@ export default function Sidebar({
       <aside className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div className="sidebar-brand-block">
-            <Link href="/" className="sidebar-logo" style={{ marginBottom: 0 }}>
+            <Link href={isSetPasswordPage ? '#' : '/'} onClick={e => isSetPasswordPage && e.preventDefault()} className="sidebar-logo" style={{ marginBottom: 0 }}>
               vex<span>yr</span>
             </Link>
             <div className="sidebar-company-name" title={companyName}>
@@ -99,9 +103,19 @@ export default function Sidebar({
             return (
               <Link
                 key={link.name}
-                href={link.href}
+                href={isSetPasswordPage ? '#' : link.href}
                 className={`sidebar-link ${active ? 'active' : ''}`}
-                onClick={() => setIsOpen(false)}
+                onClick={(e) => {
+                  if (isSetPasswordPage) {
+                    e.preventDefault()
+                  } else {
+                    setIsOpen(false)
+                  }
+                }}
+                style={{ 
+                  opacity: isSetPasswordPage ? 0.5 : 1, 
+                  cursor: isSetPasswordPage ? 'not-allowed' : 'pointer' 
+                }}
               >
                 <Icon size={18} strokeWidth={active ? 2 : 1.5} className="sidebar-icon" />
                 <span>{link.name}</span>

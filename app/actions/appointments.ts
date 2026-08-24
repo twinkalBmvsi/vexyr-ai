@@ -242,28 +242,31 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'co
   if (existingApt && existingApt.customers?.email && isSmtpConfigured()) {
     const customer = existingApt.customers
     const aptDate = new Date(existingApt.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    const aptTime = new Date(existingApt.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     
-    if (status === 'cancelled') {
-      // 1. Check if they have the customEmails module
-      const { data: sub } = await supabase
-        .from('subscriptions')
-        .select('status, modules, tenants(name)')
-        .eq('tenant_id', existingApt.tenant_id)
-        .single()
+    // 1. Check if they have the customEmails module
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('status, modules, tenants(name)')
+      .eq('tenant_id', existingApt.tenant_id)
+      .single()
 
-      const businessName = sub?.tenants?.name || 'Our Business'
-      const hasCustomEmails = sub?.status === 'active' && (sub.modules as any)?.customEmails === true
+    const businessName = sub?.tenants?.name || 'Our Business'
+    const hasCustomEmails = sub?.status === 'active' && (sub.modules as any)?.customEmails === true
 
-      let customSubject = null
-      let customBodyHtml = null
-      let customBodyText = null
+    let customSubject = null
+    let customBodyHtml = null
+    let customBodyText = null
+
+    if (status === 'cancelled' || status === 'completed') {
+      const templateType = status === 'cancelled' ? 'appointment_cancellation' : 'appointment_complete'
 
       if (hasCustomEmails) {
         const { data: template } = await supabase
           .from('email_templates')
           .select('*')
           .eq('tenant_id', existingApt.tenant_id)
-          .eq('template_type', 'appointment_cancellation')
+          .eq('template_type', templateType)
           .maybeSingle()
 
         if (template) {
@@ -272,7 +275,7 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'co
               .replace(/\{\{customer_name\}\}/g, customer.name || 'Customer')
               .replace(/\{\{business_name\}\}/g, businessName)
               .replace(/\{\{appointment_date\}\}/g, aptDate)
-              .replace(/\{\{appointment_time\}\}/g, new Date(existingApt.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }))
+              .replace(/\{\{appointment_time\}\}/g, aptTime)
               .replace(/\{\{appointment_title\}\}/g, existingApt.title)
           }
 
@@ -281,7 +284,9 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'co
           customBodyText = customBodyHtml.replace(/<[^>]+>/g, '')
         }
       }
+    }
 
+    if (status === 'cancelled') {
       sendSmtpEmail({
         to: customer.email,
         subject: customSubject || `Appointment Cancelled: ${existingApt.title}`,
@@ -297,9 +302,9 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'co
     } else if (status === 'completed') {
       sendSmtpEmail({
         to: customer.email,
-        subject: `Thank you for visiting! (${existingApt.title})`,
-        text: `Hi ${customer.name},\n\nYour appointment "${existingApt.title}" is now complete. Thank you for your business!\n\nBest regards,`,
-        html: `
+        subject: customSubject || `Thank you for visiting! (${existingApt.title})`,
+        text: customBodyText || `Hi ${customer.name},\n\nYour appointment "${existingApt.title}" is now complete. Thank you for your business!\n\nBest regards,`,
+        html: customBodyHtml || `
           <div style="font-family: Arial, sans-serif; padding: 24px; color: #1a1a1a;">
             <h2 style="color: #2a7a4a;">Appointment Complete</h2>
             <p>Hello <strong>${customer.name}</strong>,</p>
