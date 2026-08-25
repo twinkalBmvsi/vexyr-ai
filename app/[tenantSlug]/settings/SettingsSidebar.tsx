@@ -1,6 +1,6 @@
 'use client'
 
-import { Settings as SettingsIcon, Bell, Lock, User, CreditCard, Mail } from 'lucide-react'
+import { Settings as SettingsIcon, Lock, User, CreditCard, Mail } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -13,7 +13,6 @@ export default function SettingsSidebar({ userRole, tenantSlug, accessPages = []
     { name: 'Team', href: '/team', icon: User, matchExact: false, routeId: 'settings/team' },
     { name: 'Custom Emails', href: '/emails', icon: Mail, matchExact: false, routeId: 'settings/emails', module: 'customEmails' },
     { name: 'Auto Follow-ups', href: '/follow-ups', icon: SettingsIcon, matchExact: false, routeId: 'settings/follow-ups', module: 'autoFollowups' },
-    { name: 'Notifications', href: '/notifications', icon: Bell, matchExact: false, routeId: 'settings/notifications' },
     { name: 'Security', href: '/security', icon: Lock, matchExact: false, routeId: 'settings/security' },
   ]
 

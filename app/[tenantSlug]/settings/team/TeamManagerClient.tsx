@@ -27,10 +27,9 @@ const AVAILABLE_PAGES = [
 const SETTINGS_PAGES = [
   { id: 'settings', label: 'General Settings' },
   { id: 'settings/billing', label: 'Billing' },
-  { id: 'settings/team', label: 'Team' },
+  { id: 'settings/team', label: 'Team Management' },
   { id: 'settings/emails', label: 'Custom Emails' },
   { id: 'settings/follow-ups', label: 'Auto Follow-ups' },
-  { id: 'settings/notifications', label: 'Notifications' },
   { id: 'settings/security', label: 'Security' },
 ]
 

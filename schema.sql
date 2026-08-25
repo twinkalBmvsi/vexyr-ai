@@ -9,7 +9,6 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- CLEANUP EXISTING TABLES & TYPES
 -- ==========================================
 DROP TABLE IF EXISTS public.invoices CASCADE;
-DROP TABLE IF EXISTS public.notifications CASCADE;
 DROP TABLE IF EXISTS public.audit_logs CASCADE;
 DROP TABLE IF EXISTS public.usage_metrics CASCADE;
 DROP TABLE IF EXISTS public.api_keys CASCADE;
@@ -313,17 +312,6 @@ CREATE TABLE public.audit_logs (
   created_at timestamptz DEFAULT now() NOT NULL
 );
 
-CREATE TABLE public.notifications (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
-  user_id uuid REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-  type text NOT NULL,
-  title text NOT NULL,
-  content text NOT NULL,
-  read_at timestamptz,
-  created_at timestamptz DEFAULT now() NOT NULL
-);
-
 CREATE TABLE public.invoices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
@@ -367,7 +355,6 @@ ALTER TABLE public.webhook_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.api_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.usage_metrics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
 
 -- Tenants Policy (Users can only view/update their own tenant)
@@ -396,7 +383,6 @@ CREATE POLICY "Tenant isolation" ON public.webhook_logs FOR ALL USING (tenant_id
 CREATE POLICY "Tenant isolation" ON public.api_keys FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
 CREATE POLICY "Tenant isolation" ON public.usage_metrics FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
 CREATE POLICY "Tenant isolation" ON public.audit_logs FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
-CREATE POLICY "Tenant isolation" ON public.notifications FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
 CREATE POLICY "Tenant isolation" ON public.invoices FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
 
 -- ==========================================
