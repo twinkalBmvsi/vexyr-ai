@@ -4,19 +4,40 @@ import { useState } from 'react'
 import { Send, AlertCircle, CheckCircle2, Info, Users, Loader2 } from 'lucide-react'
 import DOMPurify from 'isomorphic-dompurify'
 
-export default function BroadcastsClient({ tenantId, customers = [] }: { tenantId: string, customers?: any[] }) {
+export default function BroadcastsClient({ tenantId, customers = [], isTelegramConfigured = false }: { tenantId: string, customers?: any[], isTelegramConfigured?: boolean }) {
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [channel, setChannel] = useState<'email' | 'telegram' | 'whatsapp'>('email')
   const [statuses, setStatuses] = useState<Record<string, 'idle' | 'sending' | 'sent' | 'error'>>({})
   const [showConfirmModal, setShowConfirmModal] = useState(false)
 
+  // Filter customers based on the selected channel
+  const eligibleCustomers = customers.filter(c => {
+    if (channel === 'email') return c._hasUniqueEmail
+    if (channel === 'telegram') return c.channel === 'telegram'
+    if (channel === 'whatsapp') return c._hasUniquePhone
+    return false
+  })
+
+  // Identifier key based on channel to track statuses correctly
+  const getIdentifier = (c: any) => {
+    if (channel === 'email') return c.email
+    if (channel === 'telegram') return c.id // usually we track by internal ID or chat ID
+    if (channel === 'whatsapp') return c.phone
+    return c.id
+  }
+
   const handleInitialSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!subject.trim() || !body.trim()) {
-      setError('Subject and message body are required.')
+    if (channel === 'email' && !subject.trim()) {
+      setError('Subject is required for emails.')
+      return
+    }
+    if (!body.trim()) {
+      setError('Message body is required.')
       return
     }
     
@@ -35,7 +56,7 @@ export default function BroadcastsClient({ tenantId, customers = [] }: { tenantI
       const res = await fetch('/api/marketing/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, subject, body }),
+        body: JSON.stringify({ tenantId, subject: channel === 'email' ? subject : undefined, body, channel }),
       })
 
       if (!res.ok) {
@@ -67,7 +88,7 @@ export default function BroadcastsClient({ tenantId, customers = [] }: { tenantI
                 if (data.type === 'progress') {
                   setStatuses(prev => ({
                     ...prev,
-                    [data.email]: data.status
+                    [data.identifier]: data.status
                   }))
                 } else if (data.type === 'complete') {
                   finalCount = data.sentCount
@@ -110,41 +131,62 @@ export default function BroadcastsClient({ tenantId, customers = [] }: { tenantI
         </div>
       )}
 
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '-1rem' }}>
+        <label style={{ fontSize: '0.9rem', fontWeight: 500 }}>Select Channel</label>
+        <select 
+          value={channel} 
+          onChange={(e) => {
+            setChannel(e.target.value as any)
+            setError(null)
+          }}
+          className="form-input"
+          style={{ maxWidth: '300px' }}
+        >
+          <option value="email">Email Blast</option>
+          <option value="telegram">Telegram Broadcast</option>
+          <option value="whatsapp">WhatsApp Broadcast (Coming Soon)</option>
+        </select>
+      </div>
+
       <div style={{ padding: '1rem', background: 'var(--paper)', border: '1px solid var(--border)', borderRadius: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '1.5rem', color: 'var(--muted)', fontSize: '0.85rem' }}>
           <Info size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
           <p>
-            You can use HTML to design your promotional emails. 
-            The system will automatically append an unsubscribe link to the bottom of your email for compliance.
+            {channel === 'email' && "You can use HTML to design your promotional emails. The system will automatically append an unsubscribe link to the bottom of your email for compliance."}
+            {channel === 'telegram' && "Send a plain text broadcast to customers who have previously messaged your Telegram bot. Markdown is supported."}
+            {channel === 'whatsapp' && "WhatsApp requires pre-approved template messages to broadcast to customers outside the 24-hour window. This integration is currently under development."}
           </p>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
           
-          {/* Editor Form */}
           <form onSubmit={handleInitialSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.9rem', fontWeight: 500 }}>Email Subject</label>
-              <input 
-                type="text" 
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="e.g., Get 20% off your next visit!"
-                className="form-input"
-                required
-                disabled={isLoading}
-              />
-            </div>
+            {channel === 'email' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.9rem', fontWeight: 500 }}>Email Subject</label>
+                <input 
+                  type="text" 
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="e.g., Get 20% off your next visit!"
+                  className="form-input"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flexGrow: 1 }}>
-              <label style={{ fontSize: '0.9rem', fontWeight: 500 }}>Email HTML Source</label>
+              <label style={{ fontSize: '0.9rem', fontWeight: 500 }}>
+                {channel === 'email' ? 'Email HTML Source' : 'Message Content'}
+              </label>
               <textarea 
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="<html><body>...</body></html>"
+                placeholder={channel === 'email' ? "<html><body>...</body></html>" : "Type your promotional message here..."}
                 required
                 disabled={isLoading}
-                style={{ 
+                style={channel === 'email' ? { 
                   flexGrow: 1, 
                   minHeight: '400px', 
                   padding: '1rem', 
@@ -155,6 +197,17 @@ export default function BroadcastsClient({ tenantId, customers = [] }: { tenantI
                   border: '1px solid var(--border)', 
                   borderRadius: '4px',
                   resize: 'vertical'
+                } : {
+                  flexGrow: 1, 
+                  minHeight: '200px', 
+                  padding: '1rem', 
+                  fontFamily: 'system-ui, -apple-system, sans-serif', 
+                  fontSize: '15px', 
+                  background: 'transparent',
+                  color: 'var(--ink)', 
+                  border: '1px solid var(--border)', 
+                  borderRadius: '4px',
+                  resize: 'vertical'
                 }}
               />
             </div>
@@ -162,48 +215,50 @@ export default function BroadcastsClient({ tenantId, customers = [] }: { tenantI
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || channel === 'whatsapp' || (channel === 'telegram' && !isTelegramConfigured)}
                 className="btn-primary"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 2rem', opacity: isLoading ? 0.7 : 1, cursor: isLoading ? 'not-allowed' : 'pointer' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 2rem', opacity: (isLoading || channel === 'whatsapp' || (channel === 'telegram' && !isTelegramConfigured)) ? 0.7 : 1, cursor: (isLoading || channel === 'whatsapp' || (channel === 'telegram' && !isTelegramConfigured)) ? 'not-allowed' : 'pointer' }}
               >
                 <Send size={18} />
-                {isLoading ? 'Sending Broadcast...' : 'Send Broadcast to All Customers'}
+                {isLoading ? 'Sending Broadcast...' : channel === 'whatsapp' ? 'Coming Soon' : channel === 'telegram' && !isTelegramConfigured ? 'Telegram Not Configured' : 'Send Broadcast to All Customers'}
               </button>
             </div>
           </form>
 
-          {/* Live Preview Pane */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', height: '100%' }}>
-            <label style={{ fontSize: '0.9rem', fontWeight: 500 }}>Live Preview</label>
-            <div style={{ 
-              background: '#f3f4f6', 
-              borderRadius: '8px', 
-              padding: '2rem', 
-              border: '1px solid var(--border)', 
-              flexGrow: 1,
-              fontFamily: 'system-ui, -apple-system, sans-serif'
-            }}>
+          {/* Live Preview Pane - Only for Email */}
+          {channel === 'email' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', height: '100%' }}>
+              <label style={{ fontSize: '0.9rem', fontWeight: 500 }}>Live Preview</label>
               <div style={{ 
-                background: '#ffffff', 
+                background: '#f3f4f6', 
                 borderRadius: '8px', 
-                overflow: 'hidden', 
-                minHeight: '100%',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' 
+                padding: '2rem', 
+                border: '1px solid var(--border)', 
+                flexGrow: 1,
+                fontFamily: 'system-ui, -apple-system, sans-serif'
               }}>
-                {body ? (
-                  <iframe
-                    title="Email Preview"
-                    srcDoc={DOMPurify.sanitize(body, { WHOLE_DOCUMENT: true, ADD_TAGS: ['style', 'meta', 'title'] })}
-                    style={{ width: '100%', height: '100%', minHeight: '600px', border: 'none' }}
-                  />
-                ) : (
-                  <div style={{ padding: '2rem', color: '#9ca3af', fontStyle: 'italic' }}>
-                    Start typing HTML to preview...
-                  </div>
-                )}
+                <div style={{ 
+                  background: '#ffffff', 
+                  borderRadius: '8px', 
+                  overflow: 'hidden', 
+                  minHeight: '100%',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' 
+                }}>
+                  {body ? (
+                    <iframe
+                      title="Email Preview"
+                      srcDoc={DOMPurify.sanitize(body, { WHOLE_DOCUMENT: true, ADD_TAGS: ['style', 'meta', 'title'] })}
+                      style={{ width: '100%', height: '100%', minHeight: '600px', border: 'none' }}
+                    />
+                  ) : (
+                    <div style={{ padding: '2rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                      Start typing HTML to preview...
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
       </div>
@@ -216,25 +271,28 @@ export default function BroadcastsClient({ tenantId, customers = [] }: { tenantI
           </div>
           <div>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 600, fontFamily: 'DM Sans', margin: 0 }}>Audience</h3>
-            <p style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: 0 }}>{customers.length} recipients</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: 0 }}>{eligibleCustomers.length} recipients</p>
           </div>
         </div>
 
         <div style={{ flexGrow: 1, overflowY: 'auto', paddingRight: '0.5rem' }}>
-          {customers.length === 0 ? (
+          {eligibleCustomers.length === 0 ? (
             <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--muted)', fontSize: '0.85rem' }}>
-              No customers found with email addresses.
+              No customers found eligible for {channel === 'email' ? 'Email' : channel === 'telegram' ? 'Telegram' : 'WhatsApp'}.
             </div>
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {customers.map((c) => {
-                const status = statuses[c.email] || 'idle'
+              {eligibleCustomers.map((c) => {
+                const identifier = getIdentifier(c)
+                const status = statuses[identifier] || 'idle'
                 
                 return (
                   <li key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'var(--bg)', borderRadius: '6px', border: '1px solid var(--border)', opacity: status === 'idle' && isLoading ? 0.5 : 1, transition: 'all 0.2s' }}>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                       <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--ink)' }}>{c.name || 'Unknown'}</span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', wordBreak: 'break-all' }}>{c.email}</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', wordBreak: 'break-all' }}>
+                        {channel === 'email' ? c.email : channel === 'whatsapp' ? c.phone : 'Telegram User'}
+                      </span>
                     </div>
                     
                     <div style={{ paddingLeft: '1rem', flexShrink: 0 }}>
@@ -262,8 +320,8 @@ export default function BroadcastsClient({ tenantId, customers = [] }: { tenantI
             </div>
             
             <p style={{ color: 'var(--muted)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '2rem' }}>
-              Are you sure you want to send this promotional email to <strong>{customers.length}</strong> active customers? 
-              This action cannot be undone and will immediately begin dispatching emails from your server.
+              Are you sure you want to send this promotional {channel} to <strong>{eligibleCustomers.length}</strong> active customers? 
+              This action cannot be undone and will immediately begin dispatching messages from your server.
             </p>
             
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>

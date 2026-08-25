@@ -61,32 +61,60 @@ export default async function BroadcastsSettingsPage({ params }: { params: Promi
     )
   }
 
-  // Fetch all active customers with emails
+  // Fetch all active customers (we need email, phone, and channel for multi-channel broadcasting)
   const { data: rawCustomers } = await supabase
     .from('customers')
-    .select('id, name, email')
+    .select('id, name, email, phone, channel')
     .eq('tenant_id', tenant.id)
-    .not('email', 'is', null)
     .order('created_at', { ascending: false })
 
-  // Deduplicate by email so the audience list shows unique recipients
+  // Deduplicate for each channel to prevent multiple sends
   const uniqueEmails = new Set()
-  const customers = (rawCustomers || []).filter((c: any) => {
-    if (!c.email || uniqueEmails.has(c.email.toLowerCase())) {
-      return false
+  const uniquePhones = new Set()
+  const customers = (rawCustomers || []).map((c: any) => {
+    let hasUniqueEmail = false
+    let hasUniquePhone = false
+
+    if (c.email && !uniqueEmails.has(c.email.toLowerCase())) {
+      hasUniqueEmail = true
+      uniqueEmails.add(c.email.toLowerCase())
     }
-    uniqueEmails.add(c.email.toLowerCase())
-    return true
+    
+    if (c.phone && !uniquePhones.has(c.phone)) {
+      hasUniquePhone = true
+      uniquePhones.add(c.phone)
+    }
+
+    return {
+      ...c,
+      _hasUniqueEmail: hasUniqueEmail,
+      _hasUniquePhone: hasUniquePhone
+    }
   })
+
+  // Check if Telegram is configured
+  const { data: telegramChannel } = await supabase
+    .from('channels')
+    .select('id')
+    .eq('tenant_id', tenant.id)
+    .eq('provider', 'telegram')
+    .eq('is_active', true)
+    .maybeSingle()
+
+  const isTelegramConfigured = !!telegramChannel
 
   return (
     <div>
       <div className="dash-header">
         <h1 className="dash-title">Marketing Broadcasts</h1>
-        <p className="dash-subtitle">Send promotional emails and updates to all your customers.</p>
+        <p className="dash-subtitle">Send promotional messages to your customers across multiple channels.</p>
       </div>
 
-      <BroadcastsClient tenantId={tenant.id} customers={customers} />
+      <BroadcastsClient 
+        tenantId={tenant.id} 
+        customers={customers} 
+        isTelegramConfigured={isTelegramConfigured} 
+      />
     </div>
   )
 }

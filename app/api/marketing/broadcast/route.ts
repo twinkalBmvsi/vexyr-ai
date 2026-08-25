@@ -5,14 +5,22 @@ import { sendSmtpEmail, isSmtpConfigured } from '@/utils/email/smtp'
 
 export async function POST(request: Request) {
   try {
-    const { tenantId, subject, body } = await request.json()
+    const { tenantId, subject, body, channel = 'email' } = await request.json()
 
-    if (!tenantId || !subject || !body) {
+    if (!tenantId || !body) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    if (!isSmtpConfigured()) {
+    if (channel === 'email' && !subject) {
+      return NextResponse.json({ error: 'Subject is required for emails' }, { status: 400 })
+    }
+
+    if (channel === 'email' && !isSmtpConfigured()) {
       return NextResponse.json({ error: 'SMTP is not configured on the server. Cannot send emails.' }, { status: 500 })
+    }
+
+    if (channel === 'whatsapp') {
+      return NextResponse.json({ error: 'WhatsApp broadcast is not yet supported.' }, { status: 400 })
     }
 
     const supabase = await createClient()
@@ -48,7 +56,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Your workspace does not have the Broadcast Messaging module active.' }, { status: 403 })
     }
 
-    // Fetch tenant name for email signature
+    // Fetch tenant name
     const { data: tenant } = await adminClient
       .from('tenants')
       .select('name')
@@ -57,21 +65,58 @@ export async function POST(request: Request) {
       
     const tenantName = tenant?.name || 'Your Provider'
 
-    // 3. Fetch all customers with an email address
-    const { data: customers, error: customerError } = await adminClient
-      .from('customers')
-      .select('email')
-      .eq('tenant_id', tenantId)
-      .not('email', 'is', null)
+    let telegramToken: string | null = null
+
+    if (channel === 'telegram') {
+      const { data: telegramConfig } = await adminClient
+        .from('channels')
+        .select('provider_config')
+        .eq('tenant_id', tenantId)
+        .eq('provider', 'telegram')
+        .eq('is_active', true)
+        .single()
+      
+      telegramToken = (telegramConfig?.provider_config as any)?.token
+      if (!telegramToken) {
+        return NextResponse.json({ error: 'Telegram Bot Token is not configured.' }, { status: 400 })
+      }
+    }
+
+    // 3. Fetch customers based on the selected channel
+    let query = adminClient.from('customers').select('id, email, phone').eq('tenant_id', tenantId)
+    
+    if (channel === 'email') {
+      query = query.not('email', 'is', null)
+    } else if (channel === 'telegram') {
+      query = query.eq('channel', 'telegram').not('phone', 'is', null)
+    }
+
+    const { data: customers, error: customerError } = await query
 
     if (customerError || !customers) {
       return NextResponse.json({ error: 'Failed to fetch customers' }, { status: 500 })
     }
 
-    const uniqueEmails = Array.from(new Set(customers.map(c => c.email).filter(Boolean))) as string[]
+    // Deduplicate logic
+    const uniqueIdentifiers = Array.from(new Set(
+      customers.map(c => channel === 'email' ? c.email : (channel === 'telegram' ? c.id : c.phone)).filter(Boolean)
+    )) as string[]
 
-    if (uniqueEmails.length === 0) {
-      return NextResponse.json({ error: 'No customers found with valid email addresses.' }, { status: 400 })
+    // We also need the exact targets (email string or phone/chat ID) mapped
+    const targetMap = new Map()
+    for (const c of customers) {
+      if (channel === 'email' && c.email && !targetMap.has(c.email)) {
+        targetMap.set(c.email, c.email)
+      } else if (channel === 'telegram' && c.id && c.phone && !targetMap.has(c.id)) {
+        // Customer ID is the unique identifier for the frontend, but phone is the chat ID
+        targetMap.set(c.id, c.phone) 
+      }
+    }
+
+    const targets = Array.from(targetMap.entries()) // [ [identifier, targetValue] ]
+
+    if (targets.length === 0) {
+      return NextResponse.json({ error: 'No valid customers found for this channel.' }, { status: 400 })
     }
 
     // 4. Return a ReadableStream for Server-Sent Events (SSE)
@@ -101,30 +146,47 @@ export async function POST(request: Request) {
         let sentCount = 0
         let failedCount = 0
 
-        for (const email of uniqueEmails) {
+        for (const [identifier, targetValue] of targets) {
           try {
-            sendEvent({ type: 'progress', email, status: 'sending' })
+            sendEvent({ type: 'progress', identifier, status: 'sending' })
             
-            await sendSmtpEmail({
-              to: email,
-              subject: subject,
-              html: formattedHtml,
-              text: formattedText,
-            })
+            if (channel === 'email') {
+              await sendSmtpEmail({
+                to: targetValue,
+                subject: subject,
+                html: formattedHtml,
+                text: formattedText,
+              })
+            } else if (channel === 'telegram' && telegramToken) {
+              const res = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: targetValue,
+                  text: body,
+                  parse_mode: 'Markdown'
+                })
+              })
+              
+              if (!res.ok) {
+                const data = await res.json()
+                throw new Error(`Telegram API Error: ${data.description}`)
+              }
+            }
             
             sentCount++
-            sendEvent({ type: 'progress', email, status: 'sent' })
+            sendEvent({ type: 'progress', identifier, status: 'sent' })
             
-            // Artificial delay to prevent rate-limiting the SMTP server
+            // Delay to prevent rate limits
             await new Promise(resolve => setTimeout(resolve, 300))
           } catch (e) {
-            console.error(`Failed to send to ${email}:`, e)
+            console.error(`Failed to send to ${targetValue}:`, e)
             failedCount++
-            sendEvent({ type: 'progress', email, status: 'error' })
+            sendEvent({ type: 'progress', identifier, status: 'error' })
           }
         }
 
-        sendEvent({ type: 'complete', sentCount, failedCount, totalAttempted: uniqueEmails.length })
+        sendEvent({ type: 'complete', sentCount, failedCount, totalAttempted: targets.length })
         controller.close()
       }
     })
