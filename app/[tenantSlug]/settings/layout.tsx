@@ -41,6 +41,7 @@ export default async function SettingsLayout({ children, params }: { children: R
     if (mods) {
       if (mods.customEmails) activeModules.push('customEmails')
       if (mods.autoFollowups) activeModules.push('autoFollowups')
+      if (mods.broadcastMessaging) activeModules.push('broadcastMessaging')
     }
   }
 

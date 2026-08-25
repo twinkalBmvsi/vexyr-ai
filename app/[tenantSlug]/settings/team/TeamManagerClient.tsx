@@ -30,6 +30,7 @@ const SETTINGS_PAGES = [
   { id: 'settings/team', label: 'Team Management' },
   { id: 'settings/emails', label: 'Custom Emails' },
   { id: 'settings/follow-ups', label: 'Auto Follow-ups' },
+  { id: 'settings/broadcasts', label: 'Marketing Broadcasts' },
   { id: 'settings/security', label: 'Security' },
 ]
 

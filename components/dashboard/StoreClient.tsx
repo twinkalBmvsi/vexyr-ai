@@ -185,7 +185,7 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules }: { 
           { key: 'unlimitedChats' as keyof ModuleConfig, title: 'Unlimited Chats', icon: Zap, desc: 'Remove the 50 free chat limit. Perfect for high-volume businesses.' },
           { key: 'removeBranding' as keyof ModuleConfig, title: 'Remove Branding', icon: EyeOff, desc: 'Remove "Powered by Vexyr" from your chat widgets and emails for a fully white-labeled experience.' },
           { key: 'calendarSync' as keyof ModuleConfig, title: '3rd-Party Calendar Sync', icon: CalendarSync, desc: 'Sync your Vexyr appointments with external calendars (Google Calendar, Outlook).', comingSoon: true },
-          { key: 'broadcastMessaging' as keyof ModuleConfig, title: 'Broadcast Messaging', icon: Megaphone, desc: 'Send mass updates and promotional blasts to your entire customer base.', comingSoon: true },
+          { key: 'broadcastMessaging' as keyof ModuleConfig, title: 'Broadcast Messaging', icon: Megaphone, desc: 'Send mass updates and promotional blasts to your entire customer base.' },
           { key: 'reputationManagement' as keyof ModuleConfig, title: 'Reputation Management', icon: Star, desc: 'Monitor and respond to customer reviews automatically across platforms.', comingSoon: true },
           { key: 'metaAds' as keyof ModuleConfig, title: 'Meta Ads Reporting', icon: BarChart, desc: 'Advanced ROI tracking and conversion reports for your Meta Ads.', comingSoon: true },
           { key: 'googleAds' as keyof ModuleConfig, title: 'Google Ads Reporting', icon: LineChart, desc: 'Advanced ROI tracking and conversion reports for your Google Ads.', comingSoon: true },
