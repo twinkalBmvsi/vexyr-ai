@@ -59,10 +59,12 @@ export async function sendPasswordResetEmail(email: string, actionUrl: string) {
   })
 }
 
-export async function sendInviteEmail(email: string, actionUrl: string) {
+export async function sendInviteEmail(email: string, actionUrl: string, tenantName?: string) {
+  const title = tenantName ? `You have been invited to join ${tenantName}` : 'You have been invited to Vexyr'
+  
   const { text, html } = buildAuthEmail({
-    title: 'You have been invited to Vexyr',
-    preview: 'Accept your invitation to join the workspace and set up your account.',
+    title,
+    preview: `Accept your invitation to join ${tenantName || 'the workspace'} and set up your account.`,
     actionText: 'Accept invitation',
     actionUrl,
     fallbackText: 'If the button does not work, copy and paste this link into your browser:',
@@ -70,7 +72,7 @@ export async function sendInviteEmail(email: string, actionUrl: string) {
 
   return sendSmtpEmail({
     to: email,
-    subject: 'You have been invited to Vexyr',
+    subject: title,
     text,
     html,
   })

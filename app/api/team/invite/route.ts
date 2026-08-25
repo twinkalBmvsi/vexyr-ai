@@ -39,6 +39,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Only owners can invite team members' }, { status: 403 })
     }
 
+    // Fetch tenant name for email customization
+    const { data: tenantData } = await adminAuthClient
+      .from('tenants')
+      .select('name')
+      .eq('id', tenantId)
+      .single()
+    
+    const tenantName = tenantData?.name
+
     // 2. Check if already a member
     // Since we don't know their user_id yet if they are new, we can check by joining if possible,
     // but we'll just rely on the existing member check by email or wait until they accept.
@@ -103,7 +112,7 @@ export async function POST(request: Request) {
         finalActionUrl = buildSupabaseAuthLink('invite', linkData.properties.hashed_token, `/invite/accept?token=${token}`)
       }
 
-      await sendInviteEmail(email, finalActionUrl)
+      await sendInviteEmail(email, finalActionUrl, tenantName)
     } else {
       const { error: inviteError } = await adminAuthClient.auth.admin.inviteUserByEmail(email, {
         redirectTo: acceptUrl
