@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Bot, MessageCircle, Zap, Calendar, Users } from 'lucide-react'
 import DashboardAnalytics from '@/components/dashboard/DashboardAnalytics'
 import { createClient } from '@/utils/supabase/server'
+import FeedbackWidget from '@/components/dashboard/FeedbackWidget'
 
 export default async function TenantDashboard({
   params,
@@ -32,21 +33,37 @@ export default async function TenantDashboard({
   if (tenant) {
     companyName = tenant.name || resolvedParams.tenantSlug
 
+    let isOwner = false
     // Get the current user
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const { data: userRecord } = await supabase
         .from('users')
-        .select('full_name')
+        .select('full_name, role')
         .eq('user_id', user.id)
         .eq('tenant_id', tenant.id)
         .single()
       
-      if (userRecord && userRecord.full_name) {
-        currentUserName = userRecord.full_name
-      } else {
-        currentUserName = user.email ? user.email.split('@')[0] : 'User'
+      if (userRecord) {
+        if (userRecord.full_name) {
+          currentUserName = userRecord.full_name
+        } else {
+          currentUserName = user.email ? user.email.split('@')[0] : 'User'
+        }
+        isOwner = userRecord.role === 'owner'
       }
+    }
+
+    // Check if feedback exists
+    let hasFeedback = false
+    if (isOwner) {
+      const { data: feedbackData } = await supabase
+        .from('feedbacks')
+        .select('id')
+        .eq('tenant_id', tenant.id)
+        .limit(1)
+        .maybeSingle()
+      if (feedbackData) hasFeedback = true
     }
 
     // DATE FILTERING LOGIC
@@ -219,6 +236,10 @@ export default async function TenantDashboard({
           recentActivity={recentActivity}
           currentRange={currentRange}
         />
+
+        {isOwner && !hasFeedback && (
+          <FeedbackWidget tenantId={tenant.id} tenantSlug={resolvedParams.tenantSlug} />
+        )}
       </div>
     )
   }

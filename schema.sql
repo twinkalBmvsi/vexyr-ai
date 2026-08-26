@@ -480,3 +480,23 @@ CREATE POLICY "Tenant isolation" ON public.email_templates
 
 -- Add an index for quick lookup by tenant
 CREATE INDEX IF NOT EXISTS idx_email_templates_tenant ON public.email_templates(tenant_id);
+
+-- ==========================================
+-- FEEDBACKS
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS public.feedbacks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
+  user_id uuid REFERENCES public.users(id) ON DELETE SET NULL,
+  rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  comment text NOT NULL,
+  created_at timestamptz DEFAULT now() NOT NULL
+);
+
+-- Enable RLS
+ALTER TABLE public.feedbacks ENABLE ROW LEVEL SECURITY;
+
+-- Allow users to read/write their own tenant's feedbacks
+CREATE POLICY "Tenant isolation for feedbacks" ON public.feedbacks
+  FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
