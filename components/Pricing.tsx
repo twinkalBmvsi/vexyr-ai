@@ -142,6 +142,16 @@ export default function Pricing({ tenantId }: { tenantId?: string }) {
               <span className="module-name">Remove Branding</span>
               <span className="module-price">+$49/mo</span>
             </div>
+            
+            {/* Row 4 */}
+            <div className="module-item">
+              <span className="module-name">WhatsApp Channel</span>
+              <span className="module-price">+$29/mo</span>
+            </div>
+            <div className="module-item">
+              <span className="module-name">Telegram Channel</span>
+              <span className="module-price">+$19/mo</span>
+            </div>
           </div>
         </div>
 
