@@ -32,7 +32,15 @@ export default async function NewAgentPage({
       .maybeSingle(),
   ])
 
-  const extraBots: number = subscription?.modules?.extraBots || 0
+  let extraBots = 0
+  if (subscription?.modules?.extraBots) {
+    const eb = subscription.modules.extraBots
+    if (typeof eb === 'number') {
+      extraBots = eb
+    } else if (typeof eb === 'object' && eb.expires_at && new Date(eb.expires_at) > new Date()) {
+      extraBots = eb.quantity || 0
+    }
+  }
   const agentLimit = 1 + extraBots          // 1 base + purchased slots
   const currentCount = agentCount ?? 0
 
@@ -70,7 +78,16 @@ export default async function NewAgentPage({
         .eq('tenant_id', tenant.id)
         .maybeSingle(),
     ])
-    const limit = 1 + (sub?.modules?.extraBots || 0)
+    let extraBotsInAction = 0
+    if (sub?.modules?.extraBots) {
+      const eb = sub.modules.extraBots
+      if (typeof eb === 'number') {
+        extraBotsInAction = eb
+      } else if (typeof eb === 'object' && eb.expires_at && new Date(eb.expires_at) > new Date()) {
+        extraBotsInAction = eb.quantity || 0
+      }
+    }
+    const limit = 1 + extraBotsInAction
     if ((currentAgentCount ?? 0) >= limit) {
       throw new Error(`Agent limit reached (${limit}). Purchase more agent slots from the Store.`)
     }

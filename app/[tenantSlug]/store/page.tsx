@@ -31,6 +31,12 @@ export default async function StorePage({ params }: { params: Promise<{ tenantSl
 
   const currentModules = subscription?.modules || {}
 
+  // Fetch all active stripe prices
+  const { data: stripePrices } = await supabase
+    .from('stripe_prices')
+    .select('*')
+    .eq('active', true)
+
   return (
     <div className="dash-container">
       <div className="dash-header">
@@ -44,6 +50,7 @@ export default async function StorePage({ params }: { params: Promise<{ tenantSl
         tenantId={tenant.id} 
         tenantSlug={resolvedParams.tenantSlug}
         currentModules={currentModules} 
+        stripePrices={stripePrices || []}
       />
     </div>
   )

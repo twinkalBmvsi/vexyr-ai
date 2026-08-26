@@ -115,15 +115,12 @@ export async function POST(
       .eq('tenant_id', tenant.id)
       .maybeSingle()
 
-    if (subscription && subscription.status !== 'active' && subscription.status !== 'trialing') {
-      return NextResponse.json({
-        error: 'subscription_expired',
-        reply: "Sorry, this business's AI assistant is currently unavailable due to an inactive subscription.",
-        remaining: 0
-      }, { status: 403 })
-    }
+    // Removed global subscription status blocker because the base bot is free.
 
-    const isUnlimited = subscription?.modules?.unlimitedChats === true
+    const unlimitedMod = subscription?.modules?.unlimitedChats
+    const isUnlimited = unlimitedMod && (
+      unlimitedMod === true || (typeof unlimitedMod === 'object' && unlimitedMod.expires_at && new Date(unlimitedMod.expires_at) > new Date())
+    )
 
     if (!isUnlimited) {
       const { count: currentCount } = await supabaseAdmin

@@ -99,10 +99,15 @@ export async function POST(req: Request) {
       } catch (err) {
         console.error('Error fetching subscription details from Stripe:', err);
       }
+    } else if (session.mode === 'payment') {
+      // For one-off payments, the subscription itself doesn't have a current_period_end from Stripe.
+      // We rely entirely on the per-module expires_at fields.
+      // But we can set the global current_period_end to something far in the future or keep it null.
+      // We'll leave it as null, as modules dictate access.
     }
 
     // Extract purchased modules from metadata if they exist
-    let purchasedModules = {};
+    let purchasedModules: Record<string, any> = {};
     if (session.metadata?.modules) {
       try {
         purchasedModules = JSON.parse(session.metadata.modules);
@@ -112,12 +117,11 @@ export async function POST(req: Request) {
     }
 
     // Ensure the plan row exists — 'modular' is a virtual plan for module-only purchases.
-    // Without this the FK constraint on subscriptions.plan_id will reject the insert.
     await supabaseAdmin
       .from('plans')
       .upsert({
         id: planId,
-        name: planId.charAt(0).toUpperCase() + planId.slice(1), // e.g. 'Modular'
+        name: planId.charAt(0).toUpperCase() + planId.slice(1),
         monthly_price: 0,
         yearly_price: 0,
         limits: {},
@@ -130,33 +134,81 @@ export async function POST(req: Request) {
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
-    if (existingSub) {
-      // Merge purchased modules with existing ones.
-      // - Boolean modules: new purchase sets them to true
-      // - Quantity modules (extraBots): ADD the new quantity to existing count
-      const existingModules: Record<string, any> = existingSub.modules || {};
-      const mergedModules: Record<string, any> = { ...existingModules };
+    const addMonthsToDate = (date: Date, months: number) => {
+      const d = new Date(date);
+      d.setMonth(d.getMonth() + months);
+      return d;
+    };
 
-      for (const [key, value] of Object.entries(purchasedModules as Record<string, any>)) {
-        if (typeof value === 'number' && typeof existingModules[key] === 'number') {
-          // Accumulate quantities (e.g. had 1 agent, bought 2 more = 3 total)
-          mergedModules[key] = (existingModules[key] || 0) + value;
+    const processModules = (existing: Record<string, any>, purchased: Record<string, any>) => {
+      const merged: Record<string, any> = { ...existing };
+      
+      for (const [key, value] of Object.entries(purchased)) {
+        if (!value || typeof value !== 'object') continue;
+
+        const months = value.months || 1;
+        const now = new Date();
+        
+        let currentExpiresAt = now;
+        let currentQuantity = 0;
+
+        const existingMod = existing[key];
+        
+        // Handle legacy boolean/number formats
+        if (existingMod) {
+          if (typeof existingMod === 'boolean') {
+            // Treat boolean true as 1 month from now (legacy conversion)
+            currentExpiresAt = addMonthsToDate(now, 1);
+          } else if (typeof existingMod === 'number') {
+            currentQuantity = existingMod;
+            currentExpiresAt = addMonthsToDate(now, 1);
+          } else if (typeof existingMod === 'object') {
+            if (existingMod.expires_at) {
+              const expDate = new Date(existingMod.expires_at);
+              if (expDate > now) {
+                currentExpiresAt = expDate;
+              }
+            }
+            if (existingMod.quantity) {
+              currentQuantity = existingMod.quantity;
+            }
+          }
+        }
+
+        // Calculate new expiration (Time stacking)
+        const newExpiresAt = addMonthsToDate(currentExpiresAt, months).toISOString();
+
+        if (key === 'extraBots') {
+          merged[key] = {
+            quantity: currentQuantity + (value.quantity || 0),
+            expires_at: newExpiresAt
+          };
         } else {
-          mergedModules[key] = value;
+          merged[key] = {
+            expires_at: newExpiresAt
+          };
         }
       }
+      return merged;
+    };
+
+    if (existingSub) {
+      const mergedModules = processModules(existingSub.modules || {}, purchasedModules);
+
+      const updateData: any = {
+        plan_id: planId,
+        status: 'active',
+        billing_interval: billingInterval,
+        modules: Object.keys(purchasedModules).length > 0 ? mergedModules : existingSub.modules
+      };
+
+      if (customerId) updateData.stripe_customer_id = customerId;
+      if (subscriptionId) updateData.stripe_subscription_id = subscriptionId;
+      if (currentPeriodEnd) updateData.current_period_end = currentPeriodEnd;
 
       const { error } = await supabaseAdmin
         .from('subscriptions')
-        .update({
-          plan_id: planId, // can be 'modular'
-          status: 'active',
-          billing_interval: billingInterval,
-          current_period_end: currentPeriodEnd,
-          stripe_customer_id: customerId,
-          stripe_subscription_id: subscriptionId,
-          modules: Object.keys(purchasedModules).length > 0 ? mergedModules : existingModules
-        })
+        .update(updateData)
         .eq('id', existingSub.id);
         
       if (error) {
@@ -164,6 +216,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: `Update failed: ${error.message}` }, { status: 500 });
       }
     } else {
+      const initialModules = processModules({}, purchasedModules);
+
       const { error } = await supabaseAdmin
         .from('subscriptions')
         .insert({
@@ -174,7 +228,7 @@ export async function POST(req: Request) {
           current_period_end: currentPeriodEnd,
           stripe_customer_id: customerId,
           stripe_subscription_id: subscriptionId,
-          modules: Object.keys(purchasedModules).length > 0 ? purchasedModules : {}
+          modules: initialModules
         });
         
       if (error) {

@@ -19,71 +19,105 @@ type ModuleConfig = {
   removeBranding: boolean;
 }
 
-export default function StoreClient({ tenantId, tenantSlug, currentModules }: { tenantId: string, tenantSlug: string, currentModules: any }) {
-  const [cart, setCart] = useState<ModuleConfig>({
-    extraBots: 0,           // additional bots to purchase (delta only)
-    whatsappChannel: false, // start clean — isActive() shows what's already paid
-    telegramChannel: false,
-    customEmails: false,
-    autoFollowups: false,
-    unlimitedChats: false,
-    calendarSync: false,
-    broadcastMessaging: false,
-    reputationManagement: false,
-    metaAds: false,
-    googleAds: false,
-    telegramAds: false,
-    removeBranding: false,
+export default function StoreClient({ tenantId, tenantSlug, currentModules, stripePrices }: { tenantId: string, tenantSlug: string, currentModules: any, stripePrices: any[] }) {
+  type ModuleSelection = {
+    selected: boolean;
+    months: number;
+    quantity: number;
+  }
+
+  const [cart, setCart] = useState<Record<string, ModuleSelection>>({
+    extraBots: { selected: false, months: 1, quantity: 0 },
+    whatsappChannel: { selected: false, months: 1, quantity: 1 },
+    telegramChannel: { selected: false, months: 1, quantity: 1 },
+    customEmails: { selected: false, months: 1, quantity: 1 },
+    autoFollowups: { selected: false, months: 1, quantity: 1 },
+    unlimitedChats: { selected: false, months: 1, quantity: 1 },
+    calendarSync: { selected: false, months: 1, quantity: 1 },
+    broadcastMessaging: { selected: false, months: 1, quantity: 1 },
+    reputationManagement: { selected: false, months: 1, quantity: 1 },
+    metaAds: { selected: false, months: 1, quantity: 1 },
+    googleAds: { selected: false, months: 1, quantity: 1 },
+    telegramAds: { selected: false, months: 1, quantity: 1 },
+    removeBranding: { selected: false, months: 1, quantity: 1 },
   })
 
   const [isLoading, setIsLoading] = useState(false)
 
-  // Already-active agent count (from existing subscription)
-  const activeAgentCount: number = currentModules?.extraBots || 0
+  const activeAgentCount: number = currentModules?.extraBots?.quantity || 0
 
-  // Returns true if this boolean module is already active in the paid subscription
-  const isActive = (key: keyof ModuleConfig) => Boolean(currentModules?.[key])
-
-  // Pricing constants (display only)
-  const PRICES = {
-    extraBots: 15,
-    whatsappChannel: 29,
-    telegramChannel: 19,
-    customEmails: 28,
-    autoFollowups: 28,
-    unlimitedChats: 49,
-    calendarSync: 8,
-    broadcastMessaging: 49,
-    reputationManagement: 39,
-    metaAds: 49,
-    googleAds: 49,
-    telegramAds: 49,
-    removeBranding: 49,
+  // Check if a module is active by seeing if expires_at is in the future
+  const isActive = (key: string) => {
+    const mod = currentModules?.[key]
+    if (!mod) return false
+    if (typeof mod === 'boolean') return mod // legacy fallback
+    if (mod.expires_at) {
+      return new Date(mod.expires_at).getTime() > Date.now()
+    }
+    return false
   }
 
-  // Cart total — only count NEW additions (already-active modules are already billed)
-  const totalMonthly =
-    (cart.extraBots * PRICES.extraBots) +                  // extraBots is always the delta
-    (isActive('whatsappChannel') || !cart.whatsappChannel ? 0 : PRICES.whatsappChannel) +
-    (isActive('telegramChannel') || !cart.telegramChannel ? 0 : PRICES.telegramChannel) +
-    (isActive('customEmails') || !cart.customEmails ? 0 : PRICES.customEmails) +
-    (isActive('autoFollowups') || !cart.autoFollowups ? 0 : PRICES.autoFollowups) +
-    (isActive('unlimitedChats') || !cart.unlimitedChats ? 0 : PRICES.unlimitedChats) +
-    (isActive('calendarSync') || !cart.calendarSync ? 0 : PRICES.calendarSync) +
-    (isActive('broadcastMessaging') || !cart.broadcastMessaging ? 0 : PRICES.broadcastMessaging) +
-    (isActive('reputationManagement') || !cart.reputationManagement ? 0 : PRICES.reputationManagement) +
-    (isActive('metaAds') || !cart.metaAds ? 0 : PRICES.metaAds) +
-    (isActive('googleAds') || !cart.googleAds ? 0 : PRICES.googleAds) +
-    (isActive('telegramAds') || !cart.telegramAds ? 0 : PRICES.telegramAds) +
-    (isActive('removeBranding') || !cart.removeBranding ? 0 : PRICES.removeBranding)
+  // Base 1-month prices (fallback if DB prices missing)
+  const BASE_PRICES: Record<string, number> = {
+    extraBots: 15,
+    whatsappChannel: 20,
+    telegramChannel: 10,
+    customEmails: 10,
+    autoFollowups: 15,
+    unlimitedChats: 30,
+    calendarSync: 10,
+    broadcastMessaging: 25,
+    reputationManagement: 20,
+    metaAds: 15,
+    googleAds: 15,
+    telegramAds: 15,
+    removeBranding: 25,
+  }
+
+  // Find exact price from DB or fallback
+  const getPrice = (moduleKey: string, months: number): number => {
+    const dbPrice = stripePrices.find(p => p.module_key === moduleKey && parseInt(p.metadata?.months || '1') === months)
+    if (dbPrice) {
+      return dbPrice.unit_amount / 100
+    }
+    // Fallback calculation based on the plan matrix
+    const base = BASE_PRICES[moduleKey] || 15
+    if (months === 1) return base
+    if (months === 3) return Math.floor(base * 3 * 0.95)
+    if (months === 6) return Math.floor(base * 6 * 0.90)
+    if (months === 9) return Math.floor(base * 9 * 0.85)
+    if (months === 12) return Math.floor(base * 12 * 0.80)
+    return base * months
+  }
+
+  // Calculate cart total
+  let totalCost = 0
+  Object.keys(cart).forEach(key => {
+    const item = cart[key]
+    if (key === 'extraBots' && item.quantity > 0) {
+      totalCost += getPrice(key, item.months) * item.quantity
+    } else if (key !== 'extraBots' && item.selected) {
+      totalCost += getPrice(key, item.months)
+    }
+  })
 
   const handleCheckout = async () => {
     setIsLoading(true)
     try {
+      const checkoutPayload: Record<string, any> = {}
+      Object.keys(cart).forEach(key => {
+        const item = cart[key]
+        if (key === 'extraBots' && item.quantity > 0) {
+          checkoutPayload[key] = { quantity: item.quantity, months: item.months }
+        } else if (key !== 'extraBots' && item.selected) {
+          checkoutPayload[key] = { months: item.months }
+        }
+      })
+
       const res = await fetch('/api/stripe/checkout-modules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, modules: cart }),
+        body: JSON.stringify({ tenantId, modules: checkoutPayload }),
       })
       const data = await res.json()
       if (data.url) {
@@ -99,8 +133,34 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules }: { 
     }
   }
 
-  // Three-state button: Active (already subscribed) | Added (in cart) | Add Module | Coming Soon
-  const ModuleButton = ({ moduleKey, onToggle, comingSoon }: { moduleKey: keyof ModuleConfig; onToggle: () => void, comingSoon?: boolean }) => {
+  const DurationSelector = ({ moduleKey, currentMonths }: { moduleKey: string, currentMonths: number }) => (
+    <select 
+      value={currentMonths}
+      onChange={(e) => {
+        const months = parseInt(e.target.value)
+        setCart(prev => ({ ...prev, [moduleKey]: { ...prev[moduleKey], months } }))
+      }}
+      style={{
+        background: 'var(--paper)',
+        border: '1px solid var(--border)',
+        color: 'var(--ink)',
+        padding: '0.25rem 0.5rem',
+        borderRadius: '6px',
+        fontSize: '0.8rem',
+        fontFamily: 'DM Sans',
+        outline: 'none',
+        cursor: 'pointer'
+      }}
+    >
+      <option value={1}>1 Month</option>
+      <option value={3}>3 Months (Save 5%)</option>
+      <option value={6}>6 Months (Save 10%)</option>
+      <option value={9}>9 Months (Save 15%)</option>
+      <option value={12}>1 Year (Save 20%)</option>
+    </select>
+  )
+
+  const ModuleButton = ({ moduleKey, comingSoon }: { moduleKey: string, comingSoon?: boolean }) => {
     if (comingSoon) {
       return (
         <div style={{ padding: '0.5rem 1rem', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
@@ -108,42 +168,56 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules }: { 
         </div>
       )
     }
-    if (isActive(moduleKey)) {
-      return (
-        <div style={{ padding: '0.5rem 1rem', borderRadius: '8px', background: 'rgba(42,122,74,0.12)', color: '#2a7a4a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', border: '1px solid rgba(42,122,74,0.3)' }}>
-          <CheckCircle2 size={16} /> Active
-        </div>
-      )
-    }
-    const inCart = Boolean(cart[moduleKey])
+
+    const inCart = cart[moduleKey].selected
+    
     return (
-      <button
-        onClick={onToggle}
-        style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: inCart ? '1px solid var(--gold)' : 'none', background: inCart ? 'rgba(201,168,76,0.1)' : 'var(--paper)', color: inCart ? 'var(--gold)' : 'var(--ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}
-      >
-        {inCart ? <><CheckCircle2 size={16} /> Added</> : 'Add Module'}
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <DurationSelector moduleKey={moduleKey} currentMonths={cart[moduleKey].months} />
+        <button
+          onClick={() => setCart(prev => ({ ...prev, [moduleKey]: { ...prev[moduleKey], selected: !prev[moduleKey].selected } }))}
+          style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: inCart ? '1px solid var(--gold)' : 'none', background: inCart ? 'rgba(201,168,76,0.1)' : 'var(--paper)', color: inCart ? 'var(--gold)' : 'var(--ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}
+        >
+          {inCart ? <><CheckCircle2 size={16} /> Added</> : (isActive(moduleKey) ? 'Extend Time' : 'Add Module')}
+        </button>
+      </div>
     )
   }
 
-  const cardBorder = (key: keyof ModuleConfig) =>
-    isActive(key) ? '1px solid rgba(42,122,74,0.5)' : Boolean(cart[key]) ? '1px solid var(--gold)' : ''
+  const cardBorder = (key: string) => {
+    if (key === 'extraBots') return cart.extraBots.quantity > 0 ? '1px solid var(--gold)' : ''
+    return cart[key].selected ? '1px solid var(--gold)' : (isActive(key) ? '1px solid rgba(42,122,74,0.3)' : '')
+  }
+
+  const modulesList = [
+    { key: 'whatsappChannel', title: 'WhatsApp Channel', icon: MessageSquare, desc: 'Connect your WhatsApp Business account and let your AI agent handle customer conversations on WhatsApp.' },
+    { key: 'telegramChannel', title: 'Telegram Channel', icon: MessageSquare, desc: 'Connect your Telegram Bot and let your AI agent reply to customer messages directly on Telegram.' },
+    { key: 'customEmails', title: 'Custom Emails', icon: Mail, desc: 'Send automated confirmations and follow-ups from your own custom domain.' },
+    { key: 'autoFollowups', title: 'Auto Follow-ups', icon: CalendarSync, desc: 'Automatically chase up leads and request reviews after appointments.' },
+    { key: 'unlimitedChats', title: 'Unlimited Chats', icon: Zap, desc: 'Remove the 50 free chat limit. Perfect for high-volume businesses.' },
+    { key: 'removeBranding', title: 'Remove Branding', icon: EyeOff, desc: 'Remove "Powered by Vexyr" from your chat widgets and emails for a fully white-labeled experience.' },
+    { key: 'calendarSync', title: '3rd-Party Calendar Sync', icon: CalendarSync, desc: 'Sync your Vexyr appointments with external calendars (Google Calendar, Outlook).', comingSoon: true },
+    { key: 'broadcastMessaging', title: 'Broadcast Messaging', icon: Megaphone, desc: 'Send mass updates and promotional blasts to your entire customer base.' },
+    { key: 'reputationManagement', title: 'Reputation Management', icon: Star, desc: 'Monitor and respond to customer reviews automatically across platforms.', comingSoon: true },
+    { key: 'metaAds', title: 'Meta Ads Reporting', icon: BarChart, desc: 'Advanced ROI tracking and conversion reports for your Meta Ads.', comingSoon: true },
+    { key: 'googleAds', title: 'Google Ads Reporting', icon: LineChart, desc: 'Advanced ROI tracking and conversion reports for your Google Ads.', comingSoon: true },
+    { key: 'telegramAds', title: 'Telegram Ads Reporting', icon: PieChart, desc: 'Advanced ROI tracking and conversion reports for Telegram Ads.', comingSoon: true },
+  ]
 
   return (
     <div style={{ paddingBottom: '100px', position: 'relative' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
 
-        {/* Extra AI Agents (Unique card due to quantity stepper) */}
-        <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cart.extraBots > 0 ? '1px solid var(--gold)' : '' }}>
+        {/* Extra AI Agents */}
+        <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder('extraBots') }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
               <Bot size={24} color="var(--gold)" />
             </div>
             <div style={{ flexGrow: 1 }}>
               <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>Extra AI Agents</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES.extraBots}/mo per agent</p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${BASE_PRICES.extraBots}/mo per agent</p>
             </div>
-            {/* Show current active agent count as a badge */}
             {activeAgentCount > 0 && (
               <div style={{ padding: '0.3rem 0.75rem', borderRadius: '100px', background: 'rgba(42,122,74,0.1)', border: '1px solid rgba(42,122,74,0.3)', color: '#2a7a4a', fontSize: '0.75rem', fontFamily: 'DM Mono', whiteSpace: 'nowrap' }}>
                 {activeAgentCount} active
@@ -153,60 +227,55 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules }: { 
           <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
             Add specialized agents for Sales, Support, or Booking to handle different customer flows.
           </p>
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: 'auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Duration</span>
+              <DurationSelector moduleKey="extraBots" currentMonths={cart.extraBots.months} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Add more agents</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--paper)', borderRadius: '8px', padding: '0.25rem' }}>
                 <button
-                  onClick={() => setCart({ ...cart, extraBots: Math.max(0, cart.extraBots - 1) })}
+                  onClick={() => setCart(prev => ({ ...prev, extraBots: { ...prev.extraBots, quantity: Math.max(0, prev.extraBots.quantity - 1) } }))}
                   style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--ink)', cursor: 'pointer' }}
                 >-</button>
-                <span style={{ fontFamily: 'DM Mono', width: '20px', textAlign: 'center' }}>{cart.extraBots}</span>
+                <span style={{ fontFamily: 'DM Mono', width: '20px', textAlign: 'center' }}>{cart.extraBots.quantity}</span>
                 <button
-                  onClick={() => setCart({ ...cart, extraBots: cart.extraBots + 1 })}
+                  onClick={() => setCart(prev => ({ ...prev, extraBots: { ...prev.extraBots, quantity: prev.extraBots.quantity + 1 } }))}
                   style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--ink)', cursor: 'pointer' }}
                 >+</button>
               </div>
             </div>
-            {cart.extraBots > 0 && (
-              <p style={{ fontSize: '0.78rem', color: 'var(--gold)', fontFamily: 'DM Mono', textAlign: 'right' }}>
-                +${cart.extraBots * PRICES.extraBots}/mo → {activeAgentCount + cart.extraBots} total agents
+            {cart.extraBots.quantity > 0 && (
+              <p style={{ fontSize: '0.78rem', color: 'var(--gold)', fontFamily: 'DM Mono', textAlign: 'right', marginTop: '0.5rem' }}>
+                +${getPrice('extraBots', cart.extraBots.months) * cart.extraBots.quantity} ({cart.extraBots.months} months)
               </p>
             )}
           </div>
         </div>
 
-        {/* Standard Modules mapped from array */}
-        {[
-          { key: 'whatsappChannel' as keyof ModuleConfig, title: 'WhatsApp Channel', icon: MessageSquare, desc: 'Connect your WhatsApp Business account and let your AI agent handle customer conversations on WhatsApp.' },
-          { key: 'telegramChannel' as keyof ModuleConfig, title: 'Telegram Channel', icon: MessageSquare, desc: 'Connect your Telegram Bot and let your AI agent reply to customer messages directly on Telegram.' },
-          { key: 'customEmails' as keyof ModuleConfig, title: 'Custom Emails', icon: Mail, desc: 'Send automated confirmations and follow-ups from your own custom domain.' },
-          { key: 'autoFollowups' as keyof ModuleConfig, title: 'Auto Follow-ups', icon: CalendarSync, desc: 'Automatically chase up leads and request reviews after appointments.' },
-          { key: 'unlimitedChats' as keyof ModuleConfig, title: 'Unlimited Chats', icon: Zap, desc: 'Remove the 50 free chat limit. Perfect for high-volume businesses.' },
-          { key: 'removeBranding' as keyof ModuleConfig, title: 'Remove Branding', icon: EyeOff, desc: 'Remove "Powered by Vexyr" from your chat widgets and emails for a fully white-labeled experience.' },
-          { key: 'calendarSync' as keyof ModuleConfig, title: '3rd-Party Calendar Sync', icon: CalendarSync, desc: 'Sync your Vexyr appointments with external calendars (Google Calendar, Outlook).', comingSoon: true },
-          { key: 'broadcastMessaging' as keyof ModuleConfig, title: 'Broadcast Messaging', icon: Megaphone, desc: 'Send mass updates and promotional blasts to your entire customer base.' },
-          { key: 'reputationManagement' as keyof ModuleConfig, title: 'Reputation Management', icon: Star, desc: 'Monitor and respond to customer reviews automatically across platforms.', comingSoon: true },
-          { key: 'metaAds' as keyof ModuleConfig, title: 'Meta Ads Reporting', icon: BarChart, desc: 'Advanced ROI tracking and conversion reports for your Meta Ads.', comingSoon: true },
-          { key: 'googleAds' as keyof ModuleConfig, title: 'Google Ads Reporting', icon: LineChart, desc: 'Advanced ROI tracking and conversion reports for your Google Ads.', comingSoon: true },
-          { key: 'telegramAds' as keyof ModuleConfig, title: 'Telegram Ads Reporting', icon: PieChart, desc: 'Advanced ROI tracking and conversion reports for Telegram Ads.', comingSoon: true },
-        ].map((module) => (
+        {/* Standard Modules */}
+        {modulesList.map((module) => (
           <div key={module.key} className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: cardBorder(module.key) }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={{ padding: '0.75rem', background: 'rgba(201,168,76,0.1)', borderRadius: '12px' }}>
                 <module.icon size={24} color="var(--gold)" />
               </div>
-              <div>
-                <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>{module.title}</h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>${PRICES[module.key as keyof typeof PRICES]}/mo</p>
+              <div style={{ flexGrow: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontFamily: 'DM Sans', fontWeight: 600 }}>{module.title}</h3>
+                  {isActive(module.key) && <CheckCircle2 size={14} color="#2a7a4a" />}
+                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                  ${getPrice(module.key, cart[module.key].months)} for {cart[module.key].months} mo.
+                </p>
               </div>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.5, flexGrow: 1 }}>
               {module.desc}
             </p>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Status</span>
-              <ModuleButton moduleKey={module.key} comingSoon={module.comingSoon} onToggle={() => setCart({ ...cart, [module.key]: !cart[module.key] })} />
+              <ModuleButton moduleKey={module.key} comingSoon={module.comingSoon} />
             </div>
           </div>
         ))}
@@ -218,14 +287,14 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules }: { 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <ShoppingCart size={18} color="var(--muted)" />
           <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Your Selection</div>
-            <div style={{ fontSize: '1.2rem', fontFamily: 'DM Mono', fontWeight: 600 }}>${totalMonthly}<span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>/mo</span></div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Payment</div>
+            <div style={{ fontSize: '1.2rem', fontFamily: 'DM Mono', fontWeight: 600 }}>${totalCost}</div>
           </div>
         </div>
         <button
           onClick={handleCheckout}
-          disabled={totalMonthly === 0 || isLoading}
-          style={{ background: 'var(--gold)', color: '#000', border: 'none', borderRadius: '50px', padding: '0.75rem 2rem', fontSize: '0.9rem', fontWeight: 500, cursor: totalMonthly === 0 ? 'not-allowed' : 'pointer', opacity: totalMonthly === 0 ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          disabled={totalCost === 0 || isLoading}
+          style={{ background: 'var(--gold)', color: '#000', border: 'none', borderRadius: '50px', padding: '0.75rem 2rem', fontSize: '0.9rem', fontWeight: 500, cursor: totalCost === 0 ? 'not-allowed' : 'pointer', opacity: totalCost === 0 ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
           {isLoading ? 'Processing...' : 'Proceed to Checkout'}
         </button>

@@ -67,7 +67,10 @@ export default async function TestChatPage({
     .eq('tenant_id', tenant.id)
     .maybeSingle()
 
-  const isUnlimited = sub?.modules?.unlimitedChats === true
+  const unlimitedMod = sub?.modules?.unlimitedChats
+  const isUnlimited = unlimitedMod && (
+    unlimitedMod === true || (typeof unlimitedMod === 'object' && unlimitedMod.expires_at && new Date(unlimitedMod.expires_at) > new Date())
+  )
   const used = count || 0
   const remaining = isUnlimited ? null : Math.max(0, 50 - used)
 

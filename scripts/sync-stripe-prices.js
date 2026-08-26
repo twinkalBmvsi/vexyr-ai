@@ -118,7 +118,10 @@ async function main() {
       currency: price.currency,
       recurring_interval: price.recurring?.interval || null,
       active: price.active,
-      metadata: price.metadata || {},
+      metadata: { 
+        ...(typeof price.product === 'object' ? price.product.metadata : {}),
+        ...price.metadata 
+      },
       synced_at: new Date().toISOString(),
     };
   });
@@ -133,6 +136,20 @@ async function main() {
   if (error) {
     console.error('❌  Supabase upsert failed:', error.message);
     process.exit(1);
+  }
+
+  // Clean up archived/removed prices from Supabase
+  console.log('🧹  Cleaning up archived prices from database...\n');
+  const activePriceIds = rows.map(r => r.id);
+  if (activePriceIds.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('stripe_prices')
+      .delete()
+      .not('id', 'in', `(${activePriceIds.join(',')})`);
+      
+    if (deleteError) {
+      console.error('❌  Failed to clean up archived prices:', deleteError.message);
+    }
   }
 
   console.log('✅  Sync complete!\n');

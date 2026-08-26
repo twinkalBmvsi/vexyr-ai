@@ -50,7 +50,10 @@ export async function POST(request: Request) {
       .eq('tenant_id', tenantId)
       .single()
 
-    const hasBroadcastModule = subscription?.status === 'active' && (subscription.modules as Record<string, any>)?.broadcastMessaging === true
+    const broadcastMod = (subscription?.modules as Record<string, any>)?.broadcastMessaging
+    const hasBroadcastModule = broadcastMod && (
+      broadcastMod === true || (typeof broadcastMod === 'object' && broadcastMod.expires_at && new Date(broadcastMod.expires_at) > new Date())
+    )
 
     if (!hasBroadcastModule) {
       return NextResponse.json({ error: 'You must have an active subscription with the Broadcast Messaging module to use this feature.' }, { status: 403 })

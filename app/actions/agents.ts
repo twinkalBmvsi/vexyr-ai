@@ -145,10 +145,6 @@ export async function saveAgentConfig(
     .eq('tenant_id', tenant.id)
     .maybeSingle()
 
-  if (subscription && subscription.status !== 'active' && subscription.status !== 'trialing') {
-    return { success: false, error: 'Your subscription is expired. Please renew to modify your AI agents.' }
-  }
-
   const planId = subscription?.plan_id || tenant.plan_id || 'free'
 
   const activeChannels: string[] = []
@@ -164,12 +160,20 @@ export async function saveAgentConfig(
 
   const modules = moduleSub?.modules || {}
 
-  // Each channel requires its own purchased module
-  if (data.whatsapp && !modules.whatsappChannel) {
-    return { success: false, error: 'You need to purchase the WhatsApp Channel module from the Store to activate WhatsApp.' }
+  const checkModule = (key: string) => {
+    const mod = modules[key]
+    if (!mod) return false
+    if (typeof mod === 'boolean') return mod
+    if (mod.expires_at) return new Date(mod.expires_at) > new Date()
+    return false
   }
-  if (data.telegram && !modules.telegramChannel) {
-    return { success: false, error: 'You need to purchase the Telegram Channel module from the Store to activate Telegram.' }
+
+  // Each channel requires its own purchased module
+  if (data.whatsapp && !checkModule('whatsappChannel')) {
+    return { success: false, error: 'You need an active WhatsApp Channel module to enable WhatsApp.' }
+  }
+  if (data.telegram && !checkModule('telegramChannel')) {
+    return { success: false, error: 'You need an active Telegram Channel module to enable Telegram.' }
   }
 
   let targetAgentId = agentId
@@ -186,7 +190,13 @@ export async function saveAgentConfig(
       return { success: false, error: 'Failed to check agent limits' }
     }
 
-    const maxAgents = modules.extraAgents ? 5 : 1
+    let maxAgents = 1
+    const extraBotsMod = modules.extraBots
+    if (extraBotsMod && typeof extraBotsMod === 'object' && extraBotsMod.expires_at && new Date(extraBotsMod.expires_at) > new Date()) {
+      maxAgents += (extraBotsMod.quantity || 0)
+    } else if (extraBotsMod && typeof extraBotsMod === 'number') {
+      maxAgents += extraBotsMod
+    }
 
     if (count !== null && count >= maxAgents) {
       return { success: false, error: `You can have up to ${maxAgents} agent${maxAgents > 1 ? 's' : ''} on your current plan. Purchase the Extra Agents module from the Store to add more.` }

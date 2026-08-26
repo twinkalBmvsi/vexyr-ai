@@ -444,7 +444,7 @@ CREATE TABLE IF NOT EXISTS public.stripe_prices (
   id text PRIMARY KEY,                     -- Stripe Price ID (e.g., price_xxx)
   product_id text NOT NULL,               -- Stripe Product ID
   product_name text NOT NULL,             -- Human-readable product name (from Stripe)
-  module_key text UNIQUE,                 -- Our internal key (e.g., 'extraBots', 'calendarSync')
+  module_key text,                 -- Our internal key (e.g., 'extraBots', 'calendarSync')
   nickname text,                          -- Price nickname set in Stripe dashboard
   unit_amount integer,                    -- Price in cents
   currency text DEFAULT 'usd',

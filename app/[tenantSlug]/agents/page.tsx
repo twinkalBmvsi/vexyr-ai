@@ -39,7 +39,14 @@ export default async function AgentsPage({
       .select('modules')
       .eq('tenant_id', tenant.id)
       .maybeSingle()
-    if (subscription?.modules?.extraBots) extraBots = subscription.modules.extraBots
+    if (subscription?.modules?.extraBots) {
+      const eb = subscription.modules.extraBots
+      if (typeof eb === 'number') {
+        extraBots = eb
+      } else if (typeof eb === 'object' && eb.expires_at && new Date(eb.expires_at) > new Date()) {
+        extraBots = eb.quantity || 0
+      }
+    }
   }
 
   const agentLimit = BASE_AGENT_LIMIT + extraBots

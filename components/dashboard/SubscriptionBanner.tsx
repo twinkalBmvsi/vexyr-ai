@@ -3,34 +3,52 @@ import { AlertTriangle, AlertCircle } from 'lucide-react'
 
 interface SubscriptionBannerProps {
   status: string
-  currentPeriodEnd: string | null
+  modules: any
   tenantSlug: string
 }
 
-export default function SubscriptionBanner({ status, currentPeriodEnd, tenantSlug }: SubscriptionBannerProps) {
-  // If no subscription status is known, we default to hidden
-  if (!status) return null
-
-  const isExpired = status !== 'active' && status !== 'trialing'
-  let isExpiringSoon = false
-  let daysLeft = 0
-
-  if (!isExpired && currentPeriodEnd) {
-    const end = new Date(currentPeriodEnd).getTime()
-    const now = new Date().getTime()
-    const diff = end - now
-    daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24))
-
-    if (daysLeft > 0 && daysLeft <= 10) {
-      isExpiringSoon = true
-    } else if (daysLeft <= 0) {
-      // Sometimes webhooks are delayed, if it's past the date, we treat it as expired warning
-      isExpiringSoon = true
-      daysLeft = 0
-    }
+export default function SubscriptionBanner({ status, modules, tenantSlug }: SubscriptionBannerProps) {
+  // Check module expirations
+  const now = new Date().getTime()
+  
+  const expiringModules: string[] = []
+  const expiredModules: string[] = []
+  
+  // A mapping for readable names
+  const moduleNames: Record<string, string> = {
+    extraBots: 'Extra AI Agents',
+    whatsappChannel: 'WhatsApp Channel',
+    telegramChannel: 'Telegram Channel',
+    customEmails: 'Custom Emails',
+    autoFollowups: 'Auto Follow-ups',
+    unlimitedChats: 'Unlimited Chats',
+    calendarSync: 'Calendar Sync',
+    broadcastMessaging: 'Broadcast Messaging',
+    reputationManagement: 'Reputation Management',
+    metaAds: 'Meta Ads',
+    googleAds: 'Google Ads',
+    telegramAds: 'Telegram Ads',
+    removeBranding: 'Remove Branding'
+  }
+  
+  if (modules && typeof modules === 'object') {
+    Object.keys(modules).forEach(key => {
+      const mod = modules[key]
+      if (mod && typeof mod === 'object' && mod.expires_at) {
+        const end = new Date(mod.expires_at).getTime()
+        const diff = end - now
+        const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24))
+        
+        if (daysLeft <= 0) {
+          expiredModules.push(moduleNames[key] || key)
+        } else if (daysLeft <= 10) {
+          expiringModules.push(moduleNames[key] || key)
+        }
+      }
+    })
   }
 
-  if (isExpired) {
+  if (expiredModules.length > 0) {
     return (
       <div style={{
         background: '#fef2f2',
@@ -44,18 +62,21 @@ export default function SubscriptionBanner({ status, currentPeriodEnd, tenantSlu
         fontSize: '0.9rem',
         fontWeight: 500,
         zIndex: 50,
-        width: '100%'
+        width: '100%',
+        flexWrap: 'wrap'
       }}>
         <AlertCircle size={18} />
-        Your subscription has expired. Premium modules and services are disabled.
-        <Link href="/settings/billing" style={{ color: '#991b1b', textDecoration: 'underline', marginLeft: '8px', fontWeight: 600 }}>
-          Renew now
+        {expiredModules.length === 1 
+          ? `Your ${expiredModules[0]} module has expired and is disabled.`
+          : `${expiredModules.length} of your premium modules have expired.`}
+        <Link href={`/${tenantSlug}/store`} style={{ color: '#991b1b', textDecoration: 'underline', marginLeft: '8px', fontWeight: 600 }}>
+          Renew now in Store
         </Link>
       </div>
     )
   }
 
-  if (isExpiringSoon) {
+  if (expiringModules.length > 0) {
     return (
       <div style={{
         background: '#fffbeb',
@@ -69,14 +90,15 @@ export default function SubscriptionBanner({ status, currentPeriodEnd, tenantSlu
         fontSize: '0.9rem',
         fontWeight: 500,
         zIndex: 50,
-        width: '100%'
+        width: '100%',
+        flexWrap: 'wrap'
       }}>
         <AlertTriangle size={18} />
-        {daysLeft > 0 
-          ? `Your subscription will expire in ${daysLeft} day${daysLeft > 1 ? 's' : ''}. Please renew to avoid service interruption.`
-          : 'Your subscription is expiring today. Please renew to avoid service interruption.'}
-        <Link href="/settings/billing" style={{ color: '#92400e', textDecoration: 'underline', marginLeft: '8px', fontWeight: 600 }}>
-          Renew now
+        {expiringModules.length === 1 
+          ? `Your ${expiringModules[0]} module will expire within 10 days.`
+          : `${expiringModules.length} of your modules are expiring soon.`} Please renew to avoid service interruption.
+        <Link href={`/${tenantSlug}/store`} style={{ color: '#92400e', textDecoration: 'underline', marginLeft: '8px', fontWeight: 600 }}>
+          Renew now in Store
         </Link>
       </div>
     )

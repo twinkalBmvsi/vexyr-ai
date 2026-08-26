@@ -17,27 +17,20 @@ type PriceMap = Record<string, string>; // moduleKey -> Stripe Price ID
 
 /**
  * Fetches real Stripe Price IDs from the `stripe_prices` Supabase table.
- * Run `node scripts/sync-stripe-prices.js` first to populate this table.
+ * Returns an array of prices so we can filter by module_key and months.
  */
-async function fetchPriceMap(): Promise<PriceMap> {
+async function fetchPrices(): Promise<any[]> {
   const { data, error } = await supabaseAdmin
     .from('stripe_prices')
-    .select('module_key, id')
+    .select('*')
     .eq('active', true)
     .not('module_key', 'is', null);
 
   if (error) {
     console.error('Failed to fetch stripe_prices from Supabase:', error.message);
-    return {};
+    return [];
   }
-
-  const map: PriceMap = {};
-  for (const row of data ?? []) {
-    if (row.module_key) {
-      map[row.module_key] = row.id;
-    }
-  }
-  return map;
+  return data || [];
 }
 
 export async function POST(req: Request) {
@@ -68,34 +61,23 @@ export async function POST(req: Request) {
     }
 
     // Fetch real Stripe Price IDs from Supabase
-    const PRICES = await fetchPriceMap();
+    const STRIPE_PRICES = await fetchPrices();
 
     // -------------------------------------------------------
-    // SAFETY: Fetch the tenant's existing active modules so
-    // we never re-charge for something they already have.
+    // In prepaid one-off mode, users CAN repurchase active modules
+    // to extend their time. We just pass the net items to Stripe.
     // -------------------------------------------------------
-    const { data: existingSub } = await supabaseAdmin
-      .from('subscriptions')
-      .select('modules')
-      .eq('tenant_id', tenantId)
-      .eq('status', 'active')
-      .maybeSingle();
 
-    const existingModules: Record<string, any> = existingSub?.modules || {};
-
-    // Build only the NET NEW modules — skip anything already subscribed to.
     const newModules: Record<string, any> = {};
 
     for (const [key, value] of Object.entries(modules as Record<string, any>)) {
       if (key === 'extraBots') {
-        // Quantity module: only include if > 0 (we only ever send the additional delta)
-        if (typeof value === 'number' && value > 0) {
-          newModules[key] = value;
+        if (typeof value === 'object' && value.quantity > 0) {
+          newModules[key] = { quantity: value.quantity, months: value.months || 1 };
         }
       } else {
-        // Boolean module: only include if newly selected AND not already active
-        if (value && !existingModules[key]) {
-          newModules[key] = value;
+        if (typeof value === 'object' && value.months) {
+          newModules[key] = { months: value.months };
         }
       }
     }
@@ -103,57 +85,74 @@ export async function POST(req: Request) {
     // Build Line Items based on net-new module selection
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
 
-    const addItem = (key: string, quantity = 1) => {
-      const priceId = PRICES[key];
-      if (!priceId) {
-        console.warn(`⚠️  No Stripe Price ID found for module key: "${key}". Run sync-stripe-prices.js.`);
+    const addItem = (key: string, months: number, quantity = 1) => {
+      // Find the price for this module and duration
+      // Since Stripe metadata was missing on creation, we sort by unit_amount.
+      // We expect 5 tiers: 1m, 3m, 6m, 9m, 12m.
+      const pricesForModule = STRIPE_PRICES
+        .filter(p => p.module_key === key)
+        .sort((a, b) => a.unit_amount - b.unit_amount);
+
+      let price;
+
+      if (pricesForModule.length === 5) {
+        if (months === 1) price = pricesForModule[0];
+        else if (months === 3) price = pricesForModule[1];
+        else if (months === 6) price = pricesForModule[2];
+        else if (months === 9) price = pricesForModule[3];
+        else if (months === 12) price = pricesForModule[4];
+      }
+
+      // Fallback: try to match by metadata if they added it manually later
+      if (!price) {
+        price = STRIPE_PRICES.find(p => p.module_key === key && parseInt(p.metadata?.months || '0') === months);
+      }
+      
+      if (!price) {
+        console.warn(`⚠️  No Stripe Price ID found for module "${key}" with duration ${months} months.`);
+        // For development, if price not found, we could abort, but to avoid breaking while prices are created:
         return false;
       }
-      lineItems.push({ price: priceId, quantity });
+      
+      lineItems.push({ price: price.id, quantity });
       return true;
     };
 
-    if (newModules.extraBots > 0)           addItem('extraBots', newModules.extraBots);
-    if (newModules.whatsappChannel)          addItem('whatsappChannel');
-    if (newModules.telegramChannel)          addItem('telegramChannel');
-    if (newModules.customEmails)             addItem('customEmails');
-    if (newModules.autoFollowups)            addItem('autoFollowups');
-    if (newModules.unlimitedChats)           addItem('unlimitedChats');
-    if (newModules.calendarSync)             addItem('calendarSync');
-    if (newModules.broadcastMessaging)       addItem('broadcastMessaging');
-    if (newModules.reputationManagement)     addItem('reputationManagement');
-    if (newModules.metaAds)                  addItem('metaAds');
-    if (newModules.googleAds)                addItem('googleAds');
-    if (newModules.telegramAds)              addItem('telegramAds');
-    if (newModules.removeBranding)           addItem('removeBranding');
-    if (newModules.messagingChannels)        addItem('messagingChannels');
+    let missingPrices = false;
+
+    if (newModules.extraBots) {
+      const added = addItem('extraBots', newModules.extraBots.months, newModules.extraBots.quantity);
+      if (!added) missingPrices = true;
+    }
+
+    Object.keys(newModules).forEach(key => {
+      if (key !== 'extraBots') {
+        const added = addItem(key, newModules[key].months, 1);
+        if (!added) missingPrices = true;
+      }
+    });
+
+    if (missingPrices) {
+      return NextResponse.json({ error: 'Some selected pricing tiers are not configured in Stripe yet. Please contact support or try a different duration.' }, { status: 400 });
+    }
 
     if (lineItems.length === 0) {
-      return NextResponse.json({ error: 'No new modules selected — all chosen modules are already active in your subscription.' }, { status: 400 });
+      return NextResponse.json({ error: 'No valid modules selected.' }, { status: 400 });
     }
 
 
-    // Always use the root site URL (not the subdomain origin) so /payment-success resolves correctly.
-    // e.g. tenant.localhost:3000 would 404 since the route lives on root domain.
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      mode: 'subscription',
+      mode: 'payment', // ONE-OFF MODE
       line_items: lineItems,
       success_url: `${siteUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}&tenantId=${tenantId}`,
       cancel_url: `${siteUrl}/store`,
-      client_reference_id: `${tenantId}_modular_month`,
-      subscription_data: {
-        metadata: {
-          tenantId
-        }
-      },
+      client_reference_id: `${tenantId}_modular_oneoff`,
       metadata: {
         tenantId,
-        // Only store the NET NEW modules in metadata — the webhook should only record
-        // what was actually purchased in this session, not the full cart state.
         modules: JSON.stringify(newModules)
       },
     });

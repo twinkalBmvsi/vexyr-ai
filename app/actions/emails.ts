@@ -18,7 +18,10 @@ export async function getEmailTemplates(tenantId: string) {
     .eq('tenant_id', tenantId)
     .single()
 
-  const hasCustomEmails = subscription?.status === 'active' && (subscription.modules as Record<string, any>)?.customEmails === true
+  const customMod = (subscription?.modules as Record<string, any>)?.customEmails
+  const hasCustomEmails = customMod && (
+    customMod === true || (typeof customMod === 'object' && customMod.expires_at && new Date(customMod.expires_at) > new Date())
+  )
   
   if (!hasCustomEmails) {
     throw new Error('Custom Emails module is not active for this workspace.')
@@ -51,7 +54,10 @@ export async function saveEmailTemplate(tenantId: string, templateType: string, 
     .eq('tenant_id', tenantId)
     .single()
 
-  const hasCustomEmails = subscription?.status === 'active' && (subscription.modules as Record<string, any>)?.customEmails === true
+  const customMod = (subscription?.modules as Record<string, any>)?.customEmails
+  const hasCustomEmails = customMod && (
+    customMod === true || (typeof customMod === 'object' && customMod.expires_at && new Date(customMod.expires_at) > new Date())
+  )
   
   if (!hasCustomEmails) {
     throw new Error('Custom Emails module is not active for this workspace.')
