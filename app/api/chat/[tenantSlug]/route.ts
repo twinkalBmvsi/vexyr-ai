@@ -109,12 +109,19 @@ export async function POST(
     startOfMonth.setDate(1)
     startOfMonth.setHours(0, 0, 0, 0)
 
-    // Check unlimited plan first
     const { data: subscription } = await supabaseAdmin
       .from('subscriptions')
-      .select('modules')
+      .select('status, modules')
       .eq('tenant_id', tenant.id)
       .maybeSingle()
+
+    if (subscription && subscription.status !== 'active' && subscription.status !== 'trialing') {
+      return NextResponse.json({
+        error: 'subscription_expired',
+        reply: "Sorry, this business's AI assistant is currently unavailable due to an inactive subscription.",
+        remaining: 0
+      }, { status: 403 })
+    }
 
     const isUnlimited = subscription?.modules?.unlimitedChats === true
 

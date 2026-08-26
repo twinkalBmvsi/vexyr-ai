@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import Sidebar from '@/components/dashboard/Sidebar'
 import RoleGuard from '@/components/dashboard/RoleGuard'
+import SubscriptionBanner from '@/components/dashboard/SubscriptionBanner'
 
 export default async function TenantLayout({
   children,
@@ -49,6 +50,18 @@ export default async function TenantLayout({
 
   companyName = tenant.name || resolvedParams.tenantSlug
 
+  // 3. Fetch subscription to determine banner status
+  const { data: subscription } = await supabase
+    .from('subscriptions')
+    .select('status, current_period_end')
+    .eq('tenant_id', tenant.id)
+    .maybeSingle()
+
+  // Default to active if they are somehow missing a subscription record (e.g. Free Tier or modular fallback)
+  // Actually if missing, we can treat it as 'active' for banner purposes so we don't block free users.
+  const subStatus = subscription?.status || 'active'
+  const subEnd = subscription?.current_period_end || null
+
   return (
     <div className="dashboard-layout">
       <Sidebar 
@@ -57,15 +70,22 @@ export default async function TenantLayout({
         userRole={userRecord.role}
         accessPages={userRecord.access_pages || []}
       />
-      <main className="dashboard-main">
-        <RoleGuard 
-          userRole={userRecord.role}
-          accessPages={userRecord.access_pages || []}
-          tenantSlug={resolvedParams.tenantSlug}
-        >
-          {children}
-        </RoleGuard>
-      </main>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <SubscriptionBanner 
+          status={subStatus} 
+          currentPeriodEnd={subEnd} 
+          tenantSlug={resolvedParams.tenantSlug} 
+        />
+        <main className="dashboard-main" style={{ flex: 1, overflowY: 'auto' }}>
+          <RoleGuard 
+            userRole={userRecord.role}
+            accessPages={userRecord.access_pages || []}
+            tenantSlug={resolvedParams.tenantSlug}
+          >
+            {children}
+          </RoleGuard>
+        </main>
+      </div>
     </div>
   )
 }

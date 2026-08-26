@@ -141,9 +141,13 @@ export async function saveAgentConfig(
   // 4. Resolve plan from subscriptions table first (same as billing page)
   const { data: subscription } = await supabase
     .from('subscriptions')
-    .select('plan_id')
+    .select('plan_id, status')
     .eq('tenant_id', tenant.id)
     .maybeSingle()
+
+  if (subscription && subscription.status !== 'active' && subscription.status !== 'trialing') {
+    return { success: false, error: 'Your subscription is expired. Please renew to modify your AI agents.' }
+  }
 
   const planId = subscription?.plan_id || tenant.plan_id || 'free'
 

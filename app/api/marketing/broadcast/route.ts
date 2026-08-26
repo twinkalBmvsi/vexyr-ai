@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     const hasBroadcastModule = subscription?.status === 'active' && (subscription.modules as Record<string, any>)?.broadcastMessaging === true
 
     if (!hasBroadcastModule) {
-      return NextResponse.json({ error: 'Your workspace does not have the Broadcast Messaging module active.' }, { status: 403 })
+      return NextResponse.json({ error: 'You must have an active subscription with the Broadcast Messaging module to use this feature.' }, { status: 403 })
     }
 
     // Fetch tenant name

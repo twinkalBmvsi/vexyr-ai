@@ -13,6 +13,8 @@ export default async function BillingPage({ params }: { params: Promise<{ tenant
     .single()
 
   let invoices: any[] = []
+  let subscription: any = null
+
   if (tenant) {
     // Fetch the active subscription
     const { data } = await supabase
