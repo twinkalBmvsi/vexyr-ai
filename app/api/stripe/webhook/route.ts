@@ -143,7 +143,8 @@ export async function POST(req: Request) {
     const processModules = (existing: Record<string, any>, purchased: Record<string, any>) => {
       const merged: Record<string, any> = { ...existing };
       
-      // Ensure extraBots is normalized to an array if we are modifying it      if (purchased['extraBots'] || purchased['extendBots']) {
+      // Ensure extraBots is normalized to an array if we are modifying it
+      if (purchased['extraBots'] || purchased['extendBots']) {
           const existingMod = existing['extraBots'];
           // Ensure structure exists. If legacy array exists here, we just wipe it to prevent errors, 
           // but migration script should have handled it.
