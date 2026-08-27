@@ -19,7 +19,7 @@ type ModuleConfig = {
   removeBranding: boolean;
 }
 
-export default function StoreClient({ tenantId, tenantSlug, currentModules, stripePrices }: { tenantId: string, tenantSlug: string, currentModules: any, stripePrices: any[] }) {
+export default function StoreClient({ tenantId, tenantSlug, currentModules, stripePrices, agents = [] }: { tenantId: string, tenantSlug: string, currentModules: any, stripePrices: any[], agents?: any[] }) {
   type ModuleSelection = {
     selected: boolean;
     months: number;
@@ -42,9 +42,48 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
     removeBranding: { selected: false, months: 1, quantity: 1 },
   })
 
+  const [extendBots, setExtendBots] = useState<Record<string, number>>({})
   const [isLoading, setIsLoading] = useState(false)
+  const [showLicensesModal, setShowLicensesModal] = useState(false)
 
-  const activeAgentCount: number = currentModules?.extraBots?.quantity || 0
+  let activeAgentCount = 0
+  const eb = currentModules?.extraBots
+  
+  const activeBotLicenses: { agentId: string, agentName: string, quantity: number, expiresAt: string }[] = []
+  
+  if (eb?.assigned_slots !== undefined || eb?.unassigned_slots !== undefined) {
+    const activeAssigned = Object.entries(eb.assigned_slots || {}).filter(([id, slot]: [string, any]) => slot.expires_at && new Date(slot.expires_at) > new Date())
+    activeAgentCount = activeAssigned.length + (eb.unassigned_slots || []).filter((slot: any) => slot.expires_at && new Date(slot.expires_at) > new Date()).length
+    
+    activeAssigned.forEach(([id, slot]: [string, any]) => {
+      const agentRecord = agents.find(a => a.id === id)
+      activeBotLicenses.push({
+        agentId: id,
+        agentName: agentRecord?.name || 'Unknown Agent',
+        quantity: 1,
+        expiresAt: slot.expires_at
+      })
+    })
+  } else {
+    // Legacy fallback
+    if (Array.isArray(eb)) {
+      activeAgentCount = eb
+        .filter((bot: any) => bot.expires_at && new Date(bot.expires_at) > new Date())
+        .reduce((sum: number, bot: any) => sum + (bot.quantity || 1), 0)
+        
+      eb.forEach((bot: any, index: number) => {
+        if (bot.expires_at && new Date(bot.expires_at) > new Date()) {
+          const agentIndex = index + 1
+          activeBotLicenses.push({ agentId: String(index), agentName: agents[agentIndex]?.name || `Extra Agent Slot ${agentIndex}`, quantity: bot.quantity || 1, expiresAt: bot.expires_at })
+        }
+      })
+    } else if (typeof eb === 'object' && eb.expires_at && new Date(eb.expires_at) > new Date()) {
+      activeAgentCount = eb.quantity || 0
+      activeBotLicenses.push({ agentId: "0", agentName: agents[1]?.name || "Extra Agent Slot 1", quantity: eb.quantity || 1, expiresAt: eb.expires_at })
+    } else if (typeof eb === 'number') {
+      activeAgentCount = eb
+    }
+  }
 
   // Check if a module is active by seeing if expires_at is in the future
   const isActive = (key: string) => {
@@ -100,6 +139,14 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
       totalCost += getPrice(key, item.months)
     }
   })
+  
+  Object.entries(extendBots).forEach(([indexStr, months]) => {
+     const idx = parseInt(indexStr)
+     const botLicense = activeBotLicenses.find(b => b.originalIndex === idx)
+     if (botLicense) {
+        totalCost += getPrice('extraBots', months) * botLicense.quantity
+     }
+  })
 
   const handleCheckout = async () => {
     setIsLoading(true)
@@ -113,6 +160,9 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
           checkoutPayload[key] = { months: item.months }
         }
       })
+      if (Object.keys(extendBots).length > 0) {
+        checkoutPayload['extendBots'] = extendBots
+      }
 
       const res = await fetch('/api/stripe/checkout-modules', {
         method: 'POST',
@@ -157,6 +207,20 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
       <option value={6}>6 Months (Save 10%)</option>
       <option value={9}>9 Months (Save 15%)</option>
       <option value={12}>1 Year (Save 20%)</option>
+    </select>
+  )
+
+  const ExtensionDurationSelector = ({ agentId, currentMonths }: { agentId: string, currentMonths: number }) => (
+    <select 
+      value={currentMonths || 1}
+      onChange={(e) => setExtendBots(prev => ({ ...prev, [agentId]: parseInt(e.target.value) }))}
+      style={{ background: 'var(--paper)', border: '1px solid var(--border)', color: 'var(--ink)', padding: '0.25rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'DM Sans', outline: 'none', cursor: 'pointer' }}
+    >
+      <option value={1}>+1 Month</option>
+      <option value={3}>+3 Months (Save 5%)</option>
+      <option value={6}>+6 Months (Save 10%)</option>
+      <option value={9}>+9 Months (Save 15%)</option>
+      <option value={12}>+1 Year (Save 20%)</option>
     </select>
   )
 
@@ -251,6 +315,14 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
                 +${getPrice('extraBots', cart.extraBots.months) * cart.extraBots.quantity} ({cart.extraBots.months} months)
               </p>
             )}
+
+            {activeBotLicenses.length > 0 && (
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
+                <button onClick={() => setShowLicensesModal(true)} style={{ background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', width: '100%' }}>
+                  Manage Active Licenses
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -299,6 +371,58 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
           {isLoading ? 'Processing...' : 'Proceed to Checkout'}
         </button>
       </div>
+
+      {/* Licenses Modal */}
+      {showLicensesModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="dash-card" style={{ width: '100%', maxWidth: '500px', padding: '2rem', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.2rem', fontFamily: 'DM Sans', fontWeight: 600 }}>Manage Active Licenses</h3>
+              <button onClick={() => setShowLicensesModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}>&times;</button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {activeBotLicenses.map((bot, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'var(--paper)', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                  <div>
+                     <span style={{ fontSize: '0.95rem', fontWeight: 600, display: 'block', color: 'var(--gold)', marginBottom: '0.25rem' }}>{bot.agentName}</span>
+                     <span style={{ fontSize: '0.85rem', fontWeight: 500, display: 'block', marginBottom: '0.25rem' }}>Quantity: {bot.quantity}</span>
+                     <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Expires: {new Date(bot.expiresAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {extendBots[bot.agentId] ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                        <ExtensionDurationSelector agentId={bot.agentId} currentMonths={extendBots[bot.agentId]} />
+                        <button onClick={() => {
+                          const newExt = { ...extendBots };
+                          delete newExt[bot.agentId];
+                          setExtendBots(newExt);
+                        }} style={{ background: 'transparent', color: '#dc2626', border: 'none', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.75rem' }}>Remove</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setExtendBots(prev => ({ ...prev, [bot.agentId]: 1 }))} style={{ background: 'rgba(201,168,76,0.1)', color: 'var(--gold)', border: '1px solid var(--gold)', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>Extend</button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border)', paddingTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem', alignItems: 'center' }}>
+              <button onClick={() => setShowLicensesModal(false)} style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--ink)', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                Continue Shopping
+              </button>
+              <button
+                onClick={handleCheckout}
+                disabled={totalCost === 0 || isLoading}
+                style={{ background: 'var(--gold)', color: '#000', border: 'none', borderRadius: '8px', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 500, cursor: totalCost === 0 ? 'not-allowed' : 'pointer', opacity: totalCost === 0 ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              >
+                {isLoading ? 'Processing...' : `Checkout ($${totalCost})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

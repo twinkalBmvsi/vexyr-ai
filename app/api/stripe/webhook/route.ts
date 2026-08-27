@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     }
   } else if (event.type.startsWith('invoice.')) {
     const inv = event.data.object as Stripe.Invoice;
-    const directTenantId = (inv as any).parent?.subscription_details?.metadata?.tenantId;
+    const directTenantId = (inv as any).parent?.subscription_details?.metadata?.tenantId || inv.metadata?.tenantId;
     if (directTenantId) {
       logTenantId = directTenantId;
     } else {
@@ -143,49 +143,66 @@ export async function POST(req: Request) {
     const processModules = (existing: Record<string, any>, purchased: Record<string, any>) => {
       const merged: Record<string, any> = { ...existing };
       
+      // Ensure extraBots is normalized to an array if we are modifying it      if (purchased['extraBots'] || purchased['extendBots']) {
+          const existingMod = existing['extraBots'];
+          // Ensure structure exists. If legacy array exists here, we just wipe it to prevent errors, 
+          // but migration script should have handled it.
+          if (!existingMod || Array.isArray(existingMod) || typeof existingMod !== 'object' || (!existingMod.assigned_slots && !existingMod.unassigned_slots)) {
+            merged['extraBots'] = { assigned_slots: {}, unassigned_slots: [] };
+          } else {
+            merged['extraBots'] = { 
+              assigned_slots: existingMod.assigned_slots || {}, 
+              unassigned_slots: [...(existingMod.unassigned_slots || [])] 
+            };
+          }
+      }
+
       for (const [key, value] of Object.entries(purchased)) {
         if (!value || typeof value !== 'object') continue;
 
         const months = value.months || 1;
         const now = new Date();
-        
-        let currentExpiresAt = now;
-        let currentQuantity = 0;
-
         const existingMod = existing[key];
         
-        // Handle legacy boolean/number formats
-        if (existingMod) {
-          if (typeof existingMod === 'boolean') {
-            // Treat boolean true as 1 month from now (legacy conversion)
-            currentExpiresAt = addMonthsToDate(now, 1);
-          } else if (typeof existingMod === 'number') {
-            currentQuantity = existingMod;
-            currentExpiresAt = addMonthsToDate(now, 1);
-          } else if (typeof existingMod === 'object') {
-            if (existingMod.expires_at) {
+        if (key === 'extendBots') {
+          const eb = merged['extraBots'];
+          Object.entries(value).forEach(([agentId, extensionMonths]) => {
+            if (eb.assigned_slots[agentId]) {
+               let currentExpiresAt = now;
+               if (eb.assigned_slots[agentId].expires_at) {
+                 const expDate = new Date(eb.assigned_slots[agentId].expires_at);
+                 if (expDate > now) currentExpiresAt = expDate;
+               }
+               eb.assigned_slots[agentId].expires_at = addMonthsToDate(currentExpiresAt, extensionMonths as number).toISOString();
+            }
+          });
+        } else if (key === 'extraBots') {
+          const eb = merged['extraBots'];
+          const newQty = value.quantity || 0;
+          if (newQty > 0) {
+             for (let i = 0; i < newQty; i++) {
+               eb.unassigned_slots.push({
+                 expires_at: addMonthsToDate(now, months).toISOString()
+               });
+             }
+          }
+        } else {
+          // Standard time stacking for boolean/single-license modules
+          let currentExpiresAt = now;
+          
+          if (existingMod) {
+            if (typeof existingMod === 'boolean' || typeof existingMod === 'number') {
+              currentExpiresAt = addMonthsToDate(now, 1);
+            } else if (typeof existingMod === 'object' && existingMod.expires_at) {
               const expDate = new Date(existingMod.expires_at);
               if (expDate > now) {
                 currentExpiresAt = expDate;
               }
             }
-            if (existingMod.quantity) {
-              currentQuantity = existingMod.quantity;
-            }
           }
-        }
 
-        // Calculate new expiration (Time stacking)
-        const newExpiresAt = addMonthsToDate(currentExpiresAt, months).toISOString();
-
-        if (key === 'extraBots') {
           merged[key] = {
-            quantity: currentQuantity + (value.quantity || 0),
-            expires_at: newExpiresAt
-          };
-        } else {
-          merged[key] = {
-            expires_at: newExpiresAt
+            expires_at: addMonthsToDate(currentExpiresAt, months).toISOString()
           };
         }
       }
@@ -279,8 +296,8 @@ export async function POST(req: Request) {
     
     let tenantId = null;
 
-    // 1. Check if the invoice directly has the metadata in the newer Stripe API format
-    const directTenantId = (invoice as any).parent?.subscription_details?.metadata?.tenantId;
+    // 1. Check if the invoice directly has the metadata in the newer Stripe API format or in its own metadata
+    const directTenantId = (invoice as any).parent?.subscription_details?.metadata?.tenantId || invoice.metadata?.tenantId;
     if (directTenantId) {
       tenantId = directTenantId;
     }

@@ -192,7 +192,18 @@ export async function saveAgentConfig(
 
     let maxAgents = 1
     const extraBotsMod = modules.extraBots
-    if (extraBotsMod && typeof extraBotsMod === 'object' && extraBotsMod.expires_at && new Date(extraBotsMod.expires_at) > new Date()) {
+    let availableSlotIndex = -1
+
+    if (extraBotsMod && (extraBotsMod.assigned_slots !== undefined || extraBotsMod.unassigned_slots !== undefined)) {
+      const activeAssigned = Object.keys(extraBotsMod.assigned_slots || {}).length
+      const activeUnassignedSlots = (extraBotsMod.unassigned_slots || [])
+      const numActiveUnassigned = activeUnassignedSlots.filter((slot: any) => slot.expires_at && new Date(slot.expires_at) > new Date()).length
+      
+      maxAgents += activeAssigned + numActiveUnassigned
+      
+      // Find an active unassigned slot to consume
+      availableSlotIndex = activeUnassignedSlots.findIndex((slot: any) => slot.expires_at && new Date(slot.expires_at) > new Date())
+    } else if (extraBotsMod && typeof extraBotsMod === 'object' && extraBotsMod.expires_at && new Date(extraBotsMod.expires_at) > new Date()) {
       maxAgents += (extraBotsMod.quantity || 0)
     } else if (extraBotsMod && typeof extraBotsMod === 'number') {
       maxAgents += extraBotsMod
@@ -222,6 +233,15 @@ export async function saveAgentConfig(
       return { success: false, error: createError?.message || 'Failed to create agent' }
     }
     targetAgentId = newAgent.id
+
+    // Consume slot if this is an extra agent
+    if (count !== null && count > 0 && availableSlotIndex !== -1 && extraBotsMod?.unassigned_slots) {
+       const consumedSlot = extraBotsMod.unassigned_slots.splice(availableSlotIndex, 1)[0]
+       extraBotsMod.assigned_slots = extraBotsMod.assigned_slots || {}
+       extraBotsMod.assigned_slots[targetAgentId] = consumedSlot
+       modules.extraBots = extraBotsMod
+       await supabase.from('subscriptions').update({ modules }).eq('tenant_id', tenant.id)
+    }
   } else {
     // Check if agent exists
     const { data: existingAgent } = await supabase
@@ -395,6 +415,26 @@ export async function deleteAgent(tenantSlug: string, agentId: string) {
     .eq('agent_id', agentId)
     .eq('tenant_id', tenant.id)
 
+  // 5.5 Check for assigned slots to return to pool
+  const { data: sub } = await supabase
+    .from('subscriptions')
+    .select('modules')
+    .eq('tenant_id', tenant.id)
+    .maybeSingle()
+
+  const modules = sub?.modules || {}
+  let updatedModules = false
+
+  if (modules.extraBots && modules.extraBots.assigned_slots) {
+     if (modules.extraBots.assigned_slots[agentId]) {
+        const slotToReturn = modules.extraBots.assigned_slots[agentId];
+        delete modules.extraBots.assigned_slots[agentId];
+        modules.extraBots.unassigned_slots = modules.extraBots.unassigned_slots || [];
+        modules.extraBots.unassigned_slots.push(slotToReturn);
+        updatedModules = true;
+     }
+  }
+
   // 6. Delete the agent
   const { error: deleteError } = await supabase
     .from('agents')
@@ -404,6 +444,31 @@ export async function deleteAgent(tenantSlug: string, agentId: string) {
 
   if (deleteError) {
     return { success: false, error: deleteError.message }
+  }
+
+  // 7. Check if the new base agent needs to be unbound
+  if (modules.extraBots && modules.extraBots.assigned_slots) {
+    const { data: remainingAgents } = await supabase
+      .from('agents')
+      .select('id')
+      .eq('tenant_id', tenant.id)
+      .order('id', { ascending: true })
+      .limit(1)
+    
+    if (remainingAgents && remainingAgents.length > 0) {
+      const newBaseAgentId = remainingAgents[0].id;
+      if (modules.extraBots.assigned_slots[newBaseAgentId]) {
+         const slotToReturn = modules.extraBots.assigned_slots[newBaseAgentId];
+         delete modules.extraBots.assigned_slots[newBaseAgentId];
+         modules.extraBots.unassigned_slots = modules.extraBots.unassigned_slots || [];
+         modules.extraBots.unassigned_slots.push(slotToReturn);
+         updatedModules = true;
+      }
+    }
+  }
+
+  if (updatedModules) {
+     await supabase.from('subscriptions').update({ modules }).eq('tenant_id', tenant.id)
   }
 
   revalidatePath(`/${tenantSlug}/agents`)

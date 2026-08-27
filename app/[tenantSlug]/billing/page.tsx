@@ -78,14 +78,46 @@ export default async function BillingPage({ params }: { params: Promise<{ tenant
       .filter(([, val]) => Boolean(val))
       .map(([key, val]) => {
         const label = MODULE_LABELS[key] || key
+        if (Array.isArray(val)) {
+           const count = val.filter((bot: any) => bot.expires_at && new Date(bot.expires_at) > new Date())
+                            .reduce((sum: number, bot: any) => sum + (bot.quantity || 1), 0)
+           if (count > 0) return count > 1 ? `${label} ×${count}` : label
+           return null
+        }
+        if (typeof val === 'object' && (val as any).quantity && (val as any).quantity > 1) {
+           return `${label} ×${(val as any).quantity}`
+        }
         return typeof val === 'number' && val > 1 ? `${label} ×${val}` : label
       })
+      .filter(Boolean) as string[]
     if (features.length === 0) features = ['No modules active yet']
   }
 
   const renewsOn = subscription?.current_period_end
     ? new Date(subscription.current_period_end).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : 'N/A'
+
+  const activeAddons: { label: string, quantity: number, expiresAt: string }[] = [];
+  Object.entries(activeModules).forEach(([key, val]) => {
+    const label = MODULE_LABELS[key] || key;
+    if (Array.isArray(val)) {
+      val.forEach(item => {
+        if (item.expires_at && new Date(item.expires_at) > new Date()) {
+          activeAddons.push({
+            label,
+            quantity: item.quantity || 1,
+            expiresAt: new Date(item.expires_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+          })
+        }
+      })
+    } else if (typeof val === 'object' && val !== null && (val as any).expires_at && new Date((val as any).expires_at) > new Date()) {
+      activeAddons.push({
+        label,
+        quantity: (val as any).quantity || 1,
+        expiresAt: new Date((val as any).expires_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+      })
+    }
+  });
 
   return (
     <div>
@@ -126,6 +158,35 @@ export default async function BillingPage({ params }: { params: Promise<{ tenant
           </div>
 
         </div>
+
+        {/* Active Add-ons Section */}
+        {activeAddons.length > 0 && (
+          <div className="dash-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 500 }}>Active Add-ons</h3>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+                    <th style={{ padding: '1rem 0.5rem', fontWeight: 500, color: 'var(--muted)' }}>Module</th>
+                    <th style={{ padding: '1rem 0.5rem', fontWeight: 500, color: 'var(--muted)' }}>Quantity</th>
+                    <th style={{ padding: '1rem 0.5rem', fontWeight: 500, color: 'var(--muted)', textAlign: 'right' }}>Expires On</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeAddons.map((addon, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '1rem 0.5rem', fontWeight: 500 }}>{addon.label}</td>
+                      <td style={{ padding: '1rem 0.5rem' }}>{addon.quantity}</td>
+                      <td style={{ padding: '1rem 0.5rem', textAlign: 'right', color: 'var(--muted)' }}>{addon.expiresAt}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Invoices Section */}
         <div className="dash-card" style={{ padding: '2rem' }}>

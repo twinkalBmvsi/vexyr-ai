@@ -35,7 +35,15 @@ export default async function NewAgentPage({
   let extraBots = 0
   if (subscription?.modules?.extraBots) {
     const eb = subscription.modules.extraBots
-    if (typeof eb === 'number') {
+    if (eb.assigned_slots !== undefined || eb.unassigned_slots !== undefined) {
+      const activeAssigned = Object.values(eb.assigned_slots || {}).filter((slot: any) => slot.expires_at && new Date(slot.expires_at) > new Date()).length
+      const activeUnassigned = (eb.unassigned_slots || []).filter((slot: any) => slot.expires_at && new Date(slot.expires_at) > new Date()).length
+      extraBots = activeAssigned + activeUnassigned
+    } else if (Array.isArray(eb)) {
+      extraBots = eb
+        .filter((bot: any) => bot.expires_at && new Date(bot.expires_at) > new Date())
+        .reduce((sum: number, bot: any) => sum + (bot.quantity || 1), 0)
+    } else if (typeof eb === 'number') {
       extraBots = eb
     } else if (typeof eb === 'object' && eb.expires_at && new Date(eb.expires_at) > new Date()) {
       extraBots = eb.quantity || 0
@@ -79,9 +87,20 @@ export default async function NewAgentPage({
         .maybeSingle(),
     ])
     let extraBotsInAction = 0
+    let availableSlotIndex = -1
     if (sub?.modules?.extraBots) {
       const eb = sub.modules.extraBots
-      if (typeof eb === 'number') {
+      if (eb.assigned_slots !== undefined || eb.unassigned_slots !== undefined) {
+        const activeAssigned = Object.values(eb.assigned_slots || {}).filter((slot: any) => slot.expires_at && new Date(slot.expires_at) > new Date()).length
+        const activeUnassignedSlots = (eb.unassigned_slots || [])
+        const numActiveUnassigned = activeUnassignedSlots.filter((slot: any) => slot.expires_at && new Date(slot.expires_at) > new Date()).length
+        extraBotsInAction = activeAssigned + numActiveUnassigned
+        availableSlotIndex = activeUnassignedSlots.findIndex((slot: any) => slot.expires_at && new Date(slot.expires_at) > new Date())
+      } else if (Array.isArray(eb)) {
+        extraBotsInAction = eb
+          .filter((bot: any) => bot.expires_at && new Date(bot.expires_at) > new Date())
+          .reduce((sum: number, bot: any) => sum + (bot.quantity || 1), 0)
+      } else if (typeof eb === 'number') {
         extraBotsInAction = eb
       } else if (typeof eb === 'object' && eb.expires_at && new Date(eb.expires_at) > new Date()) {
         extraBotsInAction = eb.quantity || 0
@@ -124,8 +143,19 @@ export default async function NewAgentPage({
       .select('id')
       .single()
 
-    if (error) {
+    if (error || !newAgent) {
       console.error("Error creating agent:", error)
+    } else {
+      // Consume slot if this is an extra agent
+      if ((currentAgentCount ?? 0) > 0 && availableSlotIndex !== -1 && sub?.modules?.extraBots?.unassigned_slots) {
+         const extraBotsMod = sub.modules.extraBots
+         const consumedSlot = extraBotsMod.unassigned_slots.splice(availableSlotIndex, 1)[0]
+         extraBotsMod.assigned_slots = extraBotsMod.assigned_slots || {}
+         extraBotsMod.assigned_slots[newAgent.id] = consumedSlot
+         
+         const updatedModules = { ...sub.modules, extraBots: extraBotsMod }
+         await supabase.from('subscriptions').update({ modules: updatedModules }).eq('tenant_id', tenant.id)
+      }
     }
 
     redirect(`/${resolvedParams.tenantSlug}/agents`)

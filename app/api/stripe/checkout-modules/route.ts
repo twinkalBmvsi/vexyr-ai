@@ -120,13 +120,20 @@ export async function POST(req: Request) {
 
     let missingPrices = false;
 
+    if (newModules.extendBots) {
+      Object.entries(newModules.extendBots).forEach(([idxStr, months]) => {
+        const added = addItem('extraBots', months as number, 1);
+        if (!added) missingPrices = true;
+      });
+    }
+
     if (newModules.extraBots) {
       const added = addItem('extraBots', newModules.extraBots.months, newModules.extraBots.quantity);
       if (!added) missingPrices = true;
     }
 
     Object.keys(newModules).forEach(key => {
-      if (key !== 'extraBots') {
+      if (key !== 'extraBots' && key !== 'extendBots') {
         const added = addItem(key, newModules[key].months, 1);
         if (!added) missingPrices = true;
       }
@@ -147,6 +154,14 @@ export async function POST(req: Request) {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment', // ONE-OFF MODE
+      invoice_creation: {
+        enabled: true,
+        invoice_data: {
+          metadata: {
+            tenantId,
+          },
+        },
+      },
       line_items: lineItems,
       success_url: `${siteUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}&tenantId=${tenantId}`,
       cancel_url: `${siteUrl}/store`,

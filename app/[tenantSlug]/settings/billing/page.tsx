@@ -124,14 +124,30 @@ export default async function BillingSettingsPage({ params }: { params: Promise<
   } else if (planId === 'modular') {
     planName = 'Modular Plan'
     planPrice = '—'
-    features = Object.entries(activeModules)
-      .filter(([, val]) => Boolean(val))
-      .map(([key, val]) => {
-        const label = MODULE_LABELS[key] || key
-        return typeof val === 'number' && val > 1 ? `${label} ×${val}` : label
-      })
-    if (features.length === 0) features = ['No add-on modules active yet']
   }
+
+  // Build the active addons array to extract quantities and expiration dates
+  const activeAddons: { label: string, quantity: number, expiresAt: string }[] = [];
+  Object.entries(activeModules).forEach(([key, val]) => {
+    const label = MODULE_LABELS[key] || key;
+    if (Array.isArray(val)) {
+      val.forEach(item => {
+        if (item.expires_at && new Date(item.expires_at) > new Date()) {
+          activeAddons.push({
+            label,
+            quantity: item.quantity || 1,
+            expiresAt: new Date(item.expires_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+          })
+        }
+      })
+    } else if (typeof val === 'object' && val !== null && (val as any).expires_at && new Date((val as any).expires_at) > new Date()) {
+      activeAddons.push({
+        label,
+        quantity: (val as any).quantity || 1,
+        expiresAt: new Date((val as any).expires_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+      })
+    }
+  });
 
   const rawRenewalDate = subscription?.current_period_end 
     ? new Date(subscription.current_period_end)
@@ -194,13 +210,41 @@ export default async function BillingSettingsPage({ params }: { params: Promise<
         <h3 style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '1.5rem' }}>
           {planId === 'modular' ? 'Active Add-on Modules' : 'Plan Includes'}
         </h3>
-        <ul style={{ listStyle: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-          {features.map((feature, i) => (
-            <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
-              <CheckCircle2 size={16} color="var(--gold)" /> {feature}
-            </li>
-          ))}
-        </ul>
+        
+        {planId === 'modular' ? (
+          activeAddons.length > 0 ? (
+            <div style={{ overflowX: 'auto', background: 'var(--paper)', border: '1px solid var(--border)', borderRadius: '8px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left', background: 'rgba(0,0,0,0.02)' }}>
+                    <th style={{ padding: '1rem', fontWeight: 500, color: 'var(--muted)' }}>Module</th>
+                    <th style={{ padding: '1rem', fontWeight: 500, color: 'var(--muted)' }}>Quantity</th>
+                    <th style={{ padding: '1rem', fontWeight: 500, color: 'var(--muted)', textAlign: 'right' }}>Expires On</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeAddons.map((addon, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '1rem', fontWeight: 500 }}>{addon.label}</td>
+                      <td style={{ padding: '1rem' }}>{addon.quantity}</td>
+                      <td style={{ padding: '1rem', textAlign: 'right', color: 'var(--muted)' }}>{addon.expiresAt}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>No add-on modules active yet.</p>
+          )
+        ) : (
+          <ul style={{ listStyle: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            {features.map((feature, i) => (
+              <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
+                <CheckCircle2 size={16} color="var(--gold)" /> {feature}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* Actions */}
