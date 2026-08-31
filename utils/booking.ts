@@ -694,3 +694,75 @@ export async function executeAppointmentCancel({
     }
   }
 }
+
+// ==========================================
+// LIST APPOINTMENTS
+// ==========================================
+
+export interface AppointmentListItem {
+  title: string
+  formattedDate: string
+  formattedTime: string
+  status: string
+}
+
+export async function executeListAppointments({
+  tenantId,
+  customerId
+}: {
+  tenantId: string
+  customerId: string
+}): Promise<{
+  success: boolean
+  appointments?: AppointmentListItem[]
+  count?: number
+  error?: string
+}> {
+  try {
+    const nowIso = new Date().toISOString()
+
+    const { data: apts, error } = await supabaseAdmin
+      .from('appointments')
+      .select('title, start_time, end_time, status')
+      .eq('tenant_id', tenantId)
+      .eq('customer_id', customerId)
+      .in('status', ['pending', 'confirmed'])
+      .gte('start_time', nowIso)
+      .order('start_time', { ascending: true })
+      .limit(10)
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    if (!apts || apts.length === 0) {
+      return { success: true, appointments: [], count: 0 }
+    }
+
+    const appointments: AppointmentListItem[] = apts.map((apt) => {
+      const start = new Date(apt.start_time)
+      return {
+        title: apt.title,
+        formattedDate: start.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
+        }),
+        formattedTime: start.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        status: apt.status
+      }
+    })
+
+    return { success: true, appointments, count: appointments.length }
+  } catch (error: any) {
+    console.error('Error listing appointments:', error)
+    return {
+      success: false,
+      error: error?.message || 'Failed to fetch appointments'
+    }
+  }
+}

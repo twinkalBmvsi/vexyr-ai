@@ -4,7 +4,8 @@ import OpenAI from 'openai'
 import {
   executeAppointmentBooking,
   executeAppointmentReschedule,
-  executeAppointmentCancel
+  executeAppointmentCancel,
+  executeListAppointments
 } from '@/utils/booking'
 import { checkChatLimit } from '@/utils/chatLimits'
 
@@ -79,6 +80,20 @@ const managementOnlyTools = [
     }
   }
 ]
+
+// Tool available in BOTH booking and management mode
+const listAppointmentsTool = {
+  type: 'function' as const,
+  function: {
+    name: 'list_appointments',
+    description: 'Fetch and show the customer\'s upcoming booked appointments when they ask to see their schedule, list, or bookings.',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  }
+}
 
 export async function POST(
   request: Request,
@@ -379,8 +394,8 @@ export async function POST(
     }
 
     if (hasActiveAppointment) {
-      // Customer has active appointment — only allow cancel/reschedule
-      selectedTools = managementOnlyTools
+      // Customer has active appointment — allow cancel/reschedule + list
+      selectedTools = [...managementOnlyTools, listAppointmentsTool]
       systemInstruction = `TODAY'S DATE IS: ${currentDateFormatted} (Year ${new Date().getFullYear()}).
 
       You are **${agent?.name || 'Agent'}**, the friendly scheduling assistant for **${businessName}**.
@@ -407,11 +422,16 @@ export async function POST(
       ### RESCHEDULING FLOW
       1. When customer asks to reschedule: Reply "I can see your appointment for **${activeAppointment.title}** is scheduled on **${formattedActiveDate} at ${formattedActiveTime}**. What new date and time would you prefer?"
       2. When customer provides new date/time: Call the 'reschedule_appointment' tool.
-      3. After tool succeeds: Confirm the new date and time to the customer.`
+      3. After tool succeeds: Confirm the new date and time to the customer.
+
+      ### VIEW APPOINTMENTS
+      - If customer asks to see their appointments, schedule, or list of bookings: call 'list_appointments' immediately.
+      - Format the result as a numbered list with date, time, and service.
+      - If no appointments found, say "You have no upcoming appointments."`
 
     } else {
-      // Customer has NO active appointment — only allow booking
-      selectedTools = bookingOnlyTools
+      // Customer has NO active appointment — allow booking + list
+      selectedTools = [...bookingOnlyTools, listAppointmentsTool]
       systemInstruction = `TODAY'S DATE IS: ${currentDateFormatted} (Year ${new Date().getFullYear()}).
 
         You are **${agent?.name || 'Agent'}**, the friendly scheduling assistant for **${businessName}**.
@@ -429,7 +449,12 @@ export async function POST(
         ### BOOKING FLOW
         1. Collect details one at a time: Name, Phone, Email, Service, Date, and Time.
         2. Once you have all details, call 'book_appointment'.
-        3. After tool succeeds: Confirm appointment details to the customer.`
+        3. After tool succeeds: Confirm appointment details to the customer.
+
+        ### VIEW APPOINTMENTS
+        - If customer asks to see their appointments, schedule, or list of bookings: call 'list_appointments' immediately.
+        - Format the result as a numbered list with date, time, and service.
+        - If no appointments found, say "You have no upcoming appointments."`
     }
 
     const aiMessages = [
@@ -481,6 +506,11 @@ export async function POST(
               reason: fnArgs.reason,
               customerName: fnArgs.customer_name || customer.name,
               customerEmail: customer.email
+            })
+          } else if (fnName === 'list_appointments') {
+            toolOutput = await executeListAppointments({
+              tenantId: tenant.id,
+              customerId: customer.id
             })
           }
 

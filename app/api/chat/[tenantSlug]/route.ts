@@ -4,7 +4,8 @@ import OpenAI from 'openai'
 import {
   executeAppointmentBooking,
   executeAppointmentReschedule,
-  executeAppointmentCancel
+  executeAppointmentCancel,
+  executeListAppointments
 } from '@/utils/booking'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -78,6 +79,20 @@ const managementOnlyTools = [
     }
   }
 ]
+
+// Tool available in BOTH booking and management mode
+const listAppointmentsTool = {
+  type: 'function' as const,
+  function: {
+    name: 'list_appointments',
+    description: 'Fetch and show the customer\'s upcoming booked appointments when they ask to see their schedule, list, or bookings.',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  }
+}
 
 export async function POST(
   request: Request,
@@ -293,7 +308,7 @@ export async function POST(
     let selectedTools: any[]
 
     if (hasActiveAppointment) {
-      selectedTools = managementOnlyTools
+      selectedTools = [...managementOnlyTools, listAppointmentsTool]
       systemInstruction = `TODAY'S DATE IS: ${currentDate} (Year ${new Date().getFullYear()}).
 
 You are **${agent.name || 'Agent'}**, the friendly scheduling assistant for **${businessName}**.
@@ -319,10 +334,15 @@ Answer questions politely and assist customers.
 ### RESCHEDULING FLOW
 1. When customer asks to reschedule: Ask "What new date and time would you prefer?"
 2. When customer provides new date/time: Call the 'reschedule_appointment' tool.
-3. After tool succeeds: Confirm the new date and time.`
+3. After tool succeeds: Confirm the new date and time.
+
+### VIEW APPOINTMENTS
+- If customer asks to see their appointments, schedule, or list of bookings: call 'list_appointments' immediately.
+- Format the result as a numbered list with date, time, and service.
+- If no appointments found, say "You have no upcoming appointments."`
 
     } else {
-      selectedTools = bookingOnlyTools
+      selectedTools = [...bookingOnlyTools, listAppointmentsTool]
       systemInstruction = `TODAY'S DATE IS: ${currentDate} (Year ${new Date().getFullYear()}).
 
 You are **${agent.name || 'Agent'}**, the friendly scheduling assistant for **${businessName}**.
@@ -343,7 +363,12 @@ Answer questions politely and assist customers.
    - Step 6: Ask for preferred TIME
 2. Do NOT ask for multiple details in one message. Ask ONE question at a time.
 3. Once you have ALL 6 details, call 'book_appointment' immediately.
-4. After tool succeeds: Confirm all appointment details to the customer.`
+4. After tool succeeds: Confirm all appointment details to the customer.
+
+### VIEW APPOINTMENTS
+- If customer asks to see their appointments, schedule, or list of bookings: call 'list_appointments' immediately.
+- Format the result as a numbered list with date, time, and service.
+- If no appointments found, say "You have no upcoming appointments."`
     }
 
     const aiMessages: any[] = [
@@ -400,6 +425,11 @@ Answer questions politely and assist customers.
             reason: fnArgs.reason,
             customerName: fnArgs.customer_name || customer?.name,
             customerEmail: customer?.email
+          })
+        } else if (fnName === 'list_appointments') {
+          toolOutput = await executeListAppointments({
+            tenantId: tenant.id,
+            customerId: customer?.id
           })
         }
 
