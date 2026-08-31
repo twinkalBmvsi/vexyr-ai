@@ -1,4 +1,4 @@
-import CalendarView from '@/components/dashboard/CalendarView'
+import RealtimeAppointmentsWrapper from '@/components/dashboard/RealtimeAppointmentsWrapper'
 import CalendarSyncButtons from '@/components/dashboard/CalendarSyncButtons'
 import ScheduleAppointmentButton from '@/components/dashboard/ScheduleAppointmentButton'
 import { createClient } from '@/utils/supabase/server'
@@ -121,9 +121,7 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
     }
   })
 
-  // Filter out cancelled and completed appointments for the active calendar grid
-  const calendarAppointments = liveAppointments.filter(apt => apt.status !== 'cancelled' && apt.status !== 'completed')
-
+  // We no longer filter here; RealtimeAppointmentsWrapper handles filtering and live updates.
   return (
     <div>
       <div className="dash-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -140,8 +138,8 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ t
         </div>
       </div>
 
-      {/* Calendar Grid View displaying active real appointments */}
-      <CalendarView appointments={calendarAppointments} tenantId={tenant.id} businessHours={businessHours} />
+      {/* Calendar Grid View displaying active real appointments with live updates */}
+      <RealtimeAppointmentsWrapper initialAppointments={liveAppointments} tenantId={tenant.id} businessHours={businessHours as any} />
     </div>
   )
 }
