@@ -42,7 +42,11 @@ export default async function FollowUpsSettingsPage({ params }: { params: Promis
     .eq('tenant_id', tenant.id)
     .maybeSingle()
 
-  const hasAutoFollowups = subscription?.status === 'active' && (subscription.modules as Record<string, any>)?.autoFollowups === true
+  const autoFollowupsMod = (subscription?.modules as Record<string, any>)?.autoFollowups
+  const hasAutoFollowups = subscription?.status === 'active' && autoFollowupsMod && (
+    autoFollowupsMod === true ||
+    (typeof autoFollowupsMod === 'object' && autoFollowupsMod.expires_at && new Date(autoFollowupsMod.expires_at) > new Date())
+  )
 
   if (!hasAutoFollowups) {
     return (

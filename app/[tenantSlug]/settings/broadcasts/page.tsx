@@ -42,7 +42,11 @@ export default async function BroadcastsSettingsPage({ params }: { params: Promi
     .eq('tenant_id', tenant.id)
     .maybeSingle()
 
-  const hasBroadcastMessaging = subscription?.status === 'active' && (subscription.modules as Record<string, any>)?.broadcastMessaging === true
+  const broadcastMod = (subscription?.modules as Record<string, any>)?.broadcastMessaging
+  const hasBroadcastMessaging = subscription?.status === 'active' && broadcastMod && (
+    broadcastMod === true ||
+    (typeof broadcastMod === 'object' && broadcastMod.expires_at && new Date(broadcastMod.expires_at) > new Date())
+  )
 
   if (!hasBroadcastMessaging) {
     return (

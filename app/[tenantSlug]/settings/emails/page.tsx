@@ -22,8 +22,17 @@ export default async function EmailsSettingsPage({ params }: { params: Promise<{
     .eq('tenant_id', tenant.id)
     .maybeSingle()
 
-  const hasCustomEmails = subscription?.status === 'active' && (subscription.modules as Record<string, any>)?.customEmails === true
-  const hasAutoFollowups = subscription?.status === 'active' && (subscription.modules as Record<string, any>)?.autoFollowups === true
+  const customEmailsMod = (subscription?.modules as Record<string, any>)?.customEmails
+  const hasCustomEmails = subscription?.status === 'active' && customEmailsMod && (
+    customEmailsMod === true ||
+    (typeof customEmailsMod === 'object' && customEmailsMod.expires_at && new Date(customEmailsMod.expires_at) > new Date())
+  )
+
+  const autoFollowupsMod = (subscription?.modules as Record<string, any>)?.autoFollowups
+  const hasAutoFollowups = subscription?.status === 'active' && autoFollowupsMod && (
+    autoFollowupsMod === true ||
+    (typeof autoFollowupsMod === 'object' && autoFollowupsMod.expires_at && new Date(autoFollowupsMod.expires_at) > new Date())
+  )
 
   if (!hasCustomEmails) {
     return (
