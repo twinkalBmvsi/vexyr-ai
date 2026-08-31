@@ -21,30 +21,72 @@ export function parseDateTimeString(dateTimeStr: string): { start: Date; end: Da
   let targetDate = new Date(now)
   const lower = (dateTimeStr || '').toLowerCase().trim()
 
+  // Track whether a relative day keyword was explicitly used.
+  // If so, we must NOT apply the auto-bump fallback later — otherwise
+  // "tomorrow 4pm" could accidentally become +2 days when server UTC
+  // time is already past the requested hour.
+  let isRelativeDay = false
+
   if (lower.includes('tomorrow')) {
     targetDate.setDate(targetDate.getDate() + 1)
+    isRelativeDay = true
   } else if (lower.includes('yesterday')) {
     targetDate.setDate(targetDate.getDate() - 1)
+    isRelativeDay = true
+  } else if (lower.includes('today')) {
+    // "today" — keep targetDate as-is (current date)
+    isRelativeDay = true
   } else {
+    // Try to parse an explicit date (YYYY-MM-DD or YYYY/MM/DD)
     const dateMatch = lower.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/)
     if (dateMatch) {
       const parsed = new Date(dateMatch[1])
       if (!isNaN(parsed.getTime())) {
         targetDate = parsed
+        isRelativeDay = true // explicit date provided — respect it as-is
+      }
+    }
+
+    // Also try natural month-name formats: "september 1", "1 september", "sep 1"
+    const monthNames = ['january','february','march','april','may','june','july','august','september','october','november','december']
+    const monthShort = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']
+    const allMonths = [...monthNames, ...monthShort]
+    for (let i = 0; i < allMonths.length; i++) {
+      const mName = allMonths[i]
+      const mIndex = i >= 12 ? i - 12 : i
+      if (lower.includes(mName)) {
+        // Extract day number adjacent to month name
+        const dayMatch = lower.match(new RegExp(`(?:${mName}\\s+(\\d{1,2})|(\\d{1,2})\\s+${mName})`))
+        if (dayMatch) {
+          const day = parseInt(dayMatch[1] || dayMatch[2], 10)
+          const year = now.getFullYear()
+          const candidate = new Date(year, mIndex, day)
+          // If date is in the past, assume next year
+          // NOTE: Use a separate variable — do NOT call now.setHours() as it mutates `now`
+          const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+          if (candidate.getTime() < todayMidnight.getTime()) {
+            candidate.setFullYear(year + 1)
+          }
+          targetDate = candidate
+          isRelativeDay = true
+          break
+        }
       }
     }
   }
 
   // Force current year if parsed year is in the past (e.g. AI model returned 2023)
-  if (targetDate.getFullYear() < now.getFullYear()) {
-    targetDate.setFullYear(now.getFullYear())
+  const nowFresh = new Date()
+  if (targetDate.getFullYear() < nowFresh.getFullYear()) {
+    targetDate.setFullYear(nowFresh.getFullYear())
   }
 
   let hours = 10
   let minutes = 0
 
   const time12Match = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i)
-  const time24Match = lower.match(/(\d{1,2}):(\d{2})/)
+  // Only match HH:MM 24-hour if NOT already matched by 12h pattern
+  const time24Match = !time12Match ? lower.match(/(\d{1,2}):(\d{2})/) : null
 
   if (time12Match) {
     let h = parseInt(time12Match[1], 10)
@@ -61,12 +103,16 @@ export function parseDateTimeString(dateTimeStr: string): { start: Date; end: Da
 
   targetDate.setHours(hours, minutes, 0, 0)
 
-  if (targetDate.getTime() < now.getTime() && !lower.includes('yesterday')) {
+  // Auto-bump to next day ONLY when:
+  // 1. No explicit/relative day was given (e.g. user just said "4pm")
+  // 2. The resolved time is in the past
+  // 3. It's not "yesterday"
+  if (!isRelativeDay && targetDate.getTime() < nowFresh.getTime() && !lower.includes('yesterday')) {
     targetDate.setDate(targetDate.getDate() + 1)
   }
 
   const startDate = new Date(targetDate)
-  const durationMs = (60) * 60 * 1000
+  const durationMs = 60 * 60 * 1000 // 1 hour
   const endDate = new Date(startDate.getTime() + durationMs)
 
   return { start: startDate, end: endDate }
@@ -121,10 +167,40 @@ export async function executeAppointmentBooking({
 }) {
   try {
     // 1. Update customer profile details with name, phone, email if provided
+    //    IMPORTANT: The `phone` column doubles as the channel identifier
+    //    (e.g. Telegram chatId, or "webchat_<sessionId>").
+    //    We must NEVER overwrite it with the customer's real contact phone,
+    //    or the next webhook message won't find this customer record.
+    //
+    //    Strategy:
+    //    - Always update name and email (safe to overwrite)
+    //    - Only update phone if the current value is null/empty (i.e. not yet
+    //      set as a channel identifier) — this covers WhatsApp where real phone
+    //      IS the identifier and is already stored correctly.
+    //    - Store the real contact phone in metadata.contact_phone so it's
+    //      accessible without destroying the identifier.
+    const { data: existingCustomer } = await supabaseAdmin
+      .from('customers')
+      .select('phone, metadata')
+      .eq('id', customerId)
+      .maybeSingle()
+
     const customerUpdates: any = {}
     if (params.customer_name) customerUpdates.name = params.customer_name
-    if (params.customer_phone) customerUpdates.phone = params.customer_phone
     if (params.customer_email) customerUpdates.email = params.customer_email
+
+    // Only write to `phone` if it's currently unset (not a channel identifier)
+    if (params.customer_phone && !existingCustomer?.phone) {
+      customerUpdates.phone = params.customer_phone
+    }
+
+    // Always persist the real contact phone in metadata (non-destructive)
+    if (params.customer_phone) {
+      customerUpdates.metadata = {
+        ...(existingCustomer?.metadata || {}),
+        contact_phone: params.customer_phone
+      }
+    }
 
     if (Object.keys(customerUpdates).length > 0) {
       await supabaseAdmin

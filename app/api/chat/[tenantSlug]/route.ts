@@ -183,14 +183,17 @@ export async function POST(
     }
 
     // 5. Check for active appointment for this web chat session
+    //    Only count 'pending' or 'confirmed' future appointments as "active".
     let activeAppointment: any = null
     if (customer) {
+      const nowIso = new Date().toISOString()
       const { data: apts } = await supabaseAdmin
         .from('appointments')
         .select('*')
         .eq('tenant_id', tenant.id)
         .eq('customer_id', customer.id)
-        .neq('status', 'cancelled')
+        .in('status', ['pending', 'confirmed'])
+        .gte('start_time', nowIso)
         .order('start_time', { ascending: true })
         .limit(1)
 

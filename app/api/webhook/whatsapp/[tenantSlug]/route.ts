@@ -231,14 +231,19 @@ export async function POST(
     }
 
     // 5. Look up active appointment for this specific customer
+    //    Only count 'pending' or 'confirmed' future appointments as "active".
+    //    Excluding 'completed' and 'cancelled' prevents the bot from blocking
+    //    new bookings for customers whose past appointments are still in the DB.
     let activeAppointment: any = null
     if (customer) {
+      const nowIso = new Date().toISOString()
       const { data: apts } = await supabaseAdmin
         .from('appointments')
         .select('*')
         .eq('tenant_id', tenant.id)
         .eq('customer_id', customer.id)
-        .neq('status', 'cancelled')
+        .in('status', ['pending', 'confirmed'])
+        .gte('start_time', nowIso)
         .order('start_time', { ascending: true })
         .limit(1)
 
