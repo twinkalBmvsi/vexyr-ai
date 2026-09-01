@@ -112,7 +112,51 @@ export async function POST(request: Request) {
         finalActionUrl = buildSupabaseAuthLink('invite', linkData.properties.hashed_token, `/invite/accept?token=${token}`)
       }
 
-      await sendInviteEmail(email, finalActionUrl, tenantName)
+      // Step 1: Check if tenant has active customEmails subscription
+      const { data: sub } = await adminAuthClient
+        .from('subscriptions')
+        .select('modules')
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+
+      const customEmailsMod = (sub?.modules as any)?.customEmails
+      const hasCustomEmails = !!customEmailsMod && (
+        customEmailsMod === true ||
+        (typeof customEmailsMod === 'object' && customEmailsMod.expires_at && new Date(customEmailsMod.expires_at) > new Date())
+      )
+
+      // Step 2: If yes, check if a custom team_invite template exists
+      let usedCustomTemplate = false
+      if (hasCustomEmails) {
+        const { data: inviteTemplate } = await adminAuthClient
+          .from('email_templates')
+          .select('subject, body')
+          .eq('tenant_id', tenantId)
+          .eq('template_type', 'team_invite')
+          .maybeSingle()
+
+        // Step 3: If custom template found, use it
+        if (inviteTemplate?.subject && inviteTemplate?.body) {
+          const interpolate = (str: string) =>
+            str
+              .replace(/\{\{business_name\}\}/g, tenantName || 'Our Team')
+              .replace(/\{\{team_member_name\}\}/g, name || email)
+              .replace(/\{\{invite_link\}\}/g, finalActionUrl)
+
+          const subject = interpolate(inviteTemplate.subject)
+          const bodyHtml = interpolate(inviteTemplate.body)
+          const bodyText = bodyHtml.replace(/<[^>]+>/g, '')
+
+          const { sendSmtpEmail } = await import('@/utils/email/smtp')
+          await sendSmtpEmail({ to: email, subject, text: bodyText, html: bodyHtml })
+          usedCustomTemplate = true
+        }
+      }
+
+      // Step 4 (fallback): No subscription OR no custom template saved — use default
+      if (!usedCustomTemplate) {
+        await sendInviteEmail(email, finalActionUrl, tenantName)
+      }
     } else {
       const { error: inviteError } = await adminAuthClient.auth.admin.inviteUserByEmail(email, {
         redirectTo: acceptUrl

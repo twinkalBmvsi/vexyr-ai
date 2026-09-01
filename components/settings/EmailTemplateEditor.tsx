@@ -110,7 +110,8 @@ export default function EmailTemplateEditor({
             )}
             {selectedType === 'team_invite' && (
               <>
-                <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px' }}>{"{{team_member_name}}"}</code>
+                <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px' }}>{"{{business_name}}"}</code>
+                <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{team_member_name}}"}</code>
                 <code style={{ background: 'var(--bg)', padding: '2px 4px', borderRadius: '4px', marginLeft: '0.5rem' }}>{"{{invite_link}}"}</code>
               </>
             )}

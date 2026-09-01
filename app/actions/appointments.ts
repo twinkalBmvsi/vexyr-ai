@@ -152,7 +152,11 @@ export async function scheduleAppointment(
       .single()
 
     const businessName = sub?.tenants?.name || 'Our Business'
-    const hasCustomEmails = sub?.status === 'active' && (sub.modules as any)?.customEmails === true
+    const customEmailsMod = (sub?.modules as any)?.customEmails
+    const hasCustomEmails = !!customEmailsMod && (
+      customEmailsMod === true ||
+      (typeof customEmailsMod === 'object' && customEmailsMod.expires_at && new Date(customEmailsMod.expires_at) > new Date())
+    )
 
     let customSubject = null
     let customBodyHtml = null
@@ -252,7 +256,11 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'co
       .single()
 
     const businessName = sub?.tenants?.name || 'Our Business'
-    const hasCustomEmails = sub?.status === 'active' && (sub.modules as any)?.customEmails === true
+    const customEmailsMod = (sub?.modules as any)?.customEmails
+    const hasCustomEmails = !!customEmailsMod && (
+      customEmailsMod === true ||
+      (typeof customEmailsMod === 'object' && customEmailsMod.expires_at && new Date(customEmailsMod.expires_at) > new Date())
+    )
 
     let customSubject = null
     let customBodyHtml = null
@@ -385,7 +393,11 @@ export async function rescheduleAppointment(appointmentId: string, newStartTime:
       .single()
 
     const businessName = sub?.tenants?.name || 'Our Business'
-    const hasCustomEmails = sub?.status === 'active' && (sub.modules as any)?.customEmails === true
+    const customEmailsMod = (sub?.modules as any)?.customEmails
+    const hasCustomEmails = !!customEmailsMod && (
+      customEmailsMod === true ||
+      (typeof customEmailsMod === 'object' && customEmailsMod.expires_at && new Date(customEmailsMod.expires_at) > new Date())
+    )
 
     let customSubject = null
     let customBodyHtml = null
