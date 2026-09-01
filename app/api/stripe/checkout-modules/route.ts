@@ -75,6 +75,10 @@ export async function POST(req: Request) {
         if (typeof value === 'object' && value.quantity > 0) {
           newModules[key] = { quantity: value.quantity, months: value.months || 1 };
         }
+      } else if (key === 'extendBots') {
+        if (typeof value === 'object' && Object.keys(value).length > 0) {
+          newModules[key] = value;
+        }
       } else {
         if (typeof value === 'object' && value.months) {
           newModules[key] = { months: value.months };

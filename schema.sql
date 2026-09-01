@@ -31,7 +31,6 @@ DROP TABLE IF EXISTS public.subscriptions CASCADE;
 DROP TABLE IF EXISTS public.users CASCADE;
 DROP TABLE IF EXISTS public.tenants CASCADE;
 DROP TABLE IF EXISTS public.features CASCADE;
-DROP TABLE IF EXISTS public.plans CASCADE;
 
 DROP TYPE IF EXISTS user_role CASCADE;
 DROP TYPE IF EXISTS appointment_status CASCADE;
@@ -53,15 +52,6 @@ CREATE TYPE subscription_status AS ENUM ('trialing', 'active', 'past_due', 'canc
 -- GLOBAL TABLES (No RLS / Read-Only for Tenants)
 -- ==========================================
 
-CREATE TABLE public.plans (
-  id text PRIMARY KEY, -- e.g., 'starter', 'pro', 'enterprise'
-  name text NOT NULL,
-  monthly_price numeric NOT NULL,
-  yearly_price numeric NOT NULL,
-  limits jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz DEFAULT now() NOT NULL
-);
-
 CREATE TABLE public.features (
   id text PRIMARY KEY,
   name text NOT NULL,
@@ -78,7 +68,7 @@ CREATE TABLE public.tenants (
   slug text UNIQUE,
   name text NOT NULL,
   email text,
-  plan_id text REFERENCES public.plans(id),
+  plan_id text,
   created_at timestamptz DEFAULT now() NOT NULL
 );
 
@@ -96,7 +86,7 @@ CREATE TABLE public.users (
 CREATE TABLE public.subscriptions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
-  plan_id text REFERENCES public.plans(id) NOT NULL,
+  plan_id text NOT NULL,
   status subscription_status NOT NULL,
   modules jsonb NOT NULL DEFAULT '{}'::jsonb,
   billing_interval text DEFAULT 'month' NOT NULL,

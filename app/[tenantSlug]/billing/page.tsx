@@ -100,7 +100,36 @@ export default async function BillingPage({ params }: { params: Promise<{ tenant
   const activeAddons: { label: string, quantity: number, expiresAt: string }[] = [];
   Object.entries(activeModules).forEach(([key, val]) => {
     const label = MODULE_LABELS[key] || key;
-    if (Array.isArray(val)) {
+    
+    // Handle the new extraBots structure (assigned_slots, unassigned_slots)
+    if (key === 'extraBots' && typeof val === 'object' && val !== null && ('assigned_slots' in val || 'unassigned_slots' in val)) {
+      const expiryGroups: Record<string, number> = {};
+
+      const processSlot = (slot: any) => {
+        if (slot.expires_at) {
+          const exp = new Date(slot.expires_at);
+          if (exp > new Date()) {
+            const dateStr = exp.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+            expiryGroups[dateStr] = (expiryGroups[dateStr] || 0) + 1;
+          }
+        }
+      };
+
+      if ((val as any).assigned_slots) {
+        Object.values((val as any).assigned_slots).forEach(processSlot);
+      }
+      if (Array.isArray((val as any).unassigned_slots)) {
+        (val as any).unassigned_slots.forEach(processSlot);
+      }
+
+      Object.entries(expiryGroups).forEach(([dateStr, quantity]) => {
+        activeAddons.push({
+          label,
+          quantity,
+          expiresAt: dateStr
+        });
+      });
+    } else if (Array.isArray(val)) {
       val.forEach(item => {
         if (item.expires_at && new Date(item.expires_at) > new Date()) {
           activeAddons.push({

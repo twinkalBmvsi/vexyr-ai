@@ -64,6 +64,17 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
         expiresAt: slot.expires_at
       })
     })
+
+    ;(eb.unassigned_slots || []).forEach((slot: any, index: number) => {
+      if (slot.expires_at && new Date(slot.expires_at) > new Date()) {
+         activeBotLicenses.push({
+           agentId: `unassigned_${index}`,
+           agentName: 'Unassigned License (Ready to use)',
+           quantity: 1,
+           expiresAt: slot.expires_at
+         })
+      }
+    })
   } else {
     // Legacy fallback
     if (Array.isArray(eb)) {
@@ -140,9 +151,8 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
     }
   })
   
-  Object.entries(extendBots).forEach(([indexStr, months]) => {
-     const idx = parseInt(indexStr)
-     const botLicense = activeBotLicenses.find(b => b.originalIndex === idx)
+  Object.entries(extendBots).forEach(([agentId, months]) => {
+     const botLicense = activeBotLicenses.find(b => b.agentId === agentId)
      if (botLicense) {
         totalCost += getPrice('extraBots', months) * botLicense.quantity
      }

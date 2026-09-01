@@ -116,16 +116,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // Ensure the plan row exists — 'modular' is a virtual plan for module-only purchases.
-    await supabaseAdmin
-      .from('plans')
-      .upsert({
-        id: planId,
-        name: planId.charAt(0).toUpperCase() + planId.slice(1),
-        monthly_price: 0,
-        yearly_price: 0,
-        limits: {},
-      }, { onConflict: 'id', ignoreDuplicates: true });
 
     // Check if subscription exists
     const { data: existingSub } = await supabaseAdmin
@@ -168,7 +158,17 @@ export async function POST(req: Request) {
         if (key === 'extendBots') {
           const eb = merged['extraBots'];
           Object.entries(value).forEach(([agentId, extensionMonths]) => {
-            if (eb.assigned_slots[agentId]) {
+            if (agentId.startsWith('unassigned_')) {
+                const idx = parseInt(agentId.split('_')[1]);
+                if (eb.unassigned_slots && eb.unassigned_slots[idx]) {
+                   let currentExpiresAt = now;
+                   if (eb.unassigned_slots[idx].expires_at) {
+                     const expDate = new Date(eb.unassigned_slots[idx].expires_at);
+                     if (expDate > now) currentExpiresAt = expDate;
+                   }
+                   eb.unassigned_slots[idx].expires_at = addMonthsToDate(currentExpiresAt, extensionMonths as number).toISOString();
+                }
+            } else if (eb.assigned_slots && eb.assigned_slots[agentId]) {
                let currentExpiresAt = now;
                if (eb.assigned_slots[agentId].expires_at) {
                  const expDate = new Date(eb.assigned_slots[agentId].expires_at);
