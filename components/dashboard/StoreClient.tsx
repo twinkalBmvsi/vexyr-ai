@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'react-hot-toast'
 import { Bot, MessageSquare, Mail, CalendarSync, Zap, CheckCircle2, ShoppingCart, Megaphone, Star, BarChart, LineChart, PieChart, EyeOff } from 'lucide-react'
 
 type ModuleConfig = {
@@ -183,11 +184,11 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
       if (data.url) {
         window.location.href = data.url
       } else {
-        alert(data.error || 'Failed to create checkout session')
+        toast.error(data.error || 'Failed to create checkout session')
       }
     } catch (e) {
       console.error(e)
-      alert('Network error while connecting to checkout.')
+      toast.error('Network error while connecting to checkout.')
     } finally {
       setIsLoading(false)
     }
