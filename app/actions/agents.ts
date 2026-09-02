@@ -176,6 +176,34 @@ export async function saveAgentConfig(
     return { success: false, error: 'You need an active Telegram Channel module to enable Telegram.' }
   }
 
+  // Validate if channels are already assigned to a DIFFERENT agent
+  if (data.whatsapp || data.telegram) {
+    const { data: existingChannels } = await supabase
+      .from('channels')
+      .select('id, provider, agent_id, is_active')
+      .eq('tenant_id', tenant.id)
+
+    if (existingChannels) {
+      if (data.whatsapp) {
+        const waChannel = existingChannels.find(c => c.provider === 'whatsapp')
+        if (waChannel && waChannel.agent_id && waChannel.agent_id !== agentId && waChannel.is_active) {
+           const { data: otherAgent } = await supabase.from('agents').select('name').eq('id', waChannel.agent_id).maybeSingle()
+           const otherName = otherAgent?.name || 'another agent'
+           return { success: false, error: `WhatsApp is already assigned to "${otherName}". Kindly unassign it from there before assigning it here.` }
+        }
+      }
+      
+      if (data.telegram) {
+        const tgChannel = existingChannels.find(c => c.provider === 'telegram')
+        if (tgChannel && tgChannel.agent_id && tgChannel.agent_id !== agentId && tgChannel.is_active) {
+           const { data: otherAgent } = await supabase.from('agents').select('name').eq('id', tgChannel.agent_id).maybeSingle()
+           const otherName = otherAgent?.name || 'another agent'
+           return { success: false, error: `Telegram is already assigned to "${otherName}". Kindly unassign it from there before assigning it here.` }
+        }
+      }
+    }
+  }
+
   let targetAgentId = agentId
 
   if (agentId === 'new') {
@@ -290,44 +318,50 @@ export async function saveAgentConfig(
   // Update channels table for WhatsApp if record exists
   const { data: existingWa } = await supabase
     .from('channels')
-    .select('id')
+    .select('id, agent_id')
     .eq('tenant_id', tenant.id)
     .eq('provider', 'whatsapp')
     .maybeSingle()
 
   if (existingWa) {
-    const { error: errWa } = await supabase
-      .from('channels')
-      .update({ is_active: data.whatsapp, agent_id: targetAgentId })
-      .eq('id', existingWa.id)
-    
-    if (errWa) {
+    if (data.whatsapp) {
       await supabase
         .from('channels')
-        .update({ agent_id: targetAgentId })
+        .update({ is_active: true, agent_id: targetAgentId })
         .eq('id', existingWa.id)
+    } else {
+      if (existingWa.agent_id === targetAgentId) {
+        // Free the channel so another agent can claim it
+        await supabase
+          .from('channels')
+          .update({ is_active: false })
+          .eq('id', existingWa.id)
+      }
     }
   }
 
   // Update channels table for Telegram if record exists
   const { data: existingTg } = await supabase
     .from('channels')
-    .select('id')
+    .select('id, agent_id')
     .eq('tenant_id', tenant.id)
     .eq('provider', 'telegram')
     .maybeSingle()
 
   if (existingTg) {
-    const { error: errTg } = await supabase
-      .from('channels')
-      .update({ is_active: data.telegram, agent_id: targetAgentId })
-      .eq('id', existingTg.id)
-
-    if (errTg) {
+    if (data.telegram) {
       await supabase
         .from('channels')
-        .update({ agent_id: targetAgentId })
+        .update({ is_active: true, agent_id: targetAgentId })
         .eq('id', existingTg.id)
+    } else {
+      if (existingTg.agent_id === targetAgentId) {
+        // Free the channel so another agent can claim it
+        await supabase
+          .from('channels')
+          .update({ is_active: false })
+          .eq('id', existingTg.id)
+      }
     }
   }
 
