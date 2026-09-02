@@ -152,6 +152,12 @@ export default function Pricing({ tenantId }: { tenantId?: string }) {
               <span className="module-name">Telegram Channel</span>
               <span className="module-price">+$19/mo</span>
             </div>
+
+            {/* FlowForge — Coming Soon */}
+            <div className="module-item">
+              <span className="module-name">FlowForge — Visual Flow Builder</span>
+              <span className="module-price">+$35/mo</span>
+            </div>
           </div>
         </div>
 

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'react-hot-toast'
-import { Bot, MessageSquare, Mail, CalendarSync, Zap, CheckCircle2, ShoppingCart, Megaphone, Star, BarChart, LineChart, PieChart, EyeOff } from 'lucide-react'
+import { Bot, MessageSquare, Mail, CalendarSync, Zap, CheckCircle2, ShoppingCart, Megaphone, Star, BarChart, LineChart, PieChart, EyeOff, Workflow } from 'lucide-react'
 
 type ModuleConfig = {
   extraBots: number;
@@ -18,6 +18,7 @@ type ModuleConfig = {
   googleAds: boolean;
   telegramAds: boolean;
   removeBranding: boolean;
+  flowForge: boolean;
 }
 
 export default function StoreClient({ tenantId, tenantSlug, currentModules, stripePrices, agents = [] }: { tenantId: string, tenantSlug: string, currentModules: any, stripePrices: any[], agents?: any[] }) {
@@ -41,6 +42,7 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
     googleAds: { selected: false, months: 1, quantity: 1 },
     telegramAds: { selected: false, months: 1, quantity: 1 },
     removeBranding: { selected: false, months: 1, quantity: 1 },
+    flowForge: { selected: false, months: 1, quantity: 1 },
   })
 
   const [extendBots, setExtendBots] = useState<Record<string, number>>({})
@@ -271,6 +273,7 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
     { key: 'autoFollowups', title: 'Auto Follow-ups', icon: CalendarSync, desc: 'Automatically chase up leads and request reviews after appointments.' },
     { key: 'unlimitedChats', title: 'Unlimited Chats', icon: Zap, desc: 'Remove the 50 free chat limit. Perfect for high-volume businesses.' },
     { key: 'removeBranding', title: 'Remove Branding', icon: EyeOff, desc: 'Remove "Powered by Vexyr" from your chat widgets and emails for a fully white-labeled experience.' },
+    { key: 'flowForge', title: 'FlowForge — Visual Flow Builder', icon: Workflow, desc: 'Design structured conversation journeys with a drag-and-drop canvas. No LLM tokens, zero hallucinations — just precise, scripted flows for bookings, support, and sales.', comingSoon: true },
     { key: 'calendarSync', title: '3rd-Party Calendar Sync', icon: CalendarSync, desc: 'Sync your Vexyr appointments with external calendars (Google Calendar, Outlook).', comingSoon: true },
     { key: 'broadcastMessaging', title: 'Broadcast Messaging', icon: Megaphone, desc: 'Send mass updates and promotional blasts to your entire customer base.' },
     { key: 'reputationManagement', title: 'Reputation Management', icon: Star, desc: 'Monitor and respond to customer reviews automatically across platforms.', comingSoon: true },
