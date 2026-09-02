@@ -78,7 +78,7 @@ export async function signup(prevState: unknown, formData: FormData) {
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: 'http://localhost:3000/auth/confirm',
+        emailRedirectTo: getAuthRedirectUrl(), // ✅ Fixed: was hardcoded 'http://localhost:3000/auth/confirm'
       }
     })
 
@@ -98,7 +98,7 @@ export async function signup(prevState: unknown, formData: FormData) {
     }
   }
 
-  return { success: 'Account created. Please check your email, then sign in to create or select an organization.' }
+  return { redirectUrl: `/verify-email?email=${encodeURIComponent(email)}` }
 }
 
 async function generateUniqueTenantSlug(adminClient: ReturnType<typeof createAdminClient>, businessName: string) {

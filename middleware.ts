@@ -81,7 +81,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // If user IS logged in but tries to access auth pages on a subdomain, redirect to main domain
-    const authPages = ['/login', '/signup', '/forgot-password', '/reset-password']
+    const authPages = ['/login', '/signup', '/forgot-password', '/reset-password', '/verify-email']
     if (authPages.includes(url.pathname)) {
       const host = request.headers.get('host') || 'localhost:3000'
       const port = host.includes(':') ? `:${host.split(':')[1]}` : ''

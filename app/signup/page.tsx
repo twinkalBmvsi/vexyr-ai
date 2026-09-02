@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import { signup } from '@/app/auth/actions'
@@ -8,6 +8,12 @@ import { signup } from '@/app/auth/actions'
 export default function Signup() {
   const [state, formAction, isPending] = useActionState(signup, null)
   const [showPassword, setShowPassword] = useState(false)
+
+  useEffect(() => {
+    if (state?.redirectUrl) {
+      window.location.href = state.redirectUrl
+    }
+  }, [state])
 
   return (
     <div className="auth-container">
@@ -24,46 +30,40 @@ export default function Signup() {
             </div>
           )}
 
-          {state?.success && (
-            <div style={{ color: '#10b981', fontSize: '0.8rem', textAlign: 'center', marginBottom: '0.5rem' }}>
-              {state.success}
-            </div>
-          )}
-
           <div className="form-group">
             <label className="form-label" htmlFor="fullName">Full Name</label>
-            <input 
-              type="text" 
-              id="fullName" 
-              name="fullName" 
-              className="form-input" 
-              placeholder="Priya Patel" 
-              required 
+            <input
+              type="text"
+              id="fullName"
+              name="fullName"
+              className="form-input"
+              placeholder="Priya Patel"
+              required
             />
           </div>
 
           <div className="form-group">
             <label className="form-label" htmlFor="email">Email Address</label>
-            <input 
-              type="email" 
-              id="email" 
-              name="email" 
-              className="form-input" 
-              placeholder="name@company.com" 
-              required 
+            <input
+              type="email"
+              id="email"
+              name="email"
+              className="form-input"
+              placeholder="name@company.com"
+              required
             />
           </div>
 
           <div className="form-group">
             <label className="form-label" htmlFor="password">Password</label>
             <div className="password-input-wrap">
-              <input 
-                type={showPassword ? 'text' : 'password'} 
-                id="password" 
-                name="password" 
-                className="form-input password-input" 
-                placeholder="Create a strong password" 
-                required 
+              <input
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                name="password"
+                className="form-input password-input"
+                placeholder="Create a strong password"
+                required
               />
               <button
                 type="button"
