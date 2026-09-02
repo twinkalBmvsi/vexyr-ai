@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react'
 import AgentForm from '@/components/dashboard/AgentForm'
 import { getAgentConfig } from '@/app/actions/agents'
 import { createClient } from '@/utils/supabase/server'
+import WebChatClient from '@/components/dashboard/WebChatClient'
 
 export default async function AgentConfigPage({
   params,
@@ -45,6 +46,57 @@ export default async function AgentConfigPage({
     services: configData.services
   } : null
 
+  // Fetch test chat data if not new
+  let testChatProps = null
+  if (!isNew && tenant && configData?.agent) {
+    const startOfMonth = new Date()
+    startOfMonth.setDate(1)
+    startOfMonth.setHours(0, 0, 0, 0)
+
+    const { count } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenant.id)
+      .eq('sender_type', 'user')
+      .gte('created_at', startOfMonth.toISOString())
+
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('modules')
+      .eq('tenant_id', tenant.id)
+      .maybeSingle()
+
+    const unlimitedMod = sub?.modules?.unlimitedChats
+    const isUnlimited = unlimitedMod && (
+      unlimitedMod === true || (typeof unlimitedMod === 'object' && unlimitedMod.expires_at && new Date(unlimitedMod.expires_at) > new Date())
+    )
+    const removeBrandingMod = sub?.modules?.removeBranding
+    const hasBrandingRemoved = !!removeBrandingMod && (
+      removeBrandingMod === true || (typeof removeBrandingMod === 'object' && removeBrandingMod.expires_at && new Date(removeBrandingMod.expires_at) > new Date())
+    )
+    
+    const used = count || 0
+    const remaining = isUnlimited ? null : Math.max(0, 50 - used)
+
+    let businessName = tenant.name || resolvedParams.tenantSlug
+    if (configData.agent.business_rules) {
+      try {
+        const rules = JSON.parse(configData.agent.business_rules)
+        businessName = rules.business_name || businessName
+      } catch (e) {}
+    }
+
+    testChatProps = {
+      tenantSlug: resolvedParams.tenantSlug,
+      agentName: configData.agent.name,
+      businessName,
+      hasAgent: true,
+      initialRemaining: remaining,
+      isUnlimited,
+      removeBranding: hasBrandingRemoved
+    }
+  }
+
   return (
     <div>
       <div style={{ marginBottom: '2rem' }}>
@@ -66,6 +118,7 @@ export default async function AgentConfigPage({
         initialTelegram={configData?.telegramActive ?? false}
         hasWhatsapp={hasWhatsapp}
         hasTelegram={hasTelegram}
+        testChatProps={testChatProps}
       />
     </div>
   )

@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Save, Loader2, Trash2, AlertTriangle, Lock } from 'lucide-react'
+import { Save, Loader2, Trash2, AlertTriangle, Lock, MessageCircle, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { saveAgentConfig, deleteAgent } from '@/app/actions/agents'
+import WebChatClient from '@/components/dashboard/WebChatClient'
 
 interface AgentFormProps {
   agentId: string
@@ -19,6 +20,7 @@ interface AgentFormProps {
   initialTelegram?: boolean
   hasWhatsapp?: boolean
   hasTelegram?: boolean
+  testChatProps?: any
 }
 
 export default function AgentForm({
@@ -28,13 +30,15 @@ export default function AgentForm({
   initialWhatsapp = false,
   initialTelegram = false,
   hasWhatsapp = false,
-  hasTelegram = false
+  hasTelegram = false,
+  testChatProps
 }: AgentFormProps) {
   const router = useRouter()
   const isNew = agentId === 'new'
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showTestChat, setShowTestChat] = useState(false)
   
   const [formData, setFormData] = useState({
     name: initialData?.name || (isNew ? '' : 'Sales Assistant'),
@@ -309,6 +313,51 @@ export default function AgentForm({
                 </p>
               </div>
             </div>
+
+            {!isNew && testChatProps && (
+              <div className="dash-card" style={{ marginTop: '1.5rem', background: 'rgba(201, 168, 76, 0.05)', borderColor: 'rgba(201, 168, 76, 0.2)' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                  <div style={{ padding: '0.75rem', background: 'rgba(201, 168, 76, 0.1)', borderRadius: '12px' }}>
+                    <MessageCircle size={22} color="var(--gold)" />
+                  </div>
+                  <div>
+                    <h3 style={{ fontFamily: 'DM Mono', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--ink)', marginBottom: '0.5rem' }}>Live Test Chat</h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.5, marginBottom: '1.25rem' }}>
+                      Interact with {formData.name || 'this agent'} in a simulated chat window to test its knowledge and business rules.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowTestChat(true)}
+                      style={{
+                        padding: '0.6rem 1.25rem',
+                        background: 'transparent',
+                        border: '1px solid var(--gold)',
+                        color: 'var(--gold)',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem'
+                      }}
+                      onMouseEnter={e => {
+                        (e.currentTarget as HTMLButtonElement).style.background = 'rgba(201, 168, 76, 0.1)'
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                      }}
+                    >
+                      <MessageCircle size={15} />
+                      Open Test Chat
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -359,6 +408,27 @@ export default function AgentForm({
           </button>
         </div>
       </form>
+
+      {/* ── Test Chat Slide Panel ── */}
+      <div 
+        className={`slide-overlay ${showTestChat ? 'open' : ''}`} 
+        onClick={() => setShowTestChat(false)}
+      />
+      <div className={`slide-panel ${showTestChat ? 'open' : ''}`} style={{ width: '100%', maxWidth: '480px' }}>
+        <div className="slide-header" style={{ padding: '1.25rem' }}>
+          <h2 style={{ fontFamily: 'DM Mono', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--ink)' }}>
+            Test Chat
+          </h2>
+          <button className="close-btn" onClick={() => setShowTestChat(false)}>
+            <X size={20} />
+          </button>
+        </div>
+        <div className="slide-content" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column' }}>
+          {showTestChat && testChatProps && (
+            <WebChatClient {...testChatProps} />
+          )}
+        </div>
+      </div>
     </>
   )
 }

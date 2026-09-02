@@ -29,13 +29,7 @@ export default function WebChatClient({
   isUnlimited,
   removeBranding = false,
 }: WebChatClientProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content: `Hello! I'm ${agentName}, your AI assistant for ${businessName}. How can I help you today?`,
-      timestamp: new Date(),
-    }
-  ])
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [remaining, setRemaining] = useState(initialRemaining)
@@ -124,11 +118,7 @@ export default function WebChatClient({
   }
 
   const clearChat = () => {
-    setMessages([{
-      role: 'assistant',
-      content: `Hello! I'm ${agentName}, your AI assistant for ${businessName}. How can I help you today?`,
-      timestamp: new Date(),
-    }])
+    setMessages([])
   }
 
   const usedCount = isUnlimited ? 0 : (50 - (remaining ?? 50))
@@ -136,23 +126,9 @@ export default function WebChatClient({
   const usageColor = usagePercent >= 90 ? '#ef4444' : usagePercent >= 70 ? '#f59e0b' : 'var(--gold)'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', maxHeight: '900px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', maxHeight: '900px' }}>
 
-      {/* Header */}
-      <div className="dash-header" style={{ marginBottom: '1.5rem', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <h1 className="dash-title">Test Chat</h1>
-            <p className="dash-subtitle">Interact with your AI agent to test how it responds to customers.</p>
-          </div>
-          <button
-            onClick={clearChat}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontSize: '0.85rem', fontFamily: 'inherit' }}
-          >
-            <RefreshCw size={14} /> New Conversation
-          </button>
-        </div>
-      </div>
+
 
       {/* No Agent Warning */}
       {!hasAgent && (
@@ -213,9 +189,21 @@ export default function WebChatClient({
             <p style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--ink)' }}>{agentName}</p>
             <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{businessName} · Web Test Chat</p>
           </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: hasAgent ? '#2a7a4a' : '#6b7280', boxShadow: hasAgent ? '0 0 6px #2a7a4a' : 'none' }} />
-            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{hasAgent ? 'Online' : 'Offline'}</span>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <button
+              onClick={clearChat}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: 'none', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'inherit', transition: 'color 0.2s' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--ink)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
+              title="New Conversation"
+            >
+              <RefreshCw size={13} />
+              <span>Reset</span>
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: hasAgent ? '#2a7a4a' : '#6b7280', boxShadow: hasAgent ? '0 0 6px #2a7a4a' : 'none' }} />
+              <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{hasAgent ? 'Online' : 'Offline'}</span>
+            </div>
           </div>
         </div>
 

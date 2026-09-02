@@ -23,7 +23,6 @@ export default function Sidebar({
     { name: 'Dashboard', href: '/', icon: LayoutDashboard, routeId: 'dashboard' },
     { name: 'Appointments', href: '/appointments', icon: Calendar, routeId: 'appointments' },
     { name: 'Agents', href: '/agents', icon: Bot, routeId: 'agents' },
-    { name: 'Test Chat', href: '/test-chat', icon: MessageCircle, routeId: 'test-chat' },
     { name: 'Live Chats', href: '/live-chats', icon: MessageCircle, routeId: 'live-chats' },
     { name: 'Channels', href: '/connections', icon: Smartphone, routeId: 'connections' },
     { name: 'Customers', href: '/customers', icon: Users, routeId: 'customers' },
