@@ -50,7 +50,16 @@ export default async function CustomersPage({
     }
 
     if (data) {
-      customers = data.map((c: any) => ({
+      const seen = new Set();
+      const uniqueData = data.filter((c: any) => {
+        const identifier = c.email || c.phone;
+        if (!identifier) return true; // Keep if no contact info
+        if (seen.has(identifier)) return false;
+        seen.add(identifier);
+        return true;
+      });
+
+      customers = uniqueData.map((c: any) => ({
         id: c.id,
         name: c.name || 'Unknown',
         email: c.email || c.phone || 'No contact',
