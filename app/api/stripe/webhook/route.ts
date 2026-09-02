@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     if (directTenantId) {
       logTenantId = directTenantId;
     } else {
-      const subId = typeof inv.subscription === 'string' ? inv.subscription : inv.subscription?.id || (inv as any).parent?.subscription_details?.subscription;
+      const subId = typeof (inv as any).subscription === 'string' ? (inv as any).subscription : (inv as any).subscription?.id || (inv as any).parent?.subscription_details?.subscription;
       if (subId) {
         try {
           const stripeSub = await stripe.subscriptions.retrieve(subId);
@@ -268,8 +268,8 @@ export async function POST(req: Request) {
     const status = subscription.status; // 'active', 'past_due', 'canceled', 'unpaid', etc.
     
     let currentPeriodEnd: string | null = null;
-    if (typeof subscription.current_period_end === 'number' && subscription.current_period_end > 0) {
-      currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString();
+    if (typeof (subscription as any).current_period_end === 'number' && (subscription as any).current_period_end > 0) {
+      currentPeriodEnd = new Date((subscription as any).current_period_end * 1000).toISOString();
     }
 
     // Update the local database to reflect the revoked/updated status
@@ -316,7 +316,7 @@ export async function POST(req: Request) {
     }
 
     // 3. Race condition fallback: fetch subscription from Stripe directly to check metadata
-    const subId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id || (invoice as any).parent?.subscription_details?.subscription;
+    const subId = typeof (invoice as any).subscription === 'string' ? (invoice as any).subscription : (invoice as any).subscription?.id || (invoice as any).parent?.subscription_details?.subscription;
     
     if (!tenantId && subId) {
       try {

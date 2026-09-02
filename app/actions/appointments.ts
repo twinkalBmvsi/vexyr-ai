@@ -151,7 +151,7 @@ export async function scheduleAppointment(
       .eq('tenant_id', tenantId)
       .single()
 
-    const businessName = sub?.tenants?.name || 'Our Business'
+    const businessName = (sub?.tenants as any)?.name || 'Our Business'
     const customEmailsMod = (sub?.modules as any)?.customEmails
     const hasCustomEmails = !!customEmailsMod && (
       customEmailsMod === true ||
@@ -259,7 +259,7 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'co
       .eq('tenant_id', existingApt.tenant_id)
       .single()
 
-    const businessName = sub?.tenants?.name || 'Our Business'
+    const businessName = (sub?.tenants as any)?.name || 'Our Business'
     const customEmailsMod = (sub?.modules as any)?.customEmails
     const hasCustomEmails = !!customEmailsMod && (
       customEmailsMod === true ||
@@ -404,7 +404,7 @@ export async function rescheduleAppointment(appointmentId: string, newStartTime:
       .eq('tenant_id', existingApt.tenant_id)
       .single()
 
-    const businessName = sub?.tenants?.name || 'Our Business'
+    const businessName = (sub?.tenants as any)?.name || 'Our Business'
     const customEmailsMod = (sub?.modules as any)?.customEmails
     const hasCustomEmails = !!customEmailsMod && (
       customEmailsMod === true ||

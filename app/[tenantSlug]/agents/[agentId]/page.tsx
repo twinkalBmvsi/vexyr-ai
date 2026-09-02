@@ -17,7 +17,7 @@ export default async function AgentConfigPage({
   // Fetch subscription to see which channels are purchased
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id')
+    .select('id, name')
     .eq('slug', resolvedParams.tenantSlug)
     .single()
 

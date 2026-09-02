@@ -79,7 +79,6 @@ export default async function TenantLayout({
         <SubscriptionBanner 
           status={subStatus} 
           modules={subModules}
-          currentPeriodEnd={subEnd} 
           tenantSlug={resolvedParams.tenantSlug} 
         />
         <main className="dashboard-main" style={{ flex: 1, overflowY: 'auto' }}>

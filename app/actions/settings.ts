@@ -7,12 +7,14 @@ export type BusinessHoursConfig = {
   startHour: number
   endHour: number
   offDays: number[] // 0 = Sunday, 1 = Monday, etc.
+  timeZone?: string // IANA timezone string, e.g. 'Asia/Kolkata'
 }
 
 const DEFAULT_BUSINESS_HOURS: BusinessHoursConfig = {
   startHour: 9,
   endHour: 21, // 9 PM
-  offDays: []
+  offDays: [],
+  timeZone: 'UTC',
 }
 
 export async function getBusinessHours(tenantId: string): Promise<BusinessHoursConfig> {
