@@ -17,6 +17,7 @@ interface WebChatClientProps {
   hasAgent: boolean
   initialRemaining: number | null
   isUnlimited: boolean
+  removeBranding?: boolean
 }
 
 export default function WebChatClient({
@@ -26,6 +27,7 @@ export default function WebChatClient({
   hasAgent,
   initialRemaining,
   isUnlimited,
+  removeBranding = false,
 }: WebChatClientProps) {
   const [messages, setMessages] = useState<Message[]>([
     {

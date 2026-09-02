@@ -61,6 +61,12 @@ export default async function TenantLayout({
   const subModules = subscription?.modules || {}
   const subEnd = subscription?.current_period_end || null
 
+  const removeBrandingMod = (subModules as any)?.removeBranding
+  const hasBrandingRemoved = !!removeBrandingMod && (
+    removeBrandingMod === true ||
+    (typeof removeBrandingMod === 'object' && removeBrandingMod.expires_at && new Date(removeBrandingMod.expires_at) > new Date())
+  )
+
   return (
     <div className="dashboard-layout">
       <Sidebar 
@@ -85,6 +91,35 @@ export default async function TenantLayout({
             {children}
           </RoleGuard>
         </main>
+        {!hasBrandingRemoved && (
+          <div style={{
+            position: 'fixed',
+            bottom: 0,
+            left: '280px',
+            right: 0,
+            zIndex: 50,
+            textAlign: 'center',
+            padding: '0.45rem 1rem',
+            borderTop: '1px solid var(--border)',
+            background: 'var(--surface, #0e0e0e)',
+            backdropFilter: 'blur(8px)',
+          }}>
+            <a
+              href="https://vexyr.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontSize: '0.7rem',
+                color: 'var(--muted)',
+                textDecoration: 'none',
+                opacity: 0.45,
+                letterSpacing: '0.04em',
+              }}
+            >
+              Powered by Vexyr AI
+            </a>
+          </div>
+        )}
       </div>
     </div>
   )

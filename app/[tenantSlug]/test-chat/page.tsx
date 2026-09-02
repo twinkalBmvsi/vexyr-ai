@@ -71,6 +71,10 @@ export default async function TestChatPage({
   const isUnlimited = unlimitedMod && (
     unlimitedMod === true || (typeof unlimitedMod === 'object' && unlimitedMod.expires_at && new Date(unlimitedMod.expires_at) > new Date())
   )
+  const removeBrandingMod = sub?.modules?.removeBranding
+  const hasBrandingRemoved = !!removeBrandingMod && (
+    removeBrandingMod === true || (typeof removeBrandingMod === 'object' && removeBrandingMod.expires_at && new Date(removeBrandingMod.expires_at) > new Date())
+  )
   const used = count || 0
   const remaining = isUnlimited ? null : Math.max(0, 50 - used)
 
@@ -82,6 +86,7 @@ export default async function TestChatPage({
       hasAgent={!!agent}
       initialRemaining={remaining}
       isUnlimited={isUnlimited}
+      removeBranding={hasBrandingRemoved}
     />
   )
 }

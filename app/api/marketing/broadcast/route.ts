@@ -59,6 +59,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'You must have an active subscription with the Broadcast Messaging module to use this feature.' }, { status: 403 })
     }
 
+    const removeBrandingMod = (subscription?.modules as Record<string, any>)?.removeBranding
+    const hasBrandingRemoved = !!removeBrandingMod && (
+      removeBrandingMod === true || (typeof removeBrandingMod === 'object' && removeBrandingMod.expires_at && new Date(removeBrandingMod.expires_at) > new Date())
+    )
+
     // Fetch tenant name
     const { data: tenant } = await adminClient
       .from('tenants')
@@ -131,6 +136,9 @@ export async function POST(request: Request) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
         }
 
+        const brandingFooter = hasBrandingRemoved ? '' : `
+            <p style="margin: 16px 0 0; font-size: 11px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 16px;">Powered by <a href="https://vexyr.ai" style="color: #999; text-decoration: none;">Vexyr AI</a></p>`
+
         const formattedHtml = `
           <div style="font-family: Arial, sans-serif; color: #1f2933; line-height: 1.5; padding: 24px;">
             <div style="margin-bottom: 32px;">
@@ -142,6 +150,7 @@ export async function POST(request: Request) {
               <br />
               If you no longer wish to receive these promotional updates, please contact us to unsubscribe.
             </p>
+            ${brandingFooter}
           </div>
         `
         const formattedText = `${body}\n\n---\nYou are receiving this because you are a customer of ${tenantName}. Contact us to unsubscribe.`

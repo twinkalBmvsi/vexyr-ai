@@ -140,6 +140,20 @@ ${config.instructions}`
 
       if (customer.channel === 'web' && customer.email && isSmtpConfigured()) {
         try {
+          // Check removeBranding module for this tenant
+          const { data: sub } = await supabaseAdmin
+            .from('subscriptions')
+            .select('modules')
+            .eq('tenant_id', apt.tenant_id)
+            .maybeSingle()
+
+          const removeBrandingMod = (sub?.modules as any)?.removeBranding
+          const hasBrandingRemoved = !!removeBrandingMod && (
+            removeBrandingMod === true ||
+            (typeof removeBrandingMod === 'object' && removeBrandingMod.expires_at && new Date(removeBrandingMod.expires_at) > new Date())
+          )
+          const brandingFooter = hasBrandingRemoved ? '' : `<p style="margin: 24px 0 0; font-size: 11px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 16px;">Powered by <a href="https://vexyr.ai" style="color: #999; text-decoration: none;">Vexyr AI</a></p>`
+
           await sendSmtpEmail({
             to: customer.email,
             subject: `Following up on your visit - ${businessName}`,
@@ -150,6 +164,7 @@ ${config.instructions}`
                 <p>${aiMessage.replace(/\n/g, '<br/>')}</p>
                 <br/>
                 <p style="color: #666; font-size: 0.9rem;">Best regards,<br/>${agent?.name || 'The Team'} at ${businessName}</p>
+                ${brandingFooter}
               </div>
             `
           })

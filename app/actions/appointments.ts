@@ -157,6 +157,12 @@ export async function scheduleAppointment(
       customEmailsMod === true ||
       (typeof customEmailsMod === 'object' && customEmailsMod.expires_at && new Date(customEmailsMod.expires_at) > new Date())
     )
+    const removeBrandingMod = (sub?.modules as any)?.removeBranding
+    const hasBrandingRemoved = !!removeBrandingMod && (
+      removeBrandingMod === true ||
+      (typeof removeBrandingMod === 'object' && removeBrandingMod.expires_at && new Date(removeBrandingMod.expires_at) > new Date())
+    )
+    const brandingFooter = hasBrandingRemoved ? '' : `<p style="margin: 24px 0 0; font-size: 11px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 16px;">Powered by <a href="https://vexyr.ai" style="color: #999; text-decoration: none;">Vexyr AI</a></p>`
 
     let customSubject = null
     let customBodyHtml = null
@@ -184,10 +190,7 @@ export async function scheduleAppointment(
 
         customSubject = interpolate(template.subject)
         const interpolatedBody = interpolate(template.body)
-        
-        // Pass the raw HTML exactly as the user typed it
-        customBodyHtml = interpolatedBody
-        // Strip HTML for plain text fallback
+        customBodyHtml = interpolatedBody + brandingFooter
         customBodyText = interpolatedBody.replace(/<[^>]+>/g, '')
       }
     }
@@ -207,6 +210,7 @@ export async function scheduleAppointment(
             <p style="margin: 6px 0;"><strong>Time:</strong> ${formattedTime}</p>
             <p style="margin: 6px 0;"><strong>Status:</strong> Confirmed</p>
           </div>
+          ${brandingFooter}
         </div>
       `
     }).catch(err => console.error('SMTP Error:', err))
@@ -261,6 +265,12 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'co
       customEmailsMod === true ||
       (typeof customEmailsMod === 'object' && customEmailsMod.expires_at && new Date(customEmailsMod.expires_at) > new Date())
     )
+    const removeBrandingMod = (sub?.modules as any)?.removeBranding
+    const hasBrandingRemoved = !!removeBrandingMod && (
+      removeBrandingMod === true ||
+      (typeof removeBrandingMod === 'object' && removeBrandingMod.expires_at && new Date(removeBrandingMod.expires_at) > new Date())
+    )
+    const brandingFooter = hasBrandingRemoved ? '' : `<p style="margin: 24px 0 0; font-size: 11px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 16px;">Powered by <a href="https://vexyr.ai" style="color: #999; text-decoration: none;">Vexyr AI</a></p>`
 
     let customSubject = null
     let customBodyHtml = null
@@ -288,7 +298,7 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'co
           }
 
           customSubject = interpolate(template.subject)
-          customBodyHtml = interpolate(template.body)
+          customBodyHtml = interpolate(template.body) + brandingFooter
           customBodyText = customBodyHtml.replace(/<[^>]+>/g, '')
         }
       }
@@ -304,6 +314,7 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'co
             <h2 style="color: #c93b2b;">Appointment Cancelled</h2>
             <p>Hello <strong>${customer.name}</strong>,</p>
             <p>Your appointment <strong>${existingApt.title}</strong> on ${aptDate} has been cancelled.</p>
+            ${brandingFooter}
           </div>
         `
       }).catch(err => console.error('SMTP Error:', err))
@@ -317,6 +328,7 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'co
             <h2 style="color: #2a7a4a;">Appointment Complete</h2>
             <p>Hello <strong>${customer.name}</strong>,</p>
             <p>Your appointment <strong>${existingApt.title}</strong> has been marked as complete. Thank you for visiting us!</p>
+            ${brandingFooter}
           </div>
         `
       }).catch(err => console.error('SMTP Error:', err))
@@ -398,6 +410,12 @@ export async function rescheduleAppointment(appointmentId: string, newStartTime:
       customEmailsMod === true ||
       (typeof customEmailsMod === 'object' && customEmailsMod.expires_at && new Date(customEmailsMod.expires_at) > new Date())
     )
+    const removeBrandingMod = (sub?.modules as any)?.removeBranding
+    const hasBrandingRemoved = !!removeBrandingMod && (
+      removeBrandingMod === true ||
+      (typeof removeBrandingMod === 'object' && removeBrandingMod.expires_at && new Date(removeBrandingMod.expires_at) > new Date())
+    )
+    const brandingFooter = hasBrandingRemoved ? '' : `<p style="margin: 24px 0 0; font-size: 11px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 16px;">Powered by <a href="https://vexyr.ai" style="color: #999; text-decoration: none;">Vexyr AI</a></p>`
 
     let customSubject = null
     let customBodyHtml = null
@@ -422,7 +440,7 @@ export async function rescheduleAppointment(appointmentId: string, newStartTime:
         }
 
         customSubject = interpolate(template.subject)
-        customBodyHtml = interpolate(template.body)
+        customBodyHtml = interpolate(template.body) + brandingFooter
         customBodyText = customBodyHtml.replace(/<[^>]+>/g, '')
       }
     }
@@ -441,6 +459,7 @@ export async function rescheduleAppointment(appointmentId: string, newStartTime:
             <p style="margin: 4px 0;"><strong>New Date:</strong> ${formattedDate}</p>
             <p style="margin: 4px 0;"><strong>New Time:</strong> ${formattedTime}</p>
           </div>
+          ${brandingFooter}
         </div>
       `
     }).catch(err => console.error('SMTP Error:', err))
