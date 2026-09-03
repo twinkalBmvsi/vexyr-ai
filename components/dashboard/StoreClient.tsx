@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'react-hot-toast'
-import { Bot, MessageSquare, Mail, CalendarSync, Zap, CheckCircle2, ShoppingCart, Megaphone, Star, BarChart, LineChart, PieChart, EyeOff, Workflow } from 'lucide-react'
+import { Bot, MessageSquare, Mail, CalendarSync, Zap, CheckCircle2, ShoppingCart, Megaphone, Star, BarChart, LineChart, PieChart, EyeOff, Workflow, Hash } from 'lucide-react'
 
 type ModuleConfig = {
   extraBots: number;
@@ -18,6 +18,7 @@ type ModuleConfig = {
   googleAds: boolean;
   telegramAds: boolean;
   removeBranding: boolean;
+  slackChannel: boolean;
 }
 
 export default function StoreClient({ tenantId, tenantSlug, currentModules, stripePrices, agents = [] }: { tenantId: string, tenantSlug: string, currentModules: any, stripePrices: any[], agents?: any[] }) {
@@ -41,6 +42,7 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
     googleAds: { selected: false, months: 1, quantity: 1 },
     telegramAds: { selected: false, months: 1, quantity: 1 },
     removeBranding: { selected: false, months: 1, quantity: 1 },
+    slackChannel: { selected: false, months: 1, quantity: 1 },
   })
 
   const [extendBots, setExtendBots] = useState<Record<string, number>>({})
@@ -267,6 +269,7 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
   const modulesList = [
     { key: 'whatsappChannel', title: 'WhatsApp Channel', icon: MessageSquare, desc: 'Connect your WhatsApp Business account and let your AI agent handle customer conversations on WhatsApp.' },
     { key: 'telegramChannel', title: 'Telegram Channel', icon: MessageSquare, desc: 'Connect your Telegram Bot and let your AI agent reply to customer messages directly on Telegram.' },
+    { key: 'slackChannel', title: 'Slack Channel', icon: Hash, desc: 'Connect your Slack Workspace and let your AI agent handle internal team queries or customer support directly in Slack.', comingSoon: true },
     { key: 'customEmails', title: 'Custom Emails', icon: Mail, desc: 'Send automated confirmations and follow-ups from your own custom domain.' },
     { key: 'autoFollowups', title: 'Auto Follow-ups', icon: CalendarSync, desc: 'Automatically chase up leads and request reviews after appointments.' },
     { key: 'unlimitedChats', title: 'Unlimited Chats', icon: Zap, desc: 'Remove the 50 free chat limit. Perfect for high-volume businesses.' },

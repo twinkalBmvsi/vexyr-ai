@@ -89,11 +89,7 @@ export default function Pricing({ tenantId }: { tenantId?: string }) {
           </div>
 
           <div className="modules-grid">
-            {/* Row 1 */}
-            <div className="module-item">
-              <span className="module-name">3rd-Party Calendar Sync</span>
-              <span className="module-price">+$8/mo</span>
-            </div>
+            {/* Row 1 - Available */}
             <div className="module-item">
               <span className="module-name">Custom Email Templates</span>
               <span className="module-price">+$28/mo</span>
@@ -106,30 +102,12 @@ export default function Pricing({ tenantId }: { tenantId?: string }) {
               <span className="module-name">Automated Follow-ups</span>
               <span className="module-price">+$28/mo</span>
             </div>
-
-            {/* Row 2 */}
-            <div className="module-item">
-              <span className="module-name">Reputation Management</span>
-              <span className="module-price">+$39/mo</span>
-            </div>
-            <div className="module-item">
-              <span className="module-name">Meta Ads Reporting</span>
-              <span className="module-price">+$49/mo</span>
-            </div>
-            <div className="module-item">
-              <span className="module-name">Google Ads Reporting</span>
-              <span className="module-price">+$49/mo</span>
-            </div>
-            <div className="module-item">
-              <span className="module-name">Telegram Ads Reporting</span>
-              <span className="module-price">+$49/mo</span>
-            </div>
-            
-            {/* Row 3 */}
             <div className="module-item">
               <span className="module-name">Extra AI Agents</span>
               <span className="module-price">+$15/mo</span>
             </div>
+
+            {/* Row 2 - Available */}
             <div className="module-item">
               <span className="module-name">Messaging Channels</span>
               <span className="module-price">+$25/mo</span>
@@ -142,15 +120,43 @@ export default function Pricing({ tenantId }: { tenantId?: string }) {
               <span className="module-name">Remove Branding</span>
               <span className="module-price">+$49/mo</span>
             </div>
-            
-            {/* Row 4 */}
             <div className="module-item">
               <span className="module-name">WhatsApp Channel</span>
               <span className="module-price">+$29/mo</span>
             </div>
+
+            {/* Row 3 - Available */}
             <div className="module-item">
               <span className="module-name">Telegram Channel</span>
               <span className="module-price">+$19/mo</span>
+            </div>
+            
+            {/* Row 4 - Coming Soon */}
+            <div className="module-item">
+              <span className="module-name">3rd-Party Calendar Sync (Coming Soon)</span>
+              <span className="module-price">+$8/mo</span>
+            </div>
+            <div className="module-item">
+              <span className="module-name">Reputation Management (Coming Soon)</span>
+              <span className="module-price">+$39/mo</span>
+            </div>
+            <div className="module-item">
+              <span className="module-name">Meta Ads Reporting (Coming Soon)</span>
+              <span className="module-price">+$49/mo</span>
+            </div>
+
+            {/* Row 5 - Coming Soon */}
+            <div className="module-item">
+              <span className="module-name">Google Ads Reporting (Coming Soon)</span>
+              <span className="module-price">+$49/mo</span>
+            </div>
+            <div className="module-item">
+              <span className="module-name">Telegram Ads Reporting (Coming Soon)</span>
+              <span className="module-price">+$49/mo</span>
+            </div>
+            <div className="module-item">
+              <span className="module-name">Slack Channel (Coming Soon)</span>
+              <span className="module-price">+$25/mo</span>
             </div>
 
 
