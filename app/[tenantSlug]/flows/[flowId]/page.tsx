@@ -24,14 +24,17 @@ export default async function FlowEditorPage({
   if (!tenant) return notFound()
 
   // 3. Get flow
-  const { data: flow } = await supabase
+  const { data: flow, error } = await supabase
     .from('flows')
     .select('*')
     .eq('id', flowId)
     .eq('tenant_id', tenant.id)
     .maybeSingle()
 
-  if (!flow) return notFound()
+  if (!flow) {
+    console.error('FlowForge 404 Debug:', { flowId, tenantId: tenant.id, error })
+    return notFound()
+  }
 
   return (
     <FlowEditor

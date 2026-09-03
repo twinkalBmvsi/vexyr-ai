@@ -229,6 +229,35 @@ CREATE TABLE public.document_chunks (
 CREATE INDEX document_chunks_embedding_idx ON public.document_chunks USING hnsw (embedding vector_cosine_ops);
 
 -- ==========================================
+-- FLOWFORGE (VISUAL FLOWS)
+-- ==========================================
+
+CREATE TABLE public.flows (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
+  agent_id uuid REFERENCES public.agents(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  description text,
+  trigger_keyword text,
+  nodes jsonb NOT NULL DEFAULT '[]'::jsonb,
+  is_active boolean DEFAULT false,
+  created_at timestamptz DEFAULT now() NOT NULL,
+  updated_at timestamptz DEFAULT now() NOT NULL
+);
+
+CREATE TABLE public.flow_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
+  conversation_id uuid REFERENCES public.conversations(id) ON DELETE CASCADE NOT NULL,
+  flow_id uuid REFERENCES public.flows(id) ON DELETE CASCADE NOT NULL,
+  current_node_id text NOT NULL,
+  collected_data jsonb DEFAULT '{}'::jsonb,
+  status text DEFAULT 'active',
+  created_at timestamptz DEFAULT now() NOT NULL,
+  updated_at timestamptz DEFAULT now() NOT NULL
+);
+
+-- ==========================================
 -- INTEGRATIONS, WORKFLOWS, & LOGS
 -- ==========================================
 
@@ -346,6 +375,8 @@ ALTER TABLE public.api_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.usage_metrics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.flows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.flow_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Tenants Policy (Users can only view/update their own tenant)
 CREATE POLICY "Tenant isolation" ON public.tenants
@@ -374,11 +405,15 @@ CREATE POLICY "Tenant isolation" ON public.api_keys FOR ALL USING (tenant_id IN 
 CREATE POLICY "Tenant isolation" ON public.usage_metrics FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
 CREATE POLICY "Tenant isolation" ON public.audit_logs FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
 CREATE POLICY "Tenant isolation" ON public.invoices FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.flows FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
+CREATE POLICY "Tenant isolation" ON public.flow_sessions FOR ALL USING (tenant_id IN (SELECT public.get_auth_tenant_ids()));
 
 -- ==========================================
 -- INDEXES FOR PERFORMANCE
 -- ==========================================
 -- Critical indexes to prevent N+1 and slow lookups
+CREATE INDEX idx_flows_tenant ON public.flows(tenant_id);
+CREATE INDEX idx_flow_sessions_conversation ON public.flow_sessions(conversation_id);
 CREATE INDEX idx_users_tenant ON public.users(tenant_id);
 CREATE INDEX idx_agents_tenant ON public.agents(tenant_id);
 CREATE INDEX idx_conversations_tenant_customer ON public.conversations(tenant_id, customer_id);
