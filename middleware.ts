@@ -100,7 +100,14 @@ export async function middleware(request: NextRequest) {
     }
 
     // Rewrite to the dynamic tenant folder
-    return NextResponse.rewrite(new URL(`/${tenantSlug}${url.pathname}`, request.url))
+    const rewriteUrl = new URL(`/${tenantSlug}${url.pathname}`, request.url)
+    const rewriteResponse = NextResponse.rewrite(rewriteUrl)
+    
+    supabaseResponse.headers.forEach((value, key) => {
+      rewriteResponse.headers.append(key, value)
+    })
+
+    return rewriteResponse
   }
 
   return supabaseResponse

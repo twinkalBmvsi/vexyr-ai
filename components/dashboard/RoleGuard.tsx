@@ -49,9 +49,6 @@ export default function RoleGuard({
     // e.g. /appointments
     const isAllowed = pages.some((page) => {
       const allowedPath = `/${page}`
-      if (page === 'settings') {
-        return cleanPath === allowedPath
-      }
       return cleanPath.startsWith(allowedPath)
     })
 
