@@ -66,7 +66,9 @@ export async function updateFlowNodes(id: string, tenantId: string, nodes: FlowN
     .select('*')
     .single()
 
-  if (!error) {
+  if (error) {
+    console.error('[updateFlowNodes]', error)
+  } else {
     revalidatePath('/[tenantSlug]/flows', 'page')
     revalidatePath(`/[tenantSlug]/flows/${id}`, 'page')
   }
@@ -91,7 +93,9 @@ export async function updateFlowMeta(id: string, tenantId: string, meta: {
     .select('*')
     .single()
 
-  if (!error) {
+  if (error) {
+    console.error('[updateFlowMeta]', error)
+  } else {
     revalidatePath('/[tenantSlug]/flows', 'page')
   }
 

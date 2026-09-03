@@ -117,10 +117,11 @@ CREATE TABLE public.agents (
 CREATE TABLE public.channels (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
-  agent_id uuid REFERENCES public.agents(id) ON DELETE CASCADE NOT NULL,
+  agent_id uuid REFERENCES public.agents(id) ON DELETE CASCADE,
   provider text NOT NULL, -- e.g., 'whatsapp', 'telegram', 'web'
   provider_config jsonb DEFAULT '{}'::jsonb,
   is_active boolean DEFAULT true,
+  routing_mode text DEFAULT 'ai', -- 'ai' | 'flow'
   created_at timestamptz DEFAULT now() NOT NULL
 );
 
@@ -138,7 +139,7 @@ CREATE TABLE public.conversations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
   customer_id uuid REFERENCES public.customers(id) ON DELETE CASCADE NOT NULL,
-  agent_id uuid REFERENCES public.agents(id) ON DELETE CASCADE NOT NULL,
+  agent_id uuid REFERENCES public.agents(id) ON DELETE CASCADE,
   channel_id uuid REFERENCES public.channels(id) ON DELETE SET NULL,
   status conversation_status DEFAULT 'active' NOT NULL,
   summary text,
@@ -240,6 +241,7 @@ CREATE TABLE public.flows (
   description text,
   trigger_keyword text,
   nodes jsonb NOT NULL DEFAULT '[]'::jsonb,
+  active_channels text[] DEFAULT '{"whatsapp","telegram"}'::text[],
   is_active boolean DEFAULT false,
   created_at timestamptz DEFAULT now() NOT NULL,
   updated_at timestamptz DEFAULT now() NOT NULL

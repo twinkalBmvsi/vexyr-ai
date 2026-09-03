@@ -246,21 +246,7 @@ export default function FlowList({ tenantId, tenantSlug, initialFlows }: FlowLis
         </div>
       )}
 
-      {/* Info Banner */}
-      {flows.length > 0 && (
-        <div style={{
-          marginTop: '2rem', padding: '1rem 1.25rem',
-          background: 'rgba(201,168,76,0.05)', border: '1px solid rgba(201,168,76,0.2)',
-          borderRadius: '8px', display: 'flex', gap: '0.75rem', alignItems: 'flex-start'
-        }}>
-          <AlertCircle size={18} color="var(--gold)" style={{ flexShrink: 0, marginTop: '0.1rem' }} />
-          <p style={{ fontSize: '0.83rem', color: 'var(--muted)', lineHeight: 1.5 }}>
-            Active flows intercept incoming messages on WhatsApp &amp; Telegram <em>before</em> the AI agent. 
-            When a customer sends the trigger keyword, the flow runs automatically — no LLM tokens consumed.
-            If no flow matches, the message falls through to your AI agent as normal.
-          </p>
-        </div>
-      )}
+
 
       {/* New Flow Modal */}
       {showNewModal && (

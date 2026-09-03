@@ -260,6 +260,11 @@ export async function processFlowMessage(params: {
         if (!activeChannels.includes(sourcePlatform)) continue
       }
       
+      if (forceAnyMatch) {
+        matchedFlow = flow
+        break
+      }
+
       if (!flow.trigger_keyword) continue
       const keyword = flow.trigger_keyword.trim().toUpperCase()
       if (normalizedInput === keyword || normalizedInput.includes(keyword)) {
@@ -605,16 +610,25 @@ async function handleInputResponse(
 // Override the executeSessionNode call in processFlowMessage to handle waiting states
 // by re-exporting a corrected version:
 
-export async function processFlowMessageV2(params: {
+export async function processFlowMessageV2({
+  tenantId,
+  conversationId,
+  agentId,
+  customerId,
+  channelId,
+  sourcePlatform,
+  userMessage,
+  forceAnyMatch = false
+}: {
   tenantId: string
   conversationId: string
   agentId: string
   customerId: string
   channelId?: string
-  sourcePlatform?: 'whatsapp' | 'telegram' | string
+  sourcePlatform?: string
   userMessage: string
+  forceAnyMatch?: boolean
 }): Promise<FlowResponse> {
-  const { tenantId, conversationId, agentId, customerId, channelId, sourcePlatform, userMessage } = params
 
   // 1. Check for active flow session
   const { data: existingSession } = await supabase

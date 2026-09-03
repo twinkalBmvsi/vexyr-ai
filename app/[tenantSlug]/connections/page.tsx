@@ -13,6 +13,10 @@ export default async function ConnectionsPage({ params }: { params: Promise<{ te
   let initialWaConfig = { token: '', phoneId: '', wabaId: '' }
   let isWhatsappAllowed = false
   let isTelegramAllowed = false
+  let isAiAllowed = false
+  let isFlowAllowed = false
+  let initialWaRoutingMode: 'ai' | 'flow' = 'ai'
+  let initialTgRoutingMode: 'ai' | 'flow' = 'ai'
 
   const { data: tenant } = await supabase
     .from('tenants')
@@ -30,6 +34,8 @@ export default async function ConnectionsPage({ params }: { params: Promise<{ te
     if (subscription?.modules) {
       isWhatsappAllowed = Boolean(subscription.modules.whatsappChannel) || Boolean(subscription.modules.messagingChannels)
       isTelegramAllowed = Boolean(subscription.modules.telegramChannel) || Boolean(subscription.modules.messagingChannels)
+      isAiAllowed = Boolean(subscription.modules.ai_agents)
+      isFlowAllowed = Boolean(subscription.modules.flow_forge)
     }
     // Delete any empty dummy channel rows that have no provider configuration
     await supabase
@@ -40,29 +46,35 @@ export default async function ConnectionsPage({ params }: { params: Promise<{ te
 
     const { data: channels } = await supabase
       .from('channels')
-      .select('provider, provider_config')
+      .select('provider, provider_config, routing_mode')
       .eq('tenant_id', tenant.id)
 
     if (channels) {
       const waChannel = channels.find(c => c.provider === 'whatsapp')
-      if (waChannel && waChannel.provider_config) {
-        initialWaConfig = {
-          token: waChannel.provider_config.token || '',
-          phoneId: waChannel.provider_config.phoneId || '',
-          wabaId: waChannel.provider_config.wabaId || ''
+      if (waChannel) {
+        if (waChannel.routing_mode) initialWaRoutingMode = waChannel.routing_mode as 'ai' | 'flow'
+        if (waChannel.provider_config) {
+          initialWaConfig = {
+            token: waChannel.provider_config.token || '',
+            phoneId: waChannel.provider_config.phoneId || '',
+            wabaId: waChannel.provider_config.wabaId || ''
+          }
+          if (waChannel.provider_config.phone_number) {
+            waNumber = waChannel.provider_config.phone_number
+          }
+          hasWhatsapp = Boolean(initialWaConfig.token || initialWaConfig.phoneId || waNumber)
         }
-        if (waChannel.provider_config.phone_number) {
-          waNumber = waChannel.provider_config.phone_number
-        }
-        hasWhatsapp = Boolean(initialWaConfig.token || initialWaConfig.phoneId || waNumber)
       }
 
       const tgChannel = channels.find(c => c.provider === 'telegram')
-      if (tgChannel && tgChannel.provider_config) {
-        initialTgConfig = {
-          token: tgChannel.provider_config.token || ''
+      if (tgChannel) {
+        if (tgChannel.routing_mode) initialTgRoutingMode = tgChannel.routing_mode as 'ai' | 'flow'
+        if (tgChannel.provider_config) {
+          initialTgConfig = {
+            token: tgChannel.provider_config.token || ''
+          }
+          hasTelegram = Boolean(initialTgConfig.token)
         }
-        hasTelegram = Boolean(initialTgConfig.token)
       }
     }
   }
@@ -83,6 +95,10 @@ export default async function ConnectionsPage({ params }: { params: Promise<{ te
         initialWaConfig={initialWaConfig}
         isWhatsappAllowed={isWhatsappAllowed}
         isTelegramAllowed={isTelegramAllowed}
+        isAiAllowed={isAiAllowed}
+        isFlowAllowed={isFlowAllowed}
+        initialWaRoutingMode={initialWaRoutingMode}
+        initialTgRoutingMode={initialTgRoutingMode}
       />
     </div>
   )

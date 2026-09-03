@@ -16,7 +16,11 @@ export default function ChannelConnections({
   initialTgConfig = { token: '' },
   initialWaConfig = { token: '', phoneId: '', wabaId: '' },
   isWhatsappAllowed = false,
-  isTelegramAllowed = false
+  isTelegramAllowed = false,
+  isAiAllowed = false,
+  isFlowAllowed = false,
+  initialWaRoutingMode = 'ai',
+  initialTgRoutingMode = 'ai'
 }: {
   tenantSlug: string;
   initialHasWhatsapp: boolean;
@@ -26,6 +30,10 @@ export default function ChannelConnections({
   initialWaConfig?: { token: string; phoneId: string; wabaId: string };
   isWhatsappAllowed?: boolean;
   isTelegramAllowed?: boolean;
+  isAiAllowed?: boolean;
+  isFlowAllowed?: boolean;
+  initialWaRoutingMode?: 'ai' | 'flow';
+  initialTgRoutingMode?: 'ai' | 'flow';
 }) {
   const [activeModal, setActiveModal] = useState<'whatsapp' | 'telegram' | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -37,6 +45,9 @@ export default function ChannelConnections({
 
   const [isCheckingWebhook, setIsCheckingWebhook] = useState(false)
   const [liveWebhookInfo, setLiveWebhookInfo] = useState<any>(null)
+
+  const [waRoutingMode, setWaRoutingMode] = useState<'ai' | 'flow'>(initialWaRoutingMode || 'ai')
+  const [tgRoutingMode, setTgRoutingMode] = useState<'ai' | 'flow'>(initialTgRoutingMode || 'ai')
 
   useEffect(() => {
     setMounted(true)
@@ -282,6 +293,37 @@ export default function ChannelConnections({
                     </ol>
                   </div>
 
+                  <div className="dash-form-group" style={{ marginBottom: '2rem' }}>
+                    <label className="dash-label">Routing Mode</label>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+                      Choose how messages from this channel should be handled.
+                    </p>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isAiAllowed ? 'pointer' : 'not-allowed', opacity: isAiAllowed ? 1 : 0.5 }}>
+                        <input
+                          type="radio"
+                          name="tgRoutingMode"
+                          value="ai"
+                          checked={tgRoutingMode === 'ai'}
+                          onChange={() => isAiAllowed && setTgRoutingMode('ai')}
+                          disabled={!isAiAllowed}
+                        />
+                        <span style={{ fontSize: '0.9rem', color: 'var(--ink)' }}>AI Agent Mode {isAiAllowed ? '' : '(Not Purchased)'}</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isFlowAllowed ? 'pointer' : 'not-allowed', opacity: isFlowAllowed ? 1 : 0.5 }}>
+                        <input
+                          type="radio"
+                          name="tgRoutingMode"
+                          value="flow"
+                          checked={tgRoutingMode === 'flow'}
+                          onChange={() => isFlowAllowed && setTgRoutingMode('flow')}
+                          disabled={!isFlowAllowed}
+                        />
+                        <span style={{ fontSize: '0.9rem', color: 'var(--ink)' }}>FlowForge Mode {isFlowAllowed ? '' : '(Not Purchased)'}</span>
+                      </label>
+                    </div>
+                  </div>
+
                   <div className="dash-form-group">
                     <label className="dash-label">Bot Token</label>
                     <input
@@ -396,6 +438,37 @@ export default function ChannelConnections({
                     </ol>
                   </div>
 
+                  <div className="dash-form-group" style={{ marginBottom: '2rem' }}>
+                    <label className="dash-label">Routing Mode</label>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+                      Choose how messages from this channel should be handled.
+                    </p>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isAiAllowed ? 'pointer' : 'not-allowed', opacity: isAiAllowed ? 1 : 0.5 }}>
+                        <input
+                          type="radio"
+                          name="waRoutingMode"
+                          value="ai"
+                          checked={waRoutingMode === 'ai'}
+                          onChange={() => isAiAllowed && setWaRoutingMode('ai')}
+                          disabled={!isAiAllowed}
+                        />
+                        <span style={{ fontSize: '0.9rem', color: 'var(--ink)' }}>AI Agent Mode {isAiAllowed ? '' : '(Not Purchased)'}</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isFlowAllowed ? 'pointer' : 'not-allowed', opacity: isFlowAllowed ? 1 : 0.5 }}>
+                        <input
+                          type="radio"
+                          name="waRoutingMode"
+                          value="flow"
+                          checked={waRoutingMode === 'flow'}
+                          onChange={() => isFlowAllowed && setWaRoutingMode('flow')}
+                          disabled={!isFlowAllowed}
+                        />
+                        <span style={{ fontSize: '0.9rem', color: 'var(--ink)' }}>FlowForge Mode {isFlowAllowed ? '' : '(Not Purchased)'}</span>
+                      </label>
+                    </div>
+                  </div>
+
                   <div className="dash-form-group" style={{ marginBottom: '1.5rem' }}>
                     <label className="dash-label">Access Token</label>
                     <input
@@ -469,24 +542,30 @@ export default function ChannelConnections({
                     }
                     tgConfig.token = tgConfig.token.trim()
                   }
-
+                  
                   setIsSaving(true)
                   try {
-                    const provider = activeModal
-                    const config = provider === 'whatsapp' ? waConfig : tgConfig
-
-                    const result = await saveChannelConfig(tenantSlug, provider, config)
-
-                    if (result.success) {
-                      toast.success(`${provider === 'whatsapp' ? 'WhatsApp' : 'Telegram'} configuration saved!`)
-                      if (provider === 'whatsapp') setHasWhatsapp(true)
-                      if (provider === 'telegram') setHasTelegram(true)
-                      setActiveModal(null)
-                    } else {
-                      toast.error(result.error || 'Failed to save configuration')
+                    if (activeModal === 'whatsapp') {
+                      const res = await saveChannelConfig(tenantSlug, 'whatsapp', waConfig, waRoutingMode)
+                      if (res.success) {
+                        toast.success('WhatsApp config saved')
+                        setHasWhatsapp(true)
+                        setActiveModal(null)
+                      } else {
+                        toast.error(res.error || 'Failed to save config')
+                      }
+                    } else if (activeModal === 'telegram') {
+                      const res = await saveChannelConfig(tenantSlug, 'telegram', tgConfig, tgRoutingMode)
+                      if (res.success) {
+                        toast.success('Telegram config saved')
+                        setHasTelegram(true)
+                        setActiveModal(null)
+                      } else {
+                        toast.error(res.error || 'Failed to save config')
+                      }
                     }
                   } catch (e) {
-                    toast.error('An unexpected error occurred')
+                    toast.error('An error occurred')
                   } finally {
                     setIsSaving(false)
                   }

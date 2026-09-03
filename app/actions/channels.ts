@@ -3,7 +3,12 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export async function saveChannelConfig(tenantSlug: string, provider: 'whatsapp' | 'telegram', config: any) {
+export async function saveChannelConfig(
+  tenantSlug: string, 
+  provider: 'whatsapp' | 'telegram', 
+  config: any,
+  routingMode?: 'ai' | 'flow'
+) {
   const supabase = await createClient()
 
   // 1. Verify auth
@@ -42,11 +47,15 @@ export async function saveChannelConfig(tenantSlug: string, provider: 'whatsapp'
     .eq('tenant_id', tenant.id)
     .limit(1)
   
-  if (!agents || agents.length === 0) {
-    return { success: false, error: 'Please create an AI Agent before connecting channels.' }
+  let agentId = null
+  if (agents && agents.length > 0) {
+    agentId = agents[0].id
   }
 
-  const agentId = agents[0].id
+  // If they want AI mode but have no agent, return error
+  if (!agentId && routingMode === 'ai') {
+    return { success: false, error: 'Please create an AI Agent before enabling AI mode.' }
+  }
 
   // 5. Check if channel already exists for this provider
   const { data: existingChannel } = await supabase
@@ -58,12 +67,15 @@ export async function saveChannelConfig(tenantSlug: string, provider: 'whatsapp'
 
   if (existingChannel) {
     // Update existing
+    const updatePayload: any = {
+      provider_config: config,
+      agent_id: agentId
+    }
+    if (routingMode) updatePayload.routing_mode = routingMode
+
     const { error } = await supabase
       .from('channels')
-      .update({
-        provider_config: config,
-        agent_id: agentId
-      })
+      .update(updatePayload)
       .eq('id', existingChannel.id)
       
     if (error) {
@@ -77,7 +89,8 @@ export async function saveChannelConfig(tenantSlug: string, provider: 'whatsapp'
         tenant_id: tenant.id,
         agent_id: agentId,
         provider,
-        provider_config: config
+        provider_config: config,
+        routing_mode: routingMode || 'ai'
       })
       
     if (error) {

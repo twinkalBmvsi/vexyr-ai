@@ -143,7 +143,7 @@ export async function POST(
     // 2. Find Telegram channel config
     const { data: channel } = await supabaseAdmin
       .from('channels')
-      .select('id, provider_config, agent_id, is_active')
+      .select('id, provider_config, agent_id, is_active, routing_mode')
       .eq('tenant_id', tenant.id)
       .eq('provider', 'telegram')
       .order('created_at', { ascending: false })
@@ -173,18 +173,22 @@ export async function POST(
       return NextResponse.json({ status: 'ignored', reason: 'Rate limit reached' }, { status: 200 })
     }
 
-    // 3. Find Agent
+    // 3. Find Agent (if needed)
     let agent: any = null
-    if (channel.agent_id) {
-      const { data } = await supabaseAdmin.from('agents').select('*').eq('id', channel.agent_id).maybeSingle()
-      agent = data
-    }
-    if (!agent) {
-      const { data: agents } = await supabaseAdmin.from('agents').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }).limit(1)
-      if (agents && agents.length > 0) agent = agents[0]
+    const routingMode = channel.routing_mode || 'ai'
+
+    if (routingMode === 'ai' || channel.agent_id) {
+      if (channel.agent_id) {
+        const { data } = await supabaseAdmin.from('agents').select('*').eq('id', channel.agent_id).maybeSingle()
+        agent = data
+      }
+      if (!agent) {
+        const { data: agents } = await supabaseAdmin.from('agents').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }).limit(1)
+        if (agents && agents.length > 0) agent = agents[0]
+      }
     }
 
-    if (!agent) {
+    if (!agent && routingMode === 'ai') {
       await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -304,7 +308,7 @@ export async function POST(
           .insert({
             tenant_id: tenant.id,
             customer_id: customer.id,
-            agent_id: agent.id,
+            agent_id: agent?.id || null,
             channel_id: channel?.id || null,
             status: 'active'
           })
@@ -347,43 +351,49 @@ export async function POST(
         })
     }
 
-    // 7.5 ── FlowForge Check ─────────────────────────────────────────────────
-    // Before hitting the LLM, check if a flow handles this message.
-    if (conversation) {
-      try {
-        const flowResult = await processFlowMessageV2({
-          tenantId: tenant.id,
-          conversationId: conversation.id,
-          agentId: agent.id,
-          customerId: customer.id,
-          channelId: channel?.id,
-          sourcePlatform: 'telegram',
-          userMessage: text
-        })
+    // 7.5 ── Routing logic (AI vs Flow) ──────────────────────────────────────
+    if (routingMode === 'flow') {
+      if (conversation) {
+        try {
+          const flowResult = await processFlowMessageV2({
+            tenantId: tenant.id,
+            conversationId: conversation.id,
+            agentId: agent?.id || null,
+            customerId: customer.id,
+            channelId: channel?.id,
+            sourcePlatform: 'telegram',
+            userMessage: text,
+            forceAnyMatch: true // Trigger on anything if no session
+          } as any) // Typecast due to optional agentId handling
 
-        if (flowResult.handled && flowResult.reply) {
-          // Save flow reply to DB
-          await supabaseAdmin.from('messages').insert({
-            tenant_id: tenant.id,
-            conversation_id: conversation.id,
-            sender_type: 'assistant',
-            content: flowResult.reply,
-            metadata: { provider: 'flowforge' }
-          })
+          if (flowResult.handled && flowResult.reply) {
+            // Save flow reply to DB
+            await supabaseAdmin.from('messages').insert({
+              tenant_id: tenant.id,
+              conversation_id: conversation.id,
+              sender_type: 'assistant',
+              content: flowResult.reply,
+              metadata: { provider: 'flowforge' }
+            })
 
-          // Send Telegram reply
-          await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, text: flowResult.reply })
-          })
+            // Send Telegram reply
+            await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: chatId, text: flowResult.reply })
+            })
 
-          return NextResponse.json({ status: 'success', reply: flowResult.reply, source: 'flowforge' }, { status: 200 })
+            return NextResponse.json({ status: 'success', reply: flowResult.reply, source: 'flowforge' }, { status: 200 })
+          } else {
+            return NextResponse.json({ status: 'ignored', reason: 'No active flows found for flow mode' }, { status: 200 })
+          }
+        } catch (flowErr) {
+          console.error('[Telegram] FlowForge error:', flowErr)
+          return NextResponse.json({ status: 'error', reason: 'FlowEngine error' }, { status: 500 })
         }
-      } catch (flowErr) {
-        console.error('[Telegram] FlowForge error (falling through to LLM):', flowErr)
       }
     }
+    // If we are here, routingMode === 'ai'
     // ────────────────────────────────────────────────────────────────────────
 
     // 8. Load recent conversation history (only last 8 messages to avoid stale context)
