@@ -281,34 +281,34 @@ interpolateVariables(template: string, data: CollectedData): string
 ## Implementation Phases
 
 ### Phase 1 — Foundation (DB + Basic UI)
-- [ ] Create `flows` and `flow_sessions` tables in Supabase
-- [ ] Add `FlowForge` page at `/[tenantSlug]/flows`
-- [ ] Basic list-view flow editor (no drag-drop yet)
-- [ ] Save/load flow JSON to/from database
-- [ ] Add "FlowForge" link in Sidebar
+- [x] Create `flows` and `flow_sessions` tables in Supabase
+- [x] Add `FlowForge` page at `/[tenantSlug]/flows`
+- [x] Basic list-view flow editor (no drag-drop yet)
+- [x] Save/load flow JSON to/from database
+- [x] Add "FlowForge" link in Sidebar
 
 ### Phase 2 — Runtime Engine
-- [ ] Flow session management API (`/api/flows/session`)
-- [ ] Node execution engine: `message`, `options`, `input`, `end`
-- [ ] Variable collection and interpolation (`{{variable_name}}`)
-- [ ] Integrate into WhatsApp webhook handler
-- [ ] Integrate into Telegram webhook handler
-- [ ] Fallback to LLM when no active flow
+- [x] Flow session management API (`/api/flows/session`)
+- [x] Node execution engine: `message`, `options`, `input`, `end`
+- [x] Variable collection and interpolation (`{{variable_name}}`)
+- [x] Integrate into WhatsApp webhook handler
+- [x] Integrate into Telegram webhook handler
+- [x] Fallback to LLM when no active flow
 
 ### Phase 3 — Action Nodes
-- [ ] `book_appointment` action node
-- [ ] `cancel_appointment` action node
-- [ ] `reschedule_appointment` action node
-- [ ] Appointment confirmation messages with booking ID
-- [ ] Send confirmation via WhatsApp/Telegram after action
+- [x] `book_appointment` action node
+- [x] `cancel_appointment` action node
+- [x] `reschedule_appointment` action node
+- [x] Appointment confirmation messages with booking ID
+- [x] Send confirmation via WhatsApp/Telegram after action
 
 ### Phase 4 — Visual Canvas Builder
-- [ ] Integrate `reactflow` library for drag-and-drop canvas
-- [ ] Visual node connection arrows/edges
-- [ ] Node configuration side panel (click node → edit)
-- [ ] Live chat preview panel (real-time simulation)
-- [ ] Flow activation toggle per channel (WhatsApp vs Telegram)
-- [ ] Flow duplication / templates
+- [x] Integrate `reactflow` library for drag-and-drop canvas
+- [x] Visual node connection arrows/edges
+- [x] Node configuration side panel (click node → edit)
+- [x] Live chat preview panel (real-time simulation)
+- [x] Flow activation toggle per channel (WhatsApp vs Telegram)
+- [x] Flow duplication / templates
 
 ### Phase 5 — Advanced Features (Future)
 - [ ] `condition` nodes — branch based on collected variable values

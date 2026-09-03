@@ -125,6 +125,7 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
     googleAds: 15,
     telegramAds: 15,
     removeBranding: 25,
+    flowForge: 35,
   }
 
   // Find exact price from DB or fallback
@@ -273,7 +274,7 @@ export default function StoreClient({ tenantId, tenantSlug, currentModules, stri
     { key: 'autoFollowups', title: 'Auto Follow-ups', icon: CalendarSync, desc: 'Automatically chase up leads and request reviews after appointments.' },
     { key: 'unlimitedChats', title: 'Unlimited Chats', icon: Zap, desc: 'Remove the 50 free chat limit. Perfect for high-volume businesses.' },
     { key: 'removeBranding', title: 'Remove Branding', icon: EyeOff, desc: 'Remove "Powered by Vexyr" from your chat widgets and emails for a fully white-labeled experience.' },
-    { key: 'flowForge', title: 'FlowForge — Visual Flow Builder', icon: Workflow, desc: 'Design structured conversation journeys with a drag-and-drop canvas. No LLM tokens, zero hallucinations — just precise, scripted flows for bookings, support, and sales.', comingSoon: true },
+    { key: 'flowForge', title: 'FlowForge — Visual Flow Builder', icon: Workflow, desc: 'Design structured conversation journeys with a drag-and-drop canvas. No LLM tokens, zero hallucinations — just precise, scripted flows for bookings, support, and sales.' },
     { key: 'calendarSync', title: '3rd-Party Calendar Sync', icon: CalendarSync, desc: 'Sync your Vexyr appointments with external calendars (Google Calendar, Outlook).', comingSoon: true },
     { key: 'broadcastMessaging', title: 'Broadcast Messaging', icon: Megaphone, desc: 'Send mass updates and promotional blasts to your entire customer base.' },
     { key: 'reputationManagement', title: 'Reputation Management', icon: Star, desc: 'Monitor and respond to customer reviews automatically across platforms.', comingSoon: true },

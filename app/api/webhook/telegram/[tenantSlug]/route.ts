@@ -8,6 +8,7 @@ import {
   executeListAppointments
 } from '@/utils/booking'
 import { checkChatLimit } from '@/utils/chatLimits'
+import { processFlowMessageV2 } from '@/utils/flowEngine'
 
 // Initialize Supabase admin client to bypass RLS for unauthenticated webhooks
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -345,6 +346,45 @@ export async function POST(
           metadata: { telegram_chat_id: chatId, telegram_message_id: message.message_id }
         })
     }
+
+    // 7.5 ── FlowForge Check ─────────────────────────────────────────────────
+    // Before hitting the LLM, check if a flow handles this message.
+    if (conversation) {
+      try {
+        const flowResult = await processFlowMessageV2({
+          tenantId: tenant.id,
+          conversationId: conversation.id,
+          agentId: agent.id,
+          customerId: customer.id,
+          channelId: channel?.id,
+          sourcePlatform: 'telegram',
+          userMessage: text
+        })
+
+        if (flowResult.handled && flowResult.reply) {
+          // Save flow reply to DB
+          await supabaseAdmin.from('messages').insert({
+            tenant_id: tenant.id,
+            conversation_id: conversation.id,
+            sender_type: 'assistant',
+            content: flowResult.reply,
+            metadata: { provider: 'flowforge' }
+          })
+
+          // Send Telegram reply
+          await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: flowResult.reply })
+          })
+
+          return NextResponse.json({ status: 'success', reply: flowResult.reply, source: 'flowforge' }, { status: 200 })
+        }
+      } catch (flowErr) {
+        console.error('[Telegram] FlowForge error (falling through to LLM):', flowErr)
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     // 8. Load recent conversation history (only last 8 messages to avoid stale context)
     const conversationHistory: any[] = []

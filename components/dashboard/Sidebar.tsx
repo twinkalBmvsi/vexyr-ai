@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Bot, LogOut, Calendar, Users, Settings, Smartphone, Menu, X, ShoppingBag, MessageCircle } from 'lucide-react'
+import { LayoutDashboard, Bot, LogOut, Calendar, Users, Settings, Smartphone, Menu, X, ShoppingBag, MessageCircle, Workflow } from 'lucide-react'
 
 export default function Sidebar({ 
   tenantSlug, 
@@ -26,6 +26,7 @@ export default function Sidebar({
     { name: 'Live Chats', href: '/live-chats', icon: MessageCircle, routeId: 'live-chats' },
     { name: 'Channels', href: '/connections', icon: Smartphone, routeId: 'connections' },
     { name: 'Customers', href: '/customers', icon: Users, routeId: 'customers' },
+    { name: 'FlowForge', href: '/flows', icon: Workflow, routeId: 'flows' },
     { name: 'Store', href: '/store', icon: ShoppingBag, routeId: 'store' },
     { name: 'Settings', href: '/settings', icon: Settings, routeId: 'settings' },
   ]

@@ -8,6 +8,7 @@ import {
   executeListAppointments
 } from '@/utils/booking'
 import { checkChatLimit } from '@/utils/chatLimits'
+import { processFlowMessageV2 } from '@/utils/flowEngine'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -321,6 +322,54 @@ export async function POST(
           metadata: { whatsapp_from: fromNumber, whatsapp_message_id: message.id }
         })
     }
+
+    // 7.5 ── FlowForge Check ─────────────────────────────────────────────────
+    // Before hitting the LLM, check if a flow handles this message.
+    if (conversation) {
+      try {
+        const flowResult = await processFlowMessageV2({
+          tenantId: tenant.id,
+          conversationId: conversation.id,
+          agentId: agent.id,
+          customerId: customer.id,
+          channelId: channel?.id,
+          sourcePlatform: 'whatsapp',
+          userMessage: text
+        })
+
+        if (flowResult.handled && flowResult.reply) {
+          // Save flow reply to DB
+          await supabaseAdmin.from('messages').insert({
+            tenant_id: tenant.id,
+            conversation_id: conversation.id,
+            sender_type: 'assistant',
+            content: flowResult.reply,
+            metadata: { provider: 'flowforge' }
+          })
+
+          // Send WhatsApp reply
+          const waToken = channel.provider_config?.token
+          const phoneId = channel.provider_config?.phoneId
+          if (waToken && phoneId) {
+            await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${waToken}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                to: fromNumber,
+                type: 'text',
+                text: { body: flowResult.reply }
+              })
+            })
+          }
+
+          return NextResponse.json({ status: 'success', reply: flowResult.reply, source: 'flowforge' }, { status: 200 })
+        }
+      } catch (flowErr) {
+        console.error('[WhatsApp] FlowForge error (falling through to LLM):', flowErr)
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     // 8. Load recent conversation history (last 8 messages)
     const conversationHistory: any[] = []
