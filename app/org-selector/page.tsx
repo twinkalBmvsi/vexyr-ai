@@ -60,7 +60,6 @@ export default async function OrgSelectorPage({
   // Use localhost for local development
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || (host.includes('localhost') ? 'localhost' : host.split(':')[0])
   const port = host.includes(':') ? `:${host.split(':')[1]}` : ''
-  const isVercelDomain = rootDomain.endsWith('.vercel.app')
   const activeTenantIds = new Set<string>()
 
   if (tenantIds.length > 0) {
@@ -412,11 +411,8 @@ export default async function OrgSelectorPage({
 
             {memberships.map(({ role, tenant }) => {
               const hasActiveSubscription = activeTenantIds.has(tenant.id)
-              // For Vercel domains, use path-based routing since wildcard subdomains aren't supported
-              // No handoff needed since cookies are on the exact same domain
-              const href = isVercelDomain 
-                ? `/${tenant.slug}` 
-                : `${protocol}://${tenant.slug}.${rootDomain}${port}/auth/handoff?access_token=${session.access_token}&refresh_token=${session.refresh_token}`
+              // Always route to dashboard (handoff) since Base Engine is free.
+              const href = `${protocol}://${tenant.slug}.${rootDomain}${port}/auth/handoff?access_token=${session.access_token}&refresh_token=${session.refresh_token}`
               
               return (
                 <a key={tenant.id} href={href} className="workspace-item">

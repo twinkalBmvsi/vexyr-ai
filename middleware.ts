@@ -18,19 +18,8 @@ export async function middleware(request: NextRequest) {
   // Define allowed domains (including local dev and future prod)
   const allowedDomains = ['localhost:3000', 'localtest.me:3000']
   
-  // Also respect NEXT_PUBLIC_SITE_URL if provided
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    try {
-      const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL)
-      allowedDomains.push(siteUrl.host)
-    } catch (e) {}
-  }
-  
-  // Vercel domains don't support wildcard subdomains, so they are always root domains
-  const isVercelDomain = hostname.endsWith('.vercel.app')
-  
   // Check if the current hostname is a subdomain
-  const isSubdomain = !isVercelDomain && allowedDomains.every(domain => hostname !== domain)
+  const isSubdomain = allowedDomains.every(domain => hostname !== domain)
 
   // If it's a subdomain, we need to secure it and rewrite it
   if (isSubdomain) {
