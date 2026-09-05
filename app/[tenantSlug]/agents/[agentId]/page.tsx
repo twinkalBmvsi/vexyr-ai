@@ -78,7 +78,7 @@ export default async function AgentConfigPage({
     const used = count || 0
     const remaining = isUnlimited ? null : Math.max(0, 50 - used)
 
-    let businessName = tenant.name || resolvedParams.tenantSlug
+    let businessName = (tenant as any)?.name || resolvedParams.tenantSlug
     if (configData.agent.business_rules) {
       try {
         const rules = JSON.parse(configData.agent.business_rules)
